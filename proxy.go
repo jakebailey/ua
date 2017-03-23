@@ -39,7 +39,11 @@ func ProxyContainer(ctx context.Context, id string, cli *client.Client, conn *we
 	go proxyInput(ctx, done, id, cli, conn, hj)
 	go proxyOutput(ctx, done, id, cli, conn, hj)
 
-	<-exit
+	select {
+	case <-exit:
+	case <-ctx.Done():
+	}
+
 	return nil
 }
 
@@ -54,7 +58,9 @@ func proxyInput(ctx context.Context, done func(), id string, cli *client.Client,
 	for {
 		err := conn.ReadJSON(&buf)
 		if err != nil {
-			log.Println(err)
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
+				log.Println(err)
+			}
 			return
 		}
 

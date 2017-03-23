@@ -23,6 +23,37 @@ var upgrader = websocket.Upgrader{
 
 //go:generate qtc -dir=templates
 
+var (
+	createdContainers = make(map[string]bool)
+	createdMu         sync.RWMutex
+)
+
+func addCreatedContainer(id string) {
+	createdMu.Lock()
+	defer createdMu.Unlock()
+
+	createdContainers[id] = true
+}
+
+func checkCreatedContainer(id string) bool {
+	createdMu.RLock()
+	defer createdMu.RUnlock()
+
+	return createdContainers[id]
+}
+
+func removeCreatedContainer(id string) bool {
+	createdMu.Lock()
+	defer createdMu.Unlock()
+
+	if !createdContainers[id] {
+		return false
+	}
+
+	delete(createdContainers, id)
+	return true
+}
+
 func main() {
 	spew.Config.Indent = "    "
 	spew.Config.ContinueOnMethod = true
@@ -53,45 +84,45 @@ func main() {
 		spew.Fdump(w, images)
 	})
 
-	containers := make(map[string]bool)
-	var cMu sync.Mutex
+	r.Get("/assignments/:name", func(w http.ResponseWriter, r *http.Request) {
+		c, err := cli.ContainerCreate(r.Context(), &container.Config{
+			Tty:       true,
+			OpenStdin: true,
+			Cmd:       []string{"/bin/bash"},
+			Image:     "dock0/arch",
+		}, &container.HostConfig{
+			Init: func(b bool) *bool { return &b }(true),
+		}, nil, "")
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+		}
 
-	r.Route("/docker", func(r chi.Router) {
+		log.Printf("%v: created", c.ID[:10])
+
+		addCreatedContainer(c.ID)
+
+		templates.WriteAssignments(w, c.ID)
+	})
+
+	r.Route("/docker/:id", func(r chi.Router) {
 		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-			c, err := cli.ContainerCreate(r.Context(), &container.Config{
-				Tty:       true,
-				OpenStdin: true,
-				Cmd:       []string{"/bin/bash"},
-				Image:     "dock0/arch",
-			}, &container.HostConfig{
-				Init: func(b bool) *bool { return &b }(true),
-			}, nil, "")
-			if err != nil {
-				http.Error(w, err.Error(), 500)
+			id := chi.URLParam(r, "id")
+
+			if !checkCreatedContainer(id) {
+				http.NotFound(w, r)
+				return
 			}
 
-			log.Printf("%v: created", c.ID[:10])
-
-			cMu.Lock()
-			containers[c.ID] = true
-			cMu.Unlock()
-
-			templates.WriteDocker(w, c.ID)
+			templates.WriteDocker(w, id)
 		})
 
-		r.Get("/:id/ws", func(w http.ResponseWriter, r *http.Request) {
+		r.Get("/ws", func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
 			id := chi.URLParam(r, "id")
 
-			{
-				defer cMu.Unlock()
-				cMu.Lock()
-
-				if !containers[id] {
-					http.NotFound(w, r)
-					return
-				}
-				delete(containers, id)
+			if !removeCreatedContainer(id) {
+				http.NotFound(w, r)
+				return
 			}
 
 			conn, err := upgrader.Upgrade(w, r, nil)
@@ -101,7 +132,7 @@ func main() {
 			}
 			defer conn.Close()
 
-			if err := cli.ContainerStart(r.Context(), id, types.ContainerStartOptions{}); err != nil {
+			if err := cli.ContainerStart(ctx, id, types.ContainerStartOptions{}); err != nil {
 				log.Println(err)
 				return
 			}
@@ -113,13 +144,13 @@ func main() {
 				http.Error(w, err.Error(), 500)
 			}
 
-			if err := cli.ContainerStop(r.Context(), id, nil); err != nil {
+			if err := cli.ContainerStop(ctx, id, nil); err != nil {
 				log.Println(err)
 			}
 
 			log.Printf("%v: stopped", id[:10])
 
-			if err := cli.ContainerRemove(r.Context(), id, types.ContainerRemoveOptions{
+			if err := cli.ContainerRemove(ctx, id, types.ContainerRemoveOptions{
 				RemoveVolumes: true,
 			}); err != nil {
 				log.Println(err)
@@ -135,6 +166,11 @@ func main() {
 		r.Use(middleware.DefaultCompress)
 		r.(*chi.Mux).FileServer("/static", http.Dir(filesDir))
 	})
+
+	// srv := &http.Server{
+	// 	Addr:    ":8000",
+	// 	Handler: r,
+	// }
 
 	http.ListenAndServe(":8000", r)
 }

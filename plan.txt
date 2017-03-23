@@ -16,6 +16,7 @@ RETURN: docker ID, or some string that can be mapped to one
 - hook up WS to in/out/err
 - on close:
     - stop container
+    - remove container
 
 - on close (future):
     - stop container
@@ -24,3 +25,14 @@ RETURN: docker ID, or some string that can be mapped to one
     - run autograder and read JSON output
     - remove all containers
     - store JSON for later
+
+
+
+
+Build process:
+- make tempdir
+- symlink all but Dockerfile
+- create Dockerfile from template
+- do the same thing as docker cli to build
+- save image ID
+- remove temp directory

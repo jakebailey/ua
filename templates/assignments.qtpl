@@ -1,0 +1,15 @@
+{% func Assignments(id string) %}
+<!doctype html>
+<html>
+
+<head>
+</head>
+
+<body>
+<p>
+<a href="/docker/{%s id %}">{%s id %}</a>
+</p>
+</body>
+
+</html>
+{% endfunc %}
