@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/docker/docker/api/types"
@@ -52,6 +53,9 @@ func main() {
 		spew.Fdump(w, images)
 	})
 
+	containers := make(map[string]bool)
+	var cMu sync.Mutex
+
 	r.Route("/docker", func(r chi.Router) {
 		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 			c, err := cli.ContainerCreate(r.Context(), &container.Config{
@@ -66,7 +70,11 @@ func main() {
 				http.Error(w, err.Error(), 500)
 			}
 
-			log.Printf("created %v", c.ID)
+			log.Printf("%v: created", c.ID[:10])
+
+			cMu.Lock()
+			containers[c.ID] = true
+			cMu.Unlock()
 
 			templates.WriteDocker(w, c.ID)
 		})
@@ -74,6 +82,17 @@ func main() {
 		r.Get("/:id/ws", func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
 			id := chi.URLParam(r, "id")
+
+			{
+				defer cMu.Unlock()
+				cMu.Lock()
+
+				if !containers[id] {
+					http.NotFound(w, r)
+					return
+				}
+				delete(containers, id)
+			}
 
 			conn, err := upgrader.Upgrade(w, r, nil)
 			if err != nil {

@@ -24,8 +24,6 @@ func ProxyContainer(ctx context.Context, id string, cli *client.Client, conn *we
 	if err != nil {
 		return err
 	}
-
-	log.Printf("%v: attached", id[:10])
 	defer hj.Close()
 
 	log.Printf("%v: proxying", id[:10])
