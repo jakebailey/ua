@@ -1,0 +1,32 @@
+{% func Docker(id string) %}
+<!doctype html>
+<html>
+
+<head>
+<link rel="stylesheet" href="/static/bower_components/xterm.js/dist/xterm.css" />
+<link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css?family=Roboto+Mono:400,700,300">
+<script src="/static/bower_components/xterm.js/dist/xterm.js"></script>
+<script src="/static/bower_components/xterm.js/dist/addons/terminado/terminado.js"></script>
+
+<style type="text/css">
+#terminal > .terminal {
+    font-family: "Roboto Mono", monospace !important;
+}
+</style>
+</head>
+
+<body>
+
+<div id="terminal"></div>
+
+<script>
+term = new Terminal({cursorBlink: true});
+var sock = new WebSocket("ws://" + document.location.host + "/docker/{%s id %}/ws");
+term.terminadoAttach(sock, true, false);
+term.open(document.getElementById('#terminal'));
+</script>
+
+</body>
+
+</html>
+{% endfunc %}
