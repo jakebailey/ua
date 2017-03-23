@@ -82,6 +82,8 @@ func proxyInput(ctx context.Context, done func(), id string, cli *client.Client,
 				log.Println(err)
 				return
 			}
+		default:
+			log.Printf("unknown command: %v", buf[0])
 		}
 	}
 }
