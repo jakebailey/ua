@@ -33,7 +33,7 @@ func StreamAssignments(qw422016 *qt422016.Writer, id string) {
 	//line templates/assignments.qtpl:10
 	qw422016.E().S(id)
 	//line templates/assignments.qtpl:10
-	qw422016.N().S(`">`)
+	qw422016.N().S(`" target="_blank">`)
 	//line templates/assignments.qtpl:10
 	qw422016.E().S(id)
 	//line templates/assignments.qtpl:10

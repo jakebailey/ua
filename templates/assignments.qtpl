@@ -7,7 +7,7 @@
 
 <body>
 <p>
-<a href="/docker/{%s id %}">{%s id %}</a>
+<a href="/docker/{%s id %}" target="_blank">{%s id %}</a>
 </p>
 </body>
 

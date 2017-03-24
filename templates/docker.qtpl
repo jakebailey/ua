@@ -4,14 +4,33 @@
 
 <head>
 <link rel="stylesheet" href="/static/bower_components/xterm.js/dist/xterm.css" />
-<link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css?family=Roboto+Mono:400,700,300">
+<!--<link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css?family=Roboto+Mono:400,700,300">-->
+<link rel='stylesheet' href='//cdn.jsdelivr.net/font-hack/2.020/css/hack-extended.min.css'>
 <script src="/static/bower_components/xterm.js/dist/xterm.js"></script>
 <script src="/static/bower_components/xterm.js/dist/addons/terminado/terminado.js"></script>
+<script src="/static/bower_components/xterm.js/dist/addons/fit/fit.js"></script>
 
 <style type="text/css">
-#terminal > .terminal {
-    font-family: "Roboto Mono", monospace !important;
+html{
+  height: 100%;
 }
+body {
+  min-height: 100%;
+}
+.terminal {
+    /*line-height: normal;*/
+    font-family: "Hack", monospace;
+    font-size: 14pt;
+    /*display: block;*/
+    /*margin-left: auto;*/
+    /*margin-right: auto;*/
+    -moz-box-shadow: 0 0 5px #888;
+    -webkit-box-shadow: 0 0 5px #888;
+    box-shadow: 0 0 5px #888;
+    width: 100%;
+    height: 100%;
+}
+
 </style>
 </head>
 
@@ -24,6 +43,13 @@ term = new Terminal({cursorBlink: true});
 var sock = new WebSocket("ws://" + document.location.host + "/docker/{%s id %}/ws");
 term.terminadoAttach(sock, true, false);
 term.open(document.getElementById('#terminal'));
+sock.onopen = function() {
+    term.fit();
+};
+sock.addEventListener("close", function() {
+    term.blur();
+    // term.focus = function(){};
+});
 </script>
 
 </body>

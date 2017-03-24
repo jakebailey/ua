@@ -26,14 +26,33 @@ func StreamDocker(qw422016 *qt422016.Writer, id string) {
 
 <head>
 <link rel="stylesheet" href="/static/bower_components/xterm.js/dist/xterm.css" />
-<link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css?family=Roboto+Mono:400,700,300">
+<!--<link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css?family=Roboto+Mono:400,700,300">-->
+<link rel='stylesheet' href='//cdn.jsdelivr.net/font-hack/2.020/css/hack-extended.min.css'>
 <script src="/static/bower_components/xterm.js/dist/xterm.js"></script>
 <script src="/static/bower_components/xterm.js/dist/addons/terminado/terminado.js"></script>
+<script src="/static/bower_components/xterm.js/dist/addons/fit/fit.js"></script>
 
 <style type="text/css">
-#terminal > .terminal {
-    font-family: "Roboto Mono", monospace !important;
+html{
+  height: 100%;
 }
+body {
+  min-height: 100%;
+}
+.terminal {
+    /*line-height: normal;*/
+    font-family: "Hack", monospace;
+    font-size: 14pt;
+    /*display: block;*/
+    /*margin-left: auto;*/
+    /*margin-right: auto;*/
+    -moz-box-shadow: 0 0 5px #888;
+    -webkit-box-shadow: 0 0 5px #888;
+    box-shadow: 0 0 5px #888;
+    width: 100%;
+    height: 100%;
+}
+
 </style>
 </head>
 
@@ -44,43 +63,50 @@ func StreamDocker(qw422016 *qt422016.Writer, id string) {
 <script>
 term = new Terminal({cursorBlink: true});
 var sock = new WebSocket("ws://" + document.location.host + "/docker/`)
-	//line templates/docker.qtpl:24
+	//line templates/docker.qtpl:43
 	qw422016.E().S(id)
-	//line templates/docker.qtpl:24
+	//line templates/docker.qtpl:43
 	qw422016.N().S(`/ws");
 term.terminadoAttach(sock, true, false);
 term.open(document.getElementById('#terminal'));
+sock.onopen = function() {
+    term.fit();
+};
+sock.addEventListener("close", function() {
+    term.blur();
+    // term.focus = function(){};
+});
 </script>
 
 </body>
 
 </html>
 `)
-//line templates/docker.qtpl:32
+//line templates/docker.qtpl:58
 }
 
-//line templates/docker.qtpl:32
+//line templates/docker.qtpl:58
 func WriteDocker(qq422016 qtio422016.Writer, id string) {
-	//line templates/docker.qtpl:32
+	//line templates/docker.qtpl:58
 	qw422016 := qt422016.AcquireWriter(qq422016)
-	//line templates/docker.qtpl:32
+	//line templates/docker.qtpl:58
 	StreamDocker(qw422016, id)
-	//line templates/docker.qtpl:32
+	//line templates/docker.qtpl:58
 	qt422016.ReleaseWriter(qw422016)
-//line templates/docker.qtpl:32
+//line templates/docker.qtpl:58
 }
 
-//line templates/docker.qtpl:32
+//line templates/docker.qtpl:58
 func Docker(id string) string {
-	//line templates/docker.qtpl:32
+	//line templates/docker.qtpl:58
 	qb422016 := qt422016.AcquireByteBuffer()
-	//line templates/docker.qtpl:32
+	//line templates/docker.qtpl:58
 	WriteDocker(qb422016, id)
-	//line templates/docker.qtpl:32
+	//line templates/docker.qtpl:58
 	qs422016 := string(qb422016.B)
-	//line templates/docker.qtpl:32
+	//line templates/docker.qtpl:58
 	qt422016.ReleaseByteBuffer(qb422016)
-	//line templates/docker.qtpl:32
+	//line templates/docker.qtpl:58
 	return qs422016
-//line templates/docker.qtpl:32
+//line templates/docker.qtpl:58
 }
