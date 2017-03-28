@@ -25,14 +25,12 @@ func StreamDocker(qw422016 *qt422016.Writer, id string) {
 <html>
 
 <head>
-    <link rel='stylesheet' href='//cdn.jsdelivr.net/font-hack/2.020/css/hack-extended.min.css'>
-    <script src="/static/hterm_all.js"></script>
+    <script src="/static/js/hterm_all.js"></script>
     <style>
         #terminal {
             position: absolute;
             height: 90%;
             width: 90%;
-            /*margin: 0px;*/
         }
     </style>
 </head>
@@ -43,9 +41,9 @@ func StreamDocker(qw422016 *qt422016.Writer, id string) {
 
     <script>
         var socket = new WebSocket("ws://" + document.location.host + "/docker/`)
-	//line templates/docker.qtpl:23
+	//line templates/docker.qtpl:21
 	qw422016.E().S(id)
-	//line templates/docker.qtpl:23
+	//line templates/docker.qtpl:21
 	qw422016.N().S(`/ws");
 
         socket.onopen = function() {
@@ -64,7 +62,6 @@ func StreamDocker(qw422016 *qt422016.Writer, id string) {
                     // Do something useful with str here.
                     // For example, Secure Shell forwards the string onto the NaCl plugin.
                     socket.send(JSON.stringify(['stdin', str]));
-                    console.log(str);
                 };
 
                 io.sendString = io.onVTKeystroke;
@@ -74,7 +71,6 @@ func StreamDocker(qw422016 *qt422016.Writer, id string) {
                     // Secure Shell pokes at NaCl, which eventually results in
                     // some ioctls on the host.
                     socket.send(JSON.stringify(['set_size', rows, columns]));
-                    console.log(columns + ", " + rows);
                 };
 
                 // You can call io.push() to foreground a fresh io context, which can
@@ -86,11 +82,6 @@ func StreamDocker(qw422016 *qt422016.Writer, id string) {
 
             t.decorate(document.querySelector('#terminal'));
 
-            var onclose = function() {
-                t.uninstallKeyboard();
-                t.io.showOverlay("Connection closed", null);
-            };
-
             socket.addEventListener("message", function(ev) {
                 var data = JSON.parse(ev.data)
                 if (data[0] == "stdout") {
@@ -98,6 +89,11 @@ func StreamDocker(qw422016 *qt422016.Writer, id string) {
                 }
                 console.log(data);
             });
+
+            var onclose = function() {
+                t.uninstallKeyboard();
+                t.io.showOverlay("Connection closed", null);
+            };
 
             socket.addEventListener("close", onclose);
             socket.addEventListener("error", onclose);
@@ -108,31 +104,31 @@ func StreamDocker(qw422016 *qt422016.Writer, id string) {
 
 </html>
 `)
-//line templates/docker.qtpl:84
+//line templates/docker.qtpl:80
 }
 
-//line templates/docker.qtpl:84
+//line templates/docker.qtpl:80
 func WriteDocker(qq422016 qtio422016.Writer, id string) {
-	//line templates/docker.qtpl:84
+	//line templates/docker.qtpl:80
 	qw422016 := qt422016.AcquireWriter(qq422016)
-	//line templates/docker.qtpl:84
+	//line templates/docker.qtpl:80
 	StreamDocker(qw422016, id)
-	//line templates/docker.qtpl:84
+	//line templates/docker.qtpl:80
 	qt422016.ReleaseWriter(qw422016)
-//line templates/docker.qtpl:84
+//line templates/docker.qtpl:80
 }
 
-//line templates/docker.qtpl:84
+//line templates/docker.qtpl:80
 func Docker(id string) string {
-	//line templates/docker.qtpl:84
+	//line templates/docker.qtpl:80
 	qb422016 := qt422016.AcquireByteBuffer()
-	//line templates/docker.qtpl:84
+	//line templates/docker.qtpl:80
 	WriteDocker(qb422016, id)
-	//line templates/docker.qtpl:84
+	//line templates/docker.qtpl:80
 	qs422016 := string(qb422016.B)
-	//line templates/docker.qtpl:84
+	//line templates/docker.qtpl:80
 	qt422016.ReleaseByteBuffer(qb422016)
-	//line templates/docker.qtpl:84
+	//line templates/docker.qtpl:80
 	return qs422016
-//line templates/docker.qtpl:84
+//line templates/docker.qtpl:80
 }

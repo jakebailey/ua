@@ -12,7 +12,7 @@ import (
 )
 
 func buildContainer(ctx context.Context, cli *client.Client, assignment string) (string, error) {
-	filename := filepath.Join("assignments", assignment, "base.Dockerfile")
+	filename := filepath.Join("assignments", assignment, "base", "Dockerfile")
 	dockerfile, err := os.Open(filename)
 	if err != nil {
 		return "", err

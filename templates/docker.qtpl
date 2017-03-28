@@ -3,14 +3,12 @@
 <html>
 
 <head>
-    <link rel='stylesheet' href='//cdn.jsdelivr.net/font-hack/2.020/css/hack-extended.min.css'>
     <script src="/static/js/hterm_all.js"></script>
     <style>
         #terminal {
             position: absolute;
             height: 90%;
             width: 90%;
-            /*margin: 0px;*/
         }
     </style>
 </head>
@@ -38,7 +36,6 @@
                     // Do something useful with str here.
                     // For example, Secure Shell forwards the string onto the NaCl plugin.
                     socket.send(JSON.stringify(['stdin', str]));
-                    console.log(str);
                 };
 
                 io.sendString = io.onVTKeystroke;
@@ -48,7 +45,6 @@
                     // Secure Shell pokes at NaCl, which eventually results in
                     // some ioctls on the host.
                     socket.send(JSON.stringify(['set_size', rows, columns]));
-                    console.log(columns + ", " + rows);
                 };
 
                 // You can call io.push() to foreground a fresh io context, which can
@@ -60,11 +56,6 @@
 
             t.decorate(document.querySelector('#terminal'));
 
-            var onclose = function() {
-                t.uninstallKeyboard();
-                t.io.showOverlay("Connection closed", null);
-            };
-
             socket.addEventListener("message", function(ev) {
                 var data = JSON.parse(ev.data)
                 if (data[0] == "stdout") {
@@ -72,6 +63,11 @@
                 }
                 console.log(data);
             });
+
+            var onclose = function() {
+                t.uninstallKeyboard();
+                t.io.showOverlay("Connection closed", null);
+            };
 
             socket.addEventListener("close", onclose);
             socket.addEventListener("error", onclose);
