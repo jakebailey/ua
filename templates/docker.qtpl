@@ -3,54 +3,80 @@
 <html>
 
 <head>
-<link rel="stylesheet" href="/static/bower_components/xterm.js/dist/xterm.css" />
-<!--<link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css?family=Roboto+Mono:400,700,300">-->
-<link rel='stylesheet' href='//cdn.jsdelivr.net/font-hack/2.020/css/hack-extended.min.css'>
-<script src="/static/bower_components/xterm.js/dist/xterm.js"></script>
-<script src="/static/bower_components/xterm.js/dist/addons/terminado/terminado.js"></script>
-<script src="/static/bower_components/xterm.js/dist/addons/fit/fit.js"></script>
-
-<style type="text/css">
-html{
-  height: 100%;
-}
-body {
-  min-height: 100%;
-}
-.terminal {
-    /*line-height: normal;*/
-    font-family: "Hack", monospace;
-    font-size: 14pt;
-    /*display: block;*/
-    /*margin-left: auto;*/
-    /*margin-right: auto;*/
-    -moz-box-shadow: 0 0 5px #888;
-    -webkit-box-shadow: 0 0 5px #888;
-    box-shadow: 0 0 5px #888;
-    width: 100%;
-    height: 100%;
-}
-
-</style>
+    <link rel='stylesheet' href='//cdn.jsdelivr.net/font-hack/2.020/css/hack-extended.min.css'>
+    <script src="/static/js/hterm_all.js"></script>
+    <style>
+        #terminal {
+            position: absolute;
+            height: 90%;
+            width: 90%;
+            /*margin: 0px;*/
+        }
+    </style>
 </head>
 
 <body>
 
-<div id="terminal"></div>
+    <div id="terminal"></div>
 
-<script>
-term = new Terminal({cursorBlink: true});
-var sock = new WebSocket("ws://" + document.location.host + "/docker/{%s id %}/ws");
-term.terminadoAttach(sock, true, false);
-term.open(document.getElementById('#terminal'));
-sock.onopen = function() {
-    term.fit();
-};
-sock.addEventListener("close", function() {
-    term.blur();
-    // term.focus = function(){};
-});
-</script>
+    <script>
+        var socket = new WebSocket("ws://" + document.location.host + "/docker/{%s id %}/ws");
+
+        socket.onopen = function() {
+            hterm.defaultStorage = new lib.Storage.Memory();
+            var t = new hterm.Terminal();
+            t.getPrefs().set("send-encoding", "raw");
+
+            t.onTerminalReady = function() {
+
+                // Create a new terminal IO object and give it the foreground.
+                // (The default IO object just prints warning messages about unhandled
+                // things to the the JS console.)
+                var io = t.io.push();
+
+                io.onVTKeystroke = function(str) {
+                    // Do something useful with str here.
+                    // For example, Secure Shell forwards the string onto the NaCl plugin.
+                    socket.send(JSON.stringify(['stdin', str]));
+                    console.log(str);
+                };
+
+                io.sendString = io.onVTKeystroke;
+
+                io.onTerminalResize = function(columns, rows) {
+                    // React to size changes here.
+                    // Secure Shell pokes at NaCl, which eventually results in
+                    // some ioctls on the host.
+                    socket.send(JSON.stringify(['set_size', rows, columns]));
+                    console.log(columns + ", " + rows);
+                };
+
+                // You can call io.push() to foreground a fresh io context, which can
+                // be uses to give control of the terminal to something else.  When that
+                // thing is complete, should call io.pop() to restore control to the
+                // previous io object.
+                t.installKeyboard();
+            };
+
+            t.decorate(document.querySelector('#terminal'));
+
+            var onclose = function() {
+                t.uninstallKeyboard();
+                t.io.showOverlay("Connection closed", null);
+            };
+
+            socket.addEventListener("message", function(ev) {
+                var data = JSON.parse(ev.data)
+                if (data[0] == "stdout") {
+                    t.io.print(data[1]);
+                }
+                console.log(data);
+            });
+
+            socket.addEventListener("close", onclose);
+            socket.addEventListener("error", onclose);
+        };
+    </script>
 
 </body>
 

@@ -74,7 +74,7 @@ func proxyInput(ctx context.Context, done func(), id string, cli *client.Client,
 			height := uint(buf[1].(float64))
 			width := uint(buf[2].(float64))
 
-			log.Printf("resizing %v to %vx%v", id, height, width)
+			log.Printf("resizing %v to %vx%v", id[:10], height, width)
 			if err := cli.ContainerResize(ctx, id, types.ResizeOptions{
 				Height: height,
 				Width:  width,
