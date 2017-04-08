@@ -21,8 +21,6 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true }, // REMOVE ME
 }
 
-//go:generate qtc -dir=templates
-
 var (
 	createdContainers = make(map[string]bool)
 	createdMu         sync.RWMutex
