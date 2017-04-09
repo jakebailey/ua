@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/docker/docker/api/types"
@@ -165,10 +168,25 @@ func main() {
 		r.(*chi.Mux).FileServer("/static", http.Dir(filesDir))
 	})
 
-	// srv := &http.Server{
-	// 	Addr:    ":8000",
-	// 	Handler: r,
-	// }
+	srv := &http.Server{
+		Addr:    ":8000",
+		Handler: r,
+	}
 
-	http.ListenAndServe(":8000", r)
+	go func() {
+		log.Println("starting server at", srv.Addr)
+		if err := srv.ListenAndServe(); err != nil {
+			log.Println(err)
+		}
+	}()
+
+	stopChan := make(chan os.Signal)
+	signal.Notify(stopChan, os.Interrupt)
+
+	<-stopChan
+	log.Println("shutting down")
+
+	ctx, canc := context.WithTimeout(context.Background(), 5*time.Second)
+	defer canc()
+	srv.Shutdown(ctx)
 }
