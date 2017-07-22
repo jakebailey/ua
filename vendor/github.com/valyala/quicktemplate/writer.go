@@ -37,12 +37,10 @@ func (qw *Writer) N() *QWriter {
 func AcquireWriter(w io.Writer) *Writer {
 	v := writerPool.Get()
 	if v == nil {
-		qw := &Writer{}
-		qw.e.w = &htmlEscapeWriter{}
-		v = qw
+		v = &Writer{}
 	}
 	qw := v.(*Writer)
-	qw.e.w.(*htmlEscapeWriter).w = w
+	qw.e.w = acquireHTMLEscapeWriter(w)
 	qw.n.w = w
 	return qw
 }
@@ -51,13 +49,9 @@ func AcquireWriter(w io.Writer) *Writer {
 //
 // Do not access released writer, otherwise data races may occur.
 func ReleaseWriter(qw *Writer) {
-	hw := qw.e.w.(*htmlEscapeWriter)
-	hw.w = nil
+	releaseHTMLEscapeWriter(qw.e.w)
 	qw.e.Reset()
-	qw.e.w = hw
-
 	qw.n.Reset()
-
 	writerPool.Put(qw)
 }
 
@@ -67,7 +61,6 @@ var writerPool sync.Pool
 type QWriter struct {
 	w   io.Writer
 	err error
-	b   []byte
 }
 
 // Write implements io.Writer.
@@ -105,13 +98,9 @@ func (w *QWriter) SZ(z []byte) {
 
 // D writes n to w.
 func (w *QWriter) D(n int) {
-	bb, ok := w.w.(*ByteBuffer)
-	if ok {
-		bb.B = strconv.AppendInt(bb.B, int64(n), 10)
-	} else {
-		w.b = strconv.AppendInt(w.b[:0], int64(n), 10)
-		w.Write(w.b)
-	}
+	w.writeQuick(func(dst []byte) []byte {
+		return strconv.AppendInt(dst, int64(n), 10)
+	})
 }
 
 // F writes f to w.
@@ -121,13 +110,9 @@ func (w *QWriter) F(f float64) {
 
 // FPrec writes f to w using the given floating point precision.
 func (w *QWriter) FPrec(f float64, prec int) {
-	bb, ok := w.w.(*ByteBuffer)
-	if ok {
-		bb.B = strconv.AppendFloat(bb.B, f, 'f', prec, 64)
-	} else {
-		w.b = strconv.AppendFloat(w.b[:0], f, 'f', prec, 64)
-		w.Write(w.b)
-	}
+	w.writeQuick(func(dst []byte) []byte {
+		return strconv.AppendFloat(dst, f, 'f', prec, 64)
+	})
 }
 
 // Q writes quoted json-safe s to w.
@@ -165,16 +150,27 @@ func (w *QWriter) V(v interface{}) {
 
 // U writes url-encoded s to w.
 func (w *QWriter) U(s string) {
-	bb, ok := w.w.(*ByteBuffer)
-	if ok {
-		bb.B = appendURLEncode(bb.B, s)
-	} else {
-		w.b = appendURLEncode(w.b[:0], s)
-		w.Write(w.b)
-	}
+	w.writeQuick(func(dst []byte) []byte {
+		return appendURLEncode(dst, s)
+	})
 }
 
 // UZ writes url-encoded z to w.
 func (w *QWriter) UZ(z []byte) {
 	w.U(unsafeBytesToStr(z))
+}
+
+func (w *QWriter) writeQuick(f func(dst []byte) []byte) {
+	if w.err != nil {
+		return
+	}
+	bb, ok := w.w.(*ByteBuffer)
+	if !ok {
+		bb = AcquireByteBuffer()
+	}
+	bb.B = f(bb.B)
+	if !ok {
+		w.Write(bb.B)
+		ReleaseByteBuffer(bb)
+	}
 }

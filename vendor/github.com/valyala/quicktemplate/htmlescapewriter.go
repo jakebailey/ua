@@ -2,7 +2,26 @@ package quicktemplate
 
 import (
 	"io"
+	"sync"
 )
+
+func acquireHTMLEscapeWriter(w io.Writer) io.Writer {
+	v := htmlEscapeWriterPool.Get()
+	if v == nil {
+		v = &htmlEscapeWriter{}
+	}
+	hw := v.(*htmlEscapeWriter)
+	hw.w = w
+	return hw
+}
+
+func releaseHTMLEscapeWriter(w io.Writer) {
+	hw := w.(*htmlEscapeWriter)
+	hw.w = nil
+	htmlEscapeWriterPool.Put(hw)
+}
+
+var htmlEscapeWriterPool sync.Pool
 
 type htmlEscapeWriter struct {
 	w io.Writer
