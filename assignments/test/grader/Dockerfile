@@ -1,3 +1,0 @@
-FROM {{.From}}
-
-CMD {{.Cmd}}

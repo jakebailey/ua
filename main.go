@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -70,6 +71,8 @@ func main() {
 	r.Use(middleware.NoCache)
 	r.Use(middleware.Heartbeat("/ping"))
 
+	imageBuilder := NewImageBuilder("assignments")
+
 	cli, err := client.NewEnvClient()
 	if err != nil {
 		panic(err)
@@ -86,25 +89,42 @@ func main() {
 		spew.Fdump(w, images)
 	})
 
-	r.Get("/assignments/{name}", func(w http.ResponseWriter, r *http.Request) {
-		c, err := cli.ContainerCreate(r.Context(), &container.Config{
-			Tty:       true,
-			OpenStdin: true,
-			Cmd:       []string{"/bin/bash"},
-			Image:     "dock0/arch",
-		}, &container.HostConfig{
-			Init: func(b bool) *bool { return &b }(true),
-		}, nil, "")
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			return
-		}
+	r.Route("/assignments/{name}", func(r chi.Router) {
+		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+			c, err := cli.ContainerCreate(r.Context(), &container.Config{
+				Tty:       true,
+				OpenStdin: true,
+				Cmd:       []string{"/bin/bash"},
+				Image:     "dock0/arch",
+			}, &container.HostConfig{
+				Init: func(b bool) *bool { return &b }(true),
+			}, nil, "")
+			if err != nil {
+				http.Error(w, err.Error(), 500)
+				return
+			}
 
-		log.Printf("%v: created", c.ID[:10])
+			log.Printf("%v: created", c.ID[:10])
 
-		addCreatedContainer(c.ID)
+			addCreatedContainer(c.ID)
 
-		templates.WriteAssignments(w, c.ID)
+			templates.WriteAssignments(w, c.ID)
+		})
+
+		r.Get("/build", func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
+			name := chi.URLParam(r, "name")
+
+			data := struct{ NetID string }{NetID: "jbbaile2"}
+
+			id, err := imageBuilder.Build(ctx, cli, name, data)
+			if err != nil {
+				http.Error(w, err.Error(), 500)
+				return
+			}
+
+			fmt.Fprintln(w, id)
+		})
 	})
 
 	r.Route("/docker/{id}", func(r chi.Router) {

@@ -1,6 +1,4 @@
 FROM alpine
 MAINTAINER Jake Bailey <jbbaile2@illinois.edu>
 
-RUN echo "Hello!" >> /hello.txt
-
-CMD /bin/sh
+COPY helloworld.txt /{{.NetID}}.txt
