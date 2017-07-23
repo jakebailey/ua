@@ -97,6 +97,7 @@ func main() {
 		}, nil, "")
 		if err != nil {
 			http.Error(w, err.Error(), 500)
+			return
 		}
 
 		log.Printf("%v: created", c.ID[:10])
