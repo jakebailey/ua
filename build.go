@@ -35,37 +35,31 @@ func (b *ImageBuilder) Build(ctx context.Context, cli *client.Client, assignment
 	tmplPath := filepath.Join(root, TemplateName)
 	contextPath := filepath.Join(root, ContextSubdir)
 
-	log.Println("parsing template")
 	tmpl, err := template.ParseFiles(tmplPath)
 	if err != nil {
 		return "", err
 	}
 
-	log.Println("executing template")
 	tmplBuf := &bytes.Buffer{}
 	if err := tmpl.Execute(tmplBuf, tmplData); err != nil {
 		return "", err
 	}
 	dockerfileCtx := dummyReadCloser{tmplBuf}
 
-	log.Println("getting context from local dir")
 	contextDir, relDockerfile, err := build.GetContextFromLocalDir(contextPath, "-")
 	if err != nil {
 		return "", err
 	}
 
-	log.Println("reading dockerignore")
 	excludes, err := build.ReadDockerignore(contextDir)
 	if err != nil {
 		return "", err
 	}
 
-	log.Println("validating context")
 	if err := build.ValidateContextDirectory(contextDir, excludes); err != nil {
 		return "", err
 	}
 
-	log.Println("building archive")
 	// And canonicalize dockerfile name to a platform-independent one
 	relDockerfile, err = archive.CanonicalTarNameForPath(relDockerfile)
 	if err != nil {
@@ -80,7 +74,6 @@ func (b *ImageBuilder) Build(ctx context.Context, cli *client.Client, assignment
 		return "", err
 	}
 
-	log.Println("adding Dockerfile to context")
 	buildCtx, relDockerfile, err = build.AddDockerfileToBuildContext(dockerfileCtx, buildCtx)
 	if err != nil {
 		return "", err
@@ -90,14 +83,12 @@ func (b *ImageBuilder) Build(ctx context.Context, cli *client.Client, assignment
 		Dockerfile: relDockerfile,
 	}
 
-	log.Println("building image")
 	response, err := cli.ImageBuild(ctx, buildCtx, buildOptions)
 	if err != nil {
 		return "", err
 	}
 	defer response.Body.Close()
 
-	log.Println("decoding response")
 	id, err := getIDFromBody(response.Body)
 	if err != nil {
 		return "", err

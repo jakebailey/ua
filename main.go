@@ -90,6 +90,24 @@ func main() {
 	})
 
 	r.Route("/assignments/{name}", func(r chi.Router) {
+		r.Use(func(h http.Handler) http.Handler {
+			fn := func(w http.ResponseWriter, r *http.Request) {
+				name := chi.URLParam(r, "name")
+				path := filepath.Join("assignments", name)
+				if _, err := os.Stat(path); err != nil {
+					if os.IsNotExist(err) {
+						http.NotFound(w, r)
+					} else {
+						http.Error(w, err.Error(), 500)
+					}
+					return
+				}
+
+				h.ServeHTTP(w, r)
+			}
+			return http.HandlerFunc(fn)
+		})
+
 		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 			c, err := cli.ContainerCreate(r.Context(), &container.Config{
 				Tty:       true,
