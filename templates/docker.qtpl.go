@@ -87,7 +87,7 @@ func StreamDocker(qw422016 *qt422016.Writer, id string) {
                 if (data[0] == "stdout") {
                     t.io.print(data[1]);
                 }
-                console.log(data);
+                // console.log(data);
             });
 
             var onclose = function() {

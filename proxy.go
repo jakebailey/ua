@@ -10,6 +10,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/gorilla/websocket"
+	"golang.org/x/sync/errgroup"
 )
 
 // ProxyContainer attaches to a docker container and proxies its stdin/out/err
@@ -28,74 +29,76 @@ func ProxyContainer(ctx context.Context, id string, cli *client.Client, conn *we
 
 	log.Printf("%v: proxying", id[:10])
 
-	exit := make(chan struct{})
-	once := sync.Once{}
-	done := func() {
-		once.Do(func() {
-			close(exit)
-		})
-	}
+	ws := &wsWrapper{c: conn}
 
-	go proxyInput(ctx, done, id, cli, conn, hj)
-	go proxyOutput(ctx, done, id, cli, conn, hj)
+	g, ctx := errgroup.WithContext(ctx)
 
-	select {
-	case <-exit:
-	case <-ctx.Done():
-	}
+	g.Go(proxyInputFunc(ctx, id, cli, ws, hj.Conn))
+	g.Go(proxyOutputFunc(ctx, id, ws, hj.Conn, "stdout"))
+	g.Go(proxyOutputFunc(ctx, id, ws, hj.Reader, "stderr"))
 
-	return nil
+	g.Go(func() error {
+		<-ctx.Done()
+		conn.Close()
+		hj.Close()
+		return nil
+	})
+
+	return processProxyError(g.Wait())
 }
 
-func proxyInput(ctx context.Context, done func(), id string, cli *client.Client, conn *websocket.Conn, hj types.HijackedResponse) {
-	defer func() {
-		log.Printf("%v: stdin proxy stopping", id[:10])
-		done()
-	}()
-	log.Printf("%v: stdin proxy starting", id[:10])
+func processProxyError(err error) error {
+	if err == io.EOF {
+		return nil
+	}
 
-	var buf []interface{}
-	for {
-		err := conn.ReadJSON(&buf)
-		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
-				log.Println(err)
-			}
-			return
-		}
+	if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
+		return nil
+	}
 
-		switch buf[0] {
-		case "stdin":
-			if _, err := hj.Conn.Write([]byte(buf[1].(string))); err != nil {
-				log.Println(err)
-				return
-			}
-		case "set_size":
-			height := uint(buf[1].(float64))
-			width := uint(buf[2].(float64))
+	return err
+}
 
-			log.Printf("resizing %v to %vx%v", id[:10], height, width)
-			if err := cli.ContainerResize(ctx, id, types.ResizeOptions{
-				Height: height,
-				Width:  width,
-			}); err != nil {
-				log.Println(err)
-				return
+func proxyInputFunc(ctx context.Context, id string, cli *client.Client, ws *wsWrapper, writer io.Writer) func() error {
+	return func() error {
+		defer log.Printf("%v: stdin proxy stopping", id[:10])
+		log.Printf("%v: stdin proxy starting", id[:10])
+
+		var buf []interface{}
+		for {
+			err := ws.ReadJSON(&buf)
+			if err != nil {
+				return err
 			}
-		default:
-			log.Printf("unknown command: %v", buf[0])
+
+			switch buf[0] {
+			case "stdin":
+				if _, err := writer.Write([]byte(buf[1].(string))); err != nil {
+					log.Println(err)
+					return err
+				}
+			case "set_size":
+				height := uint(buf[1].(float64)) // TODO: properly error check these
+				width := uint(buf[2].(float64))
+
+				log.Printf("resizing %v to %vx%v", id[:10], height, width)
+				if err := cli.ContainerResize(ctx, id, types.ResizeOptions{
+					Height: height,
+					Width:  width,
+				}); err != nil {
+					log.Println(err)
+					return err
+				}
+			default:
+				log.Printf("unknown command: %v", buf[0])
+			}
 		}
 	}
 }
 
-func proxyOutput(ctx context.Context, done func(), id string, cli *client.Client, conn *websocket.Conn, hj types.HijackedResponse) {
-	var m sync.Mutex
-
-	scan := func(reader io.Reader, name string) {
-		defer func() {
-			log.Printf("%v: %v proxy stopping", id[:10], name)
-			done()
-		}()
+func proxyOutputFunc(ctx context.Context, id string, ws *wsWrapper, reader io.Reader, name string) func() error {
+	return func() error {
+		defer log.Printf("%v: %v proxy stopping", id[:10], name)
 		log.Printf("%v: %v proxy starting", id[:10], name)
 
 		s := bufio.NewScanner(reader)
@@ -104,20 +107,31 @@ func proxyOutput(ctx context.Context, done func(), id string, cli *client.Client
 		for s.Scan() {
 			if err := s.Err(); err != nil {
 				log.Printf("scanner error: %s", err)
-				return
+				return err
 			}
 
-			m.Lock()
-			err := conn.WriteJSON([]string{"stdout", s.Text()})
-			m.Unlock()
-
-			if err != nil {
+			if err := ws.WriteJSON([]string{"stdout", s.Text()}); err != nil {
 				log.Println(err)
-				return
+				return err
 			}
 		}
-	}
 
-	go scan(hj.Conn, "stdout")
-	go scan(hj.Reader, "stderr")
+		return io.EOF
+	}
+}
+
+type wsWrapper struct {
+	c  *websocket.Conn
+	mu sync.Mutex
+}
+
+func (ws *wsWrapper) ReadJSON(v interface{}) error {
+	return ws.c.ReadJSON(v)
+}
+
+func (ws *wsWrapper) WriteJSON(v interface{}) error {
+	ws.mu.Lock()
+	err := ws.c.WriteJSON(v)
+	ws.mu.Unlock()
+	return err
 }

@@ -143,7 +143,6 @@ func main() {
 
 			if err := ProxyContainer(ctx, id, cli, conn); err != nil {
 				log.Println(err)
-				http.Error(w, err.Error(), 500)
 			}
 
 			if err := cli.ContainerStop(ctx, id, nil); err != nil {
