@@ -34,8 +34,8 @@ func ProxyContainer(ctx context.Context, id string, cli *client.Client, conn *we
 	g, ctx := errgroup.WithContext(ctx)
 
 	g.Go(proxyInputFunc(ctx, id, cli, ws, hj.Conn))
-	g.Go(proxyOutputFunc(ctx, id, ws, hj.Conn, "stdout"))
-	g.Go(proxyOutputFunc(ctx, id, ws, hj.Reader, "stderr"))
+	g.Go(proxyOutputFunc(id, ws, hj.Conn, "stdout"))
+	g.Go(proxyOutputFunc(id, ws, hj.Reader, "stderr"))
 
 	g.Go(func() error {
 		<-ctx.Done()
@@ -96,7 +96,7 @@ func proxyInputFunc(ctx context.Context, id string, cli *client.Client, ws *wsWr
 	}
 }
 
-func proxyOutputFunc(ctx context.Context, id string, ws *wsWrapper, reader io.Reader, name string) func() error {
+func proxyOutputFunc(id string, ws *wsWrapper, reader io.Reader, name string) func() error {
 	return func() error {
 		defer log.Printf("%v: %v proxy stopping", id[:10], name)
 		log.Printf("%v: %v proxy starting", id[:10], name)
