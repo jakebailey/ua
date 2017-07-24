@@ -106,6 +106,7 @@ func getIDFromBody(body io.Reader) (string, error) {
 			if err == io.EOF {
 				break
 			}
+			return "", err
 		}
 
 		if jm.Aux != nil {
