@@ -94,12 +94,19 @@ func main() {
 			fn := func(w http.ResponseWriter, r *http.Request) {
 				name := chi.URLParam(r, "name")
 				path := filepath.Join("assignments", name)
-				if _, err := os.Stat(path); err != nil {
+
+				stat, err := os.Stat(path)
+				if err != nil {
 					if os.IsNotExist(err) {
 						http.NotFound(w, r)
 					} else {
 						http.Error(w, err.Error(), 500)
 					}
+					return
+				}
+
+				if !stat.IsDir() {
+					http.NotFound(w, r)
 					return
 				}
 
