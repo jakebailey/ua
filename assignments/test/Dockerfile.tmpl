@@ -2,3 +2,4 @@ FROM alpine
 MAINTAINER Jake Bailey <jbbaile2@illinois.edu>
 
 COPY helloworld.txt /{{.NetID}}.txt
+RUN echo '{{.Now.Unix}}' >> /{{.NetID}}.txt

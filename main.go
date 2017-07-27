@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -13,6 +12,7 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/docker/cli/cli/command/inspect"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
@@ -140,7 +140,10 @@ func main() {
 			ctx := r.Context()
 			name := chi.URLParam(r, "name")
 
-			data := struct{ NetID string }{NetID: "jbbaile2"}
+			data := map[string]interface{}{
+				"NetID": "jbbaile2",
+				"Now":   time.Now(),
+			}
 
 			id, err := imageBuilder.Build(ctx, cli, name, data)
 			if err != nil {
@@ -148,7 +151,13 @@ func main() {
 				return
 			}
 
-			fmt.Fprintln(w, id)
+			getRefFunc := func(ref string) (interface{}, []byte, error) {
+				return cli.ImageInspectWithRaw(ctx, ref)
+			}
+
+			if err := inspect.Inspect(w, []string{id}, "", getRefFunc); err != nil {
+				log.Println(err)
+			}
 		})
 	})
 

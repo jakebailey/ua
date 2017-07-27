@@ -1,25 +1,19 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
-	"html/template"
+	"fmt"
 	"io"
 	"log"
 	"path/filepath"
+	"time"
 
-	"github.com/docker/cli/cli/command/image/build"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
-	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/jsonmessage"
-)
-
-const (
-	TemplateName  = "Dockerfile.tmpl"
-	ContextSubdir = "context"
+	"github.com/jakebailey/ua/image"
 )
 
 type ImageBuilder struct {
@@ -32,55 +26,17 @@ func NewImageBuilder(root string) *ImageBuilder {
 
 func (b *ImageBuilder) Build(ctx context.Context, cli *client.Client, assignment string, tmplData interface{}) (string, error) {
 	root := filepath.Join(b.root, assignment)
-	tmplPath := filepath.Join(root, TemplateName)
-	contextPath := filepath.Join(root, ContextSubdir)
 
-	tmpl, err := template.ParseFiles(tmplPath)
+	buildCtx, relDockerfile, err := image.BuildContext(root, tmplData)
 	if err != nil {
 		return "", err
 	}
-
-	tmplBuf := &bytes.Buffer{}
-	if err := tmpl.Execute(tmplBuf, tmplData); err != nil {
-		return "", err
-	}
-	dockerfileCtx := dummyReadCloser{tmplBuf}
-
-	contextDir, relDockerfile, err := build.GetContextFromLocalDir(contextPath, "-")
-	if err != nil {
-		return "", err
-	}
-
-	excludes, err := build.ReadDockerignore(contextDir)
-	if err != nil {
-		return "", err
-	}
-
-	if err := build.ValidateContextDirectory(contextDir, excludes); err != nil {
-		return "", err
-	}
-
-	// And canonicalize dockerfile name to a platform-independent one
-	relDockerfile, err = archive.CanonicalTarNameForPath(relDockerfile)
-	if err != nil {
-		return "", err
-	}
-
-	excludes = build.TrimBuildFilesFromExcludes(excludes, relDockerfile, true)
-	buildCtx, err := archive.TarWithOptions(contextDir, &archive.TarOptions{
-		ExcludePatterns: excludes,
-	})
-	if err != nil {
-		return "", err
-	}
-
-	buildCtx, relDockerfile, err = build.AddDockerfileToBuildContext(dockerfileCtx, buildCtx)
-	if err != nil {
-		return "", err
-	}
+	defer buildCtx.Close()
 
 	buildOptions := types.ImageBuildOptions{
+		Remove:     true,
 		Dockerfile: relDockerfile,
+		Tags:       []string{fmt.Sprintf("%s-%d", assignment, time.Now().Unix())},
 	}
 
 	response, err := cli.ImageBuild(ctx, buildCtx, buildOptions)
