@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -12,7 +13,6 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/docker/cli/cli/command/inspect"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
@@ -151,13 +151,15 @@ func main() {
 				return
 			}
 
-			getRefFunc := func(ref string) (interface{}, []byte, error) {
-				return cli.ImageInspectWithRaw(ctx, ref)
-			}
+			fmt.Fprintln(w, id)
 
-			if err := inspect.Inspect(w, []string{id}, "", getRefFunc); err != nil {
-				log.Println(err)
-			}
+			// getRefFunc := func(ref string) (interface{}, []byte, error) {
+			// 	return cli.ImageInspectWithRaw(ctx, ref)
+			// }
+
+			// if err := inspect.Inspect(w, []string{id}, "", getRefFunc); err != nil {
+			// 	log.Println(err)
+			// }
 		})
 	})
 
