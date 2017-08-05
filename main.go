@@ -19,6 +19,7 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/gobwas/ws"
+	"github.com/jakebailey/ua/proxy"
 	"github.com/jakebailey/ua/templates"
 )
 
@@ -198,7 +199,9 @@ func main() {
 
 				log.Printf("%v: started", id[:10])
 
-				if err := ProxyContainer(ctx, id, cli, conn); err != nil {
+				proxyConn := proxy.NewWSConn(conn)
+
+				if err := proxy.Proxy(ctx, id, proxyConn, cli); err != nil {
 					log.Println(err)
 				}
 
