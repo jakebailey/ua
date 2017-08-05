@@ -3,19 +3,22 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"io"
 	"log"
+	"net"
 	"sync"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
-	"github.com/gorilla/websocket"
+	"github.com/gobwas/ws"
+	"github.com/gobwas/ws/wsutil"
 	"golang.org/x/sync/errgroup"
 )
 
 // ProxyContainer attaches to a docker container and proxies its stdin/out/err
 // over a websocket using the terminado protocol.
-func ProxyContainer(ctx context.Context, id string, cli *client.Client, conn *websocket.Conn) error {
+func ProxyContainer(ctx context.Context, id string, cli *client.Client, conn net.Conn) error {
 	hj, err := cli.ContainerAttach(ctx, id, types.ContainerAttachOptions{
 		Stream: true,
 		Stdin:  true,
@@ -29,13 +32,13 @@ func ProxyContainer(ctx context.Context, id string, cli *client.Client, conn *we
 
 	log.Printf("%v: proxying", id[:10])
 
-	ws := &wsWrapper{c: conn}
+	w := &wsWrapper{c: conn}
 
 	g, ctx := errgroup.WithContext(ctx)
 
-	g.Go(proxyInputFunc(ctx, id, cli, ws, hj.Conn))
-	g.Go(proxyOutputFunc(id, ws, hj.Conn, "stdout"))
-	g.Go(proxyOutputFunc(id, ws, hj.Reader, "stderr"))
+	g.Go(proxyInputFunc(ctx, id, cli, w, hj.Conn))
+	g.Go(proxyOutputFunc(id, w, hj.Conn, "stdout"))
+	g.Go(proxyOutputFunc(id, w, hj.Reader, "stderr"))
 
 	g.Go(func() error {
 		<-ctx.Done()
@@ -52,8 +55,11 @@ func processProxyError(err error) error {
 		return nil
 	}
 
-	if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
-		return nil
+	if cErr, ok := err.(wsutil.ClosedError); ok {
+		switch cErr.Code() {
+		case ws.StatusNormalClosure, ws.StatusGoingAway:
+			return nil
+		}
 	}
 
 	return err
@@ -121,17 +127,27 @@ func proxyOutputFunc(id string, ws *wsWrapper, reader io.Reader, name string) fu
 }
 
 type wsWrapper struct {
-	c  *websocket.Conn
+	c  net.Conn
 	mu sync.Mutex
 }
 
-func (ws *wsWrapper) ReadJSON(v interface{}) error {
-	return ws.c.ReadJSON(v)
+func (w *wsWrapper) ReadJSON(v interface{}) error {
+	p, err := wsutil.ReadClientText(w.c)
+	if err != nil {
+		return err
+	}
+
+	return json.Unmarshal(p, v)
 }
 
-func (ws *wsWrapper) WriteJSON(v interface{}) error {
-	ws.mu.Lock()
-	err := ws.c.WriteJSON(v)
-	ws.mu.Unlock()
+func (w *wsWrapper) WriteJSON(v interface{}) error {
+	p, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	w.mu.Lock()
+	err = wsutil.WriteServerText(w.c, p)
+	w.mu.Unlock()
 	return err
 }

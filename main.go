@@ -18,13 +18,9 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
-	"github.com/gorilla/websocket"
+	"github.com/gobwas/ws"
 	"github.com/jakebailey/ua/templates"
 )
-
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool { return true }, // REMOVE ME
-}
 
 var (
 	createdContainers = make(map[string]bool)
@@ -176,7 +172,6 @@ func main() {
 		})
 
 		r.Get("/ws", func(w http.ResponseWriter, r *http.Request) {
-			ctx := r.Context()
 			id := chi.URLParam(r, "id")
 
 			if !removeCreatedContainer(id) {
@@ -184,37 +179,43 @@ func main() {
 				return
 			}
 
-			conn, err := upgrader.Upgrade(w, r, nil)
+			conn, _, _, err := ws.UpgradeHTTP(r, w, nil)
 			if err != nil {
-				log.Println(err)
-				return
-			}
-			defer conn.Close()
-
-			if err := cli.ContainerStart(ctx, id, types.ContainerStartOptions{}); err != nil {
-				log.Println(err)
+				http.Error(w, err.Error(), 500)
 				return
 			}
 
-			log.Printf("%v: started", id[:10])
+			go func() {
+				defer conn.Close()
 
-			if err := ProxyContainer(ctx, id, cli, conn); err != nil {
-				log.Println(err)
-			}
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
 
-			if err := cli.ContainerStop(ctx, id, nil); err != nil {
-				log.Println(err)
-			}
+				if err := cli.ContainerStart(ctx, id, types.ContainerStartOptions{}); err != nil {
+					log.Println(err)
+					return
+				}
 
-			log.Printf("%v: stopped", id[:10])
+				log.Printf("%v: started", id[:10])
 
-			if err := cli.ContainerRemove(ctx, id, types.ContainerRemoveOptions{
-				RemoveVolumes: true,
-			}); err != nil {
-				log.Println(err)
-			}
+				if err := ProxyContainer(ctx, id, cli, conn); err != nil {
+					log.Println(err)
+				}
 
-			log.Printf("%v: removed", id[:10])
+				if err := cli.ContainerStop(ctx, id, nil); err != nil {
+					log.Println(err)
+				}
+
+				log.Printf("%v: stopped", id[:10])
+
+				if err := cli.ContainerRemove(ctx, id, types.ContainerRemoveOptions{
+					RemoveVolumes: true,
+				}); err != nil {
+					log.Println(err)
+				}
+
+				log.Printf("%v: removed", id[:10])
+			}()
 		})
 	})
 
