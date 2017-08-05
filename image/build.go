@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"html/template"
 	"io"
+	"io/ioutil"
 	"path/filepath"
 
 	"github.com/docker/cli/cli/command/image/build"
@@ -28,7 +29,7 @@ func BuildContext(root string, tmplData interface{}) (io.ReadCloser, string, err
 	if err := tmpl.Execute(tmplBuf, tmplData); err != nil {
 		return nil, "", err
 	}
-	dockerfileCtx := dummyReadCloser{tmplBuf}
+	dockerfileCtx := ioutil.NopCloser(tmplBuf)
 
 	contextDir, relDockerfile, err := build.GetContextFromLocalDir(contextPath, "-")
 	if err != nil {
@@ -59,11 +60,3 @@ func BuildContext(root string, tmplData interface{}) (io.ReadCloser, string, err
 
 	return build.AddDockerfileToBuildContext(dockerfileCtx, buildCtx)
 }
-
-type dummyReadCloser struct {
-	io.Reader
-}
-
-func (d dummyReadCloser) Close() error { return nil }
-
-var _ io.ReadCloser = dummyReadCloser{}

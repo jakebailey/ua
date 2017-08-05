@@ -76,11 +76,3 @@ func getIDFromBody(body io.Reader) (string, error) {
 
 	return "", errors.New("ID not found")
 }
-
-type dummyReadCloser struct {
-	io.Reader
-}
-
-func (d dummyReadCloser) Close() error { return nil }
-
-var _ io.ReadCloser = dummyReadCloser{}
