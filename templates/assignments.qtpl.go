@@ -18,7 +18,7 @@ var (
 )
 
 //line assignments.qtpl:1
-func StreamAssignments(qw422016 *qt422016.Writer, id string) {
+func StreamAssignments(qw422016 *qt422016.Writer, uuid string) {
 	//line assignments.qtpl:1
 	qw422016.N().S(`
 <!doctype html>
@@ -29,13 +29,13 @@ func StreamAssignments(qw422016 *qt422016.Writer, id string) {
 
 <body>
 <p>
-<a href="/docker/`)
+<a href="/containers/`)
 	//line assignments.qtpl:10
-	qw422016.E().S(id)
+	qw422016.E().S(uuid)
 	//line assignments.qtpl:10
 	qw422016.N().S(`" target="_blank">`)
 	//line assignments.qtpl:10
-	qw422016.E().S(id)
+	qw422016.E().S(uuid)
 	//line assignments.qtpl:10
 	qw422016.N().S(`</a>
 </p>
@@ -47,22 +47,22 @@ func StreamAssignments(qw422016 *qt422016.Writer, id string) {
 }
 
 //line assignments.qtpl:15
-func WriteAssignments(qq422016 qtio422016.Writer, id string) {
+func WriteAssignments(qq422016 qtio422016.Writer, uuid string) {
 	//line assignments.qtpl:15
 	qw422016 := qt422016.AcquireWriter(qq422016)
 	//line assignments.qtpl:15
-	StreamAssignments(qw422016, id)
+	StreamAssignments(qw422016, uuid)
 	//line assignments.qtpl:15
 	qt422016.ReleaseWriter(qw422016)
 //line assignments.qtpl:15
 }
 
 //line assignments.qtpl:15
-func Assignments(id string) string {
+func Assignments(uuid string) string {
 	//line assignments.qtpl:15
 	qb422016 := qt422016.AcquireByteBuffer()
 	//line assignments.qtpl:15
-	WriteAssignments(qb422016, id)
+	WriteAssignments(qb422016, uuid)
 	//line assignments.qtpl:15
 	qs422016 := string(qb422016.B)
 	//line assignments.qtpl:15

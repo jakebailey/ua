@@ -1,4 +1,4 @@
-{% func Assignments(id string) %}
+{% func Assignments(uuid string) %}
 <!doctype html>
 <html>
 
@@ -7,7 +7,7 @@
 
 <body>
 <p>
-<a href="/docker/{%s id %}" target="_blank">{%s id %}</a>
+<a href="/containers/{%s uuid %}" target="_blank">{%s uuid %}</a>
 </p>
 </body>
 

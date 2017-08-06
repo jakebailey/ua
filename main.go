@@ -2,57 +2,20 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
-	"github.com/gobwas/ws"
-	"github.com/jakebailey/ua/proxy"
-	"github.com/jakebailey/ua/templates"
+	"github.com/jakebailey/ua/app"
 )
-
-var (
-	createdContainers = make(map[string]bool)
-	createdMu         sync.RWMutex
-)
-
-func addCreatedContainer(id string) {
-	createdMu.Lock()
-	defer createdMu.Unlock()
-
-	createdContainers[id] = true
-}
-
-func checkCreatedContainer(id string) bool {
-	createdMu.RLock()
-	defer createdMu.RUnlock()
-
-	return createdContainers[id]
-}
-
-func removeCreatedContainer(id string) bool {
-	createdMu.Lock()
-	defer createdMu.Unlock()
-
-	if !createdContainers[id] {
-		return false
-	}
-
-	delete(createdContainers, id)
-	return true
-}
 
 func main() {
 	spew.Config.Indent = "    "
@@ -68,159 +31,14 @@ func main() {
 	r.Use(middleware.NoCache)
 	r.Use(middleware.Heartbeat("/ping"))
 
-	imageBuilder := NewImageBuilder("assignments")
-
 	cli, err := client.NewEnvClient()
 	if err != nil {
 		panic(err)
 	}
 	defer cli.Close()
 
-	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		images, err := cli.ImageList(r.Context(), types.ImageListOptions{})
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			return
-		}
-
-		spew.Fdump(w, images)
-	})
-
-	r.Route("/assignments/{name}", func(r chi.Router) {
-		r.Use(func(h http.Handler) http.Handler {
-			fn := func(w http.ResponseWriter, r *http.Request) {
-				name := chi.URLParam(r, "name")
-				path := filepath.Join("assignments", name)
-
-				stat, err := os.Stat(path)
-				if err != nil {
-					if os.IsNotExist(err) {
-						http.NotFound(w, r)
-					} else {
-						http.Error(w, err.Error(), 500)
-					}
-					return
-				}
-
-				if !stat.IsDir() {
-					http.NotFound(w, r)
-					return
-				}
-
-				h.ServeHTTP(w, r)
-			}
-			return http.HandlerFunc(fn)
-		})
-
-		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-			c, err := cli.ContainerCreate(r.Context(), &container.Config{
-				Tty:       true,
-				OpenStdin: true,
-				Cmd:       []string{"/bin/bash"},
-				Image:     "dock0/arch",
-			}, &container.HostConfig{
-				Init: func(b bool) *bool { return &b }(true),
-			}, nil, "")
-			if err != nil {
-				http.Error(w, err.Error(), 500)
-				return
-			}
-
-			log.Printf("%v: created", c.ID[:10])
-
-			addCreatedContainer(c.ID)
-
-			templates.WriteAssignments(w, c.ID)
-		})
-
-		r.Get("/build", func(w http.ResponseWriter, r *http.Request) {
-			ctx := r.Context()
-			name := chi.URLParam(r, "name")
-
-			data := map[string]interface{}{
-				"NetID": "jbbaile2",
-				"Now":   time.Now(),
-			}
-
-			id, err := imageBuilder.Build(ctx, cli, name, data)
-			if err != nil {
-				http.Error(w, err.Error(), 500)
-				return
-			}
-
-			fmt.Fprintln(w, id)
-
-			// getRefFunc := func(ref string) (interface{}, []byte, error) {
-			// 	return cli.ImageInspectWithRaw(ctx, ref)
-			// }
-
-			// if err := inspect.Inspect(w, []string{id}, "", getRefFunc); err != nil {
-			// 	log.Println(err)
-			// }
-		})
-	})
-
-	r.Route("/docker/{id}", func(r chi.Router) {
-		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-			id := chi.URLParam(r, "id")
-
-			if !checkCreatedContainer(id) {
-				http.NotFound(w, r)
-				return
-			}
-
-			templates.WriteDocker(w, id)
-		})
-
-		r.Get("/ws", func(w http.ResponseWriter, r *http.Request) {
-			id := chi.URLParam(r, "id")
-
-			if !removeCreatedContainer(id) {
-				http.NotFound(w, r)
-				return
-			}
-
-			conn, _, _, err := ws.UpgradeHTTP(r, w, nil)
-			if err != nil {
-				http.Error(w, err.Error(), 500)
-				return
-			}
-
-			go func() {
-				defer conn.Close()
-
-				ctx, cancel := context.WithCancel(context.Background())
-				defer cancel()
-
-				if err := cli.ContainerStart(ctx, id, types.ContainerStartOptions{}); err != nil {
-					log.Println(err)
-					return
-				}
-
-				log.Printf("%v: started", id[:10])
-
-				proxyConn := proxy.NewWSConn(conn)
-
-				if err := proxy.Proxy(ctx, id, proxyConn, cli); err != nil {
-					log.Println(err)
-				}
-
-				if err := cli.ContainerStop(ctx, id, nil); err != nil {
-					log.Println(err)
-				}
-
-				log.Printf("%v: stopped", id[:10])
-
-				if err := cli.ContainerRemove(ctx, id, types.ContainerRemoveOptions{
-					RemoveVolumes: true,
-				}); err != nil {
-					log.Println(err)
-				}
-
-				log.Printf("%v: removed", id[:10])
-			}()
-		})
-	})
+	a := app.NewApp(cli, app.Debug())
+	a.Route(r)
 
 	workDir, _ := os.Getwd()
 	filesDir := filepath.Join(workDir, "static")

@@ -2,13 +2,20 @@ package image
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
 	"html/template"
 	"io"
 	"io/ioutil"
+	"log"
 	"path/filepath"
 
 	"github.com/docker/cli/cli/command/image/build"
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/archive"
+	"github.com/docker/docker/pkg/jsonmessage"
 )
 
 const (
@@ -16,7 +23,58 @@ const (
 	ContextSubdir = "context"
 )
 
-func BuildContext(root string, tmplData interface{}) (io.ReadCloser, string, error) {
+func Build(ctx context.Context, cli client.CommonAPIClient, path string, tag string, tmplData interface{}) (string, error) {
+	buildCtx, relDockerfile, err := createBuildContext(path, tmplData)
+	if err != nil {
+		return "", err
+	}
+	defer buildCtx.Close()
+
+	buildOptions := types.ImageBuildOptions{
+		Remove:     true,
+		Dockerfile: relDockerfile,
+		Tags:       []string{tag},
+	}
+
+	response, err := cli.ImageBuild(ctx, buildCtx, buildOptions)
+	if err != nil {
+		return "", err
+	}
+	defer response.Body.Close()
+
+	id, err := getIDFromBody(response.Body)
+	if err != nil {
+		return "", err
+	}
+
+	log.Println("created image", id)
+	return id, nil
+}
+
+func getIDFromBody(body io.Reader) (string, error) {
+	dec := json.NewDecoder(body)
+	for {
+		var jm jsonmessage.JSONMessage
+		if err := dec.Decode(&jm); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return "", err
+		}
+
+		if jm.Aux != nil {
+			var result types.BuildResult
+			if err := json.Unmarshal(*jm.Aux, &result); err != nil {
+				return "", err
+			}
+			return result.ID, nil
+		}
+	}
+
+	return "", errors.New("ID not found")
+}
+
+func createBuildContext(root string, tmplData interface{}) (io.ReadCloser, string, error) {
 	tmplPath := filepath.Join(root, TemplateName)
 	contextPath := filepath.Join(root, ContextSubdir)
 
