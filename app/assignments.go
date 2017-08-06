@@ -65,30 +65,33 @@ func (a *App) assignmentsList(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) assignmentBuild(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	tag := fmt.Sprintf("%s-%d", chi.URLParam(r, "name"), time.Now().Unix())
 	path := ctx.Value(assignmentPathKey).(string)
 	u := uuid.NewV4()
+
+	token := fmt.Sprintf("%s-%d", chi.URLParam(r, "name"), time.Now().Unix())
+	imageTag := token + "-image"
+	containerName := token + "-container"
 
 	data := map[string]interface{}{
 		"NetID": "jbbaile2",
 		"Now":   time.Now(),
 	}
 
-	id, err := image.Build(ctx, a.cli, path, tag, data)
+	id, err := image.Build(ctx, a.cli, path, imageTag, data)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
 
-	log.Printf("image %v (%v) created", id[:10], tag)
+	truth := true
 
 	c, err := a.cli.ContainerCreate(ctx, &container.Config{
 		Tty:       true,
 		OpenStdin: true,
-		Image:     tag,
+		Image:     id,
 	}, &container.HostConfig{
-		Init: func(b bool) *bool { return &b }(true),
-	}, nil, "")
+		Init: &truth,
+	}, nil, containerName)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
