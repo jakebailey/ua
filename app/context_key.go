@@ -1,3 +1,5 @@
 package app
 
-type contextKey string
+type contextKey struct {
+	value string
+}

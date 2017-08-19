@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"io"
-	"log"
 )
 
 // RuneCopy is like io.Copy, but only writes valid runes, waiting for more input if invalid.
@@ -15,8 +14,7 @@ func RuneCopy(dst io.Writer, src io.Reader) (written int, err error) {
 	s.Split(ScanRunesGreedy)
 
 	for s.Scan() {
-		if s.Err() != nil {
-			log.Printf("scanner error: %s", err)
+		if err = s.Err(); err != nil {
 			break
 		}
 		n, err = dst.Write(s.Bytes())

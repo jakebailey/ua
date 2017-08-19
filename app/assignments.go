@@ -3,25 +3,27 @@ package app
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"time"
 
-	"github.com/satori/go.uuid"
-
 	"github.com/docker/docker/api/types/container"
 	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/middleware"
 	"github.com/jakebailey/ua/image"
 	"github.com/jakebailey/ua/templates"
+	"github.com/rs/zerolog"
+	"github.com/satori/go.uuid"
 )
 
-const (
-	assignmentPathKey = contextKey("assignmentPath")
+var (
+	assignmentPathKey = &contextKey{"assignmentPath"}
 )
 
 func (a *App) routeAssignments(r chi.Router) {
+	r.Use(middleware.NoCache)
+
 	if a.debug {
 		r.Get("/", a.assignmentsList)
 	}
@@ -29,6 +31,9 @@ func (a *App) routeAssignments(r chi.Router) {
 	r.Route("/{name}", func(r chi.Router) {
 		r.Use(func(h http.Handler) http.Handler {
 			fn := func(w http.ResponseWriter, r *http.Request) {
+				ctx := r.Context()
+				log := zerolog.Ctx(ctx)
+
 				name := chi.URLParam(r, "name")
 				path := filepath.Join(a.assignmentPath, name)
 
@@ -36,7 +41,9 @@ func (a *App) routeAssignments(r chi.Router) {
 				if err != nil {
 					http.NotFound(w, r)
 					if !os.IsNotExist(err) {
-						log.Println(err)
+						log.Error().
+							Err(err).
+							Msg("unexpected error while stat-ing assignment dir")
 					}
 					return
 				}
@@ -46,7 +53,6 @@ func (a *App) routeAssignments(r chi.Router) {
 					return
 				}
 
-				ctx := r.Context()
 				ctx = context.WithValue(ctx, assignmentPathKey, path)
 				r = r.WithContext(ctx)
 
@@ -65,6 +71,8 @@ func (a *App) assignmentsList(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) assignmentBuild(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	log := zerolog.Ctx(ctx)
+
 	path := ctx.Value(assignmentPathKey).(string)
 	u := uuid.NewV4()
 
@@ -79,9 +87,16 @@ func (a *App) assignmentBuild(w http.ResponseWriter, r *http.Request) {
 
 	id, err := image.Build(ctx, a.cli, path, imageTag, data)
 	if err != nil {
+		log.Error().Err(err).Msg("error building image")
+
 		http.Error(w, err.Error(), 500)
 		return
 	}
+
+	log.Info().
+		Str("image_id", id).
+		Str("image_tag", imageTag).
+		Msg("built image")
 
 	truth := true
 
@@ -97,7 +112,10 @@ func (a *App) assignmentBuild(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("%v: created", c.ID[:10])
+	log.Info().
+		Str("container_id", c.ID).
+		Str("container_name", containerName).
+		Msg("created container")
 
 	a.activeMu.Lock()
 	a.active[u] = c.ID

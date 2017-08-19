@@ -1,28 +1,25 @@
 package image
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
-	"html/template"
 	"io"
-	"io/ioutil"
-	"log"
-	"path/filepath"
 
-	"github.com/docker/cli/cli/command/image/build"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
-	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/jsonmessage"
 )
 
-const (
-	TemplateName  = "Dockerfile.tmpl"
-	ContextSubdir = "context"
-)
-
+// Build builds a docker image on the given docker client. The process used
+// differs from the "normal" docker build process in that the Dockerfile is
+// a template, and exists outside of the normal build directory. A typical
+// layout looks like:
+//
+//     test
+//     +-- context
+//     |   +-- helloworld.txt
+//     +-- Dockerfile.tmpl
 func Build(ctx context.Context, cli client.CommonAPIClient, path string, tag string, tmplData interface{}) (string, error) {
 	buildCtx, relDockerfile, err := createBuildContext(path, tmplData)
 	if err != nil {
@@ -47,7 +44,6 @@ func Build(ctx context.Context, cli client.CommonAPIClient, path string, tag str
 		return "", err
 	}
 
-	log.Println("created image", id)
 	return id, nil
 }
 
@@ -72,49 +68,4 @@ func getIDFromBody(body io.Reader) (string, error) {
 	}
 
 	return "", errors.New("ID not found")
-}
-
-func createBuildContext(root string, tmplData interface{}) (io.ReadCloser, string, error) {
-	tmplPath := filepath.Join(root, TemplateName)
-	contextPath := filepath.Join(root, ContextSubdir)
-
-	tmpl, err := template.ParseFiles(tmplPath)
-	if err != nil {
-		return nil, "", err
-	}
-
-	tmplBuf := &bytes.Buffer{}
-	if err := tmpl.Execute(tmplBuf, tmplData); err != nil {
-		return nil, "", err
-	}
-	dockerfileCtx := ioutil.NopCloser(tmplBuf)
-
-	contextDir, relDockerfile, err := build.GetContextFromLocalDir(contextPath, "-")
-	if err != nil {
-		return nil, "", err
-	}
-
-	excludes, err := build.ReadDockerignore(contextDir)
-	if err != nil {
-		return nil, "", err
-	}
-
-	if err := build.ValidateContextDirectory(contextDir, excludes); err != nil {
-		return nil, "", err
-	}
-
-	relDockerfile, err = archive.CanonicalTarNameForPath(relDockerfile)
-	if err != nil {
-		return nil, "", err
-	}
-
-	excludes = build.TrimBuildFilesFromExcludes(excludes, relDockerfile, true)
-	buildCtx, err := archive.TarWithOptions(contextDir, &archive.TarOptions{
-		ExcludePatterns: excludes,
-	})
-	if err != nil {
-		return nil, "", err
-	}
-
-	return build.AddDockerfileToBuildContext(dockerfileCtx, buildCtx)
 }

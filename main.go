@@ -2,11 +2,11 @@ package main
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -15,20 +15,59 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/jakebailey/ua/app"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/hlog"
 )
 
 func main() {
 	spew.Config.Indent = "    "
 	spew.Config.ContinueOnMethod = true
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
+
+	addr := ":8000"
+
+	log := zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr}).With().
+		Timestamp().
+		Str("addr", addr).
+		Logger()
 
 	r := chi.NewRouter()
 
-	r.Use(middleware.RequestID)
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
+	r.Use(hlog.NewHandler(log))
+	r.Use(hlog.AccessHandler(func(r *http.Request, status, size int, duration time.Duration) {
+		hlog.FromRequest(r).Info().
+			Str("method", r.Method).
+			Str("url", r.URL.String()).
+			Int("status", status).
+			Int("size", size).
+			Dur("duration", duration).
+			Msg("http request")
+	}))
+	r.Use(hlog.RequestIDHandler("req_id", "Request-Id"))
+
+	r.Use(func(next http.Handler) http.Handler {
+		fn := func(w http.ResponseWriter, r *http.Request) {
+			defer func() {
+				if rvr := recover(); rvr != nil {
+					log := hlog.FromRequest(r)
+
+					stack := string(debug.Stack())
+
+					log.Error().
+						Interface("panic_value", rvr).
+						Str("stack", stack).
+						Msg("PANIC")
+
+					http.Error(w, stack, http.StatusInternalServerError)
+				}
+			}()
+
+			next.ServeHTTP(w, r)
+		}
+
+		return http.HandlerFunc(fn)
+	})
+
 	r.Use(middleware.CloseNotify)
-	r.Use(middleware.NoCache)
 	r.Use(middleware.Heartbeat("/ping"))
 
 	cli, err := client.NewEnvClient()
@@ -48,14 +87,14 @@ func main() {
 	})
 
 	srv := &http.Server{
-		Addr:    ":8000",
+		Addr:    addr,
 		Handler: r,
 	}
 
 	go func() {
-		log.Println("starting server at", srv.Addr)
+		log.Info().Msg("starting server")
 		if err := srv.ListenAndServe(); err != nil {
-			log.Println(err)
+			log.Error().Err(err).Msg("ListenAndServe error")
 		}
 	}()
 
@@ -63,7 +102,7 @@ func main() {
 	signal.Notify(stopChan, os.Interrupt)
 
 	<-stopChan
-	log.Println("shutting down")
+	log.Info().Msg("shutting down")
 
 	ctx, canc := context.WithTimeout(context.Background(), 5*time.Second)
 	defer canc()
