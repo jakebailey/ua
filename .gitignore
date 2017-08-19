@@ -24,5 +24,4 @@ _testmain.go
 *.prof
 
 ua
-vendor/
 .vscode/
