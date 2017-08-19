@@ -15,6 +15,12 @@
 			"revisionTime": "2017-06-29T20:46:27Z"
 		},
 		{
+			"checksumSHA1": "SEWHtp6LFg0zD7ZEojzgOVYBx4E=",
+			"path": "github.com/Masterminds/squirrel",
+			"revision": "e13dbacee404686afd0acf2d44b8d34869605e03",
+			"revisionTime": "2015-03-02T16:50:45Z"
+		},
+		{
 			"checksumSHA1": "o/3cn04KAiwC7NqNVvmfVTD+hgA=",
 			"path": "github.com/Microsoft/go-winio",
 			"revision": "78439966b38d69bf38227fbf57ac8a6fee70f69a",
@@ -375,6 +381,36 @@
 			"revisionTime": "2017-08-15T08:56:58Z"
 		},
 		{
+			"checksumSHA1": "3dA3PsgYXZXzfsOOdDDvyp8zO0w=",
+			"path": "github.com/lann/builder",
+			"revision": "f22ce00fd9394014049dad11c244859432bd6820",
+			"revisionTime": "2015-08-08T15:11:31Z"
+		},
+		{
+			"checksumSHA1": "nR871nUQ6KxGoDR+TdgQhGUqcHI=",
+			"path": "github.com/lann/ps",
+			"revision": "62de8c46ede02a7675c4c79c84883eb164cb71e3",
+			"revisionTime": "2015-08-10T15:23:59Z"
+		},
+		{
+			"checksumSHA1": "A3ymiEhz0WaT+sfK1aJhlqhf41o=",
+			"path": "github.com/lib/pq",
+			"revision": "e42267488fe361b9dc034be7a6bffef5b195bceb",
+			"revisionTime": "2017-08-10T06:12:20Z"
+		},
+		{
+			"checksumSHA1": "q5SZBWFVC3wOIzftf+l/h5WLG1k=",
+			"path": "github.com/lib/pq/oid",
+			"revision": "e42267488fe361b9dc034be7a6bffef5b195bceb",
+			"revisionTime": "2017-08-10T06:12:20Z"
+		},
+		{
+			"checksumSHA1": "B1iGaUz7NrjEmCjVdIgH5pvkTe8=",
+			"path": "github.com/oklog/ulid",
+			"revision": "66bb6560562feca7045b23db1ae85b01260f87c5",
+			"revisionTime": "2017-01-17T20:06:51Z"
+		},
+		{
 			"checksumSHA1": "OFNit1Qx2DdWhotfREKodDNUwCM=",
 			"path": "github.com/opencontainers/go-digest",
 			"revision": "279bed98673dd5bef374d3b6e4b09e2af76183bf",
@@ -517,6 +553,18 @@
 			"path": "golang.org/x/time/rate",
 			"revision": "8be79e1e0910c292df4e79c241bb7e8f7e725959",
 			"revisionTime": "2017-04-24T23:28:54Z"
+		},
+		{
+			"checksumSHA1": "vEcdPWLYXyjeiy/DHt9l5W2JkvA=",
+			"path": "gopkg.in/src-d/go-kallax.v1",
+			"revision": "80487620b6c62eb3f558bf9863be31842912dd47",
+			"revisionTime": "2017-08-09T15:39:13Z"
+		},
+		{
+			"checksumSHA1": "EIBYPV3Yrpcat18cPkaTouMoCqA=",
+			"path": "gopkg.in/src-d/go-kallax.v1/types",
+			"revision": "80487620b6c62eb3f558bf9863be31842912dd47",
+			"revisionTime": "2017-08-09T15:39:13Z"
 		}
 	],
 	"rootPath": "github.com/jakebailey/ua"
