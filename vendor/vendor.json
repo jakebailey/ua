@@ -27,6 +27,18 @@
 			"revisionTime": "2012-06-04T00:48:16Z"
 		},
 		{
+			"checksumSHA1": "kjygOPbr5jsND2nU4NJnyyDRVF8=",
+			"path": "github.com/alexflint/go-arg",
+			"revision": "cef6506c97e5731da728c374ff3523e481026423",
+			"revisionTime": "2017-03-30T21:10:29Z"
+		},
+		{
+			"checksumSHA1": "M5vBatiAKUjyLYrb9nS+6QbpEjE=",
+			"path": "github.com/alexflint/go-scalar",
+			"revision": "e80c3b7ed292b052c7083b6fd7154a8422c33f65",
+			"revisionTime": "2017-02-16T02:04:25Z"
+		},
+		{
 			"checksumSHA1": "mrz/kicZiUaHxkyfvC/DyQcr8Do=",
 			"path": "github.com/davecgh/go-spew/spew",
 			"revision": "adab96458c51a58dc1783b3335dcce5461522e75",

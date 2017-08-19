@@ -77,9 +77,3 @@ func Logger(log zerolog.Logger) Option {
 		a.log = log
 	}
 }
-
-func ConsoleLogger() Option {
-	return func(a *App) {
-		a.log = zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr}).With().Timestamp().Logger()
-	}
-}
