@@ -1,18 +1,36 @@
 package app
 
 import (
+	"net/http"
+	"os"
 	"sync"
 
 	"github.com/docker/docker/client"
 	"github.com/go-chi/chi"
+	"github.com/rs/zerolog"
 	"github.com/satori/go.uuid"
+)
+
+var (
+	// DefaultAssignmentPath is the path assignments are stored in. If relative,
+	// then this will be relative to the current working directory.
+	DefaultAssignmentPath = "assignments"
+	// DefaultLogger is the default zerolog Logger that will be used. It
+	// defaults to outputting to stderr in JSON format.
+	DefaultLogger = zerolog.New(os.Stderr).With().Timestamp().Logger()
+	// DefaultStaticPath is the path to the static elements served at /static
+	// by the app.
+	DefaultStaticPath = "static"
 )
 
 type App struct {
 	debug          bool
 	assignmentPath string
+	staticPath     string
 
-	cli client.CommonAPIClient
+	router chi.Router
+	log    zerolog.Logger
+	cli    client.CommonAPIClient
 
 	active   map[uuid.UUID]string
 	activeMu sync.RWMutex
@@ -20,7 +38,9 @@ type App struct {
 
 func NewApp(cli client.CommonAPIClient, options ...Option) *App {
 	a := &App{
-		assignmentPath: "assignments",
+		assignmentPath: DefaultAssignmentPath,
+		log:            DefaultLogger,
+		staticPath:     DefaultStaticPath,
 		cli:            cli,
 		active:         make(map[uuid.UUID]string),
 	}
@@ -29,12 +49,13 @@ func NewApp(cli client.CommonAPIClient, options ...Option) *App {
 		o(a)
 	}
 
+	a.route()
+
 	return a
 }
 
-func (a *App) Route(r chi.Router) {
-	r.Route("/assignments", a.routeAssignments)
-	r.Route("/containers", a.routeContainers)
+func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	a.router.ServeHTTP(w, r)
 }
 
 type Option func(*App)
@@ -48,5 +69,17 @@ func Debug() Option {
 func AssignmentPath(path string) Option {
 	return func(a *App) {
 		a.assignmentPath = path
+	}
+}
+
+func Logger(log zerolog.Logger) Option {
+	return func(a *App) {
+		a.log = log
+	}
+}
+
+func ConsoleLogger() Option {
+	return func(a *App) {
+		a.log = zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr}).With().Timestamp().Logger()
 	}
 }
