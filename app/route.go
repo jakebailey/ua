@@ -59,6 +59,7 @@ func (a *App) route() {
 
 	r.Route("/assignments", a.routeAssignments)
 	r.Route("/containers", a.routeContainers)
+	r.Route("/specs", a.routeSpecs)
 
 	a.router = r
 }

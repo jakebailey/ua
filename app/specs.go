@@ -6,22 +6,23 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/render"
+	"github.com/jakebailey/ua/models"
 	"github.com/rs/zerolog/hlog"
-	uuid "github.com/satori/go.uuid"
 )
 
 func (a *App) routeSpecs(r chi.Router) {
 	r.Use(middleware.NoCache)
+	r.Post("/", a.specPost)
 }
 
 type specPostRequest struct {
-	AssignmentName string      `json:"assignment_name"`
+	AssignmentName string      `json:"assignmentName"`
 	Seed           string      `json:"seed"`
 	Data           interface{} `json:"data"`
 }
 
 type specPostResponse struct {
-	UUID uuid.UUID `json:"uuid"`
+	ID string `json:"id"`
 }
 
 func (a *App) specPost(w http.ResponseWriter, r *http.Request) {
@@ -45,5 +46,25 @@ func (a *App) specPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: the rest of this function
+	spec := models.NewSpec()
+	spec.AssignmentName = req.AssignmentName
+	spec.Seed = req.Seed
+	spec.Data = req.Data
+
+	if err := a.specStore.Insert(spec); err != nil {
+		log.Error().Err(err).Interface("spec", spec).Msg("error inserting new spec")
+
+		if a.debug {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		} else {
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		}
+		return
+	}
+
+	resp := specPostResponse{
+		ID: spec.ID.String(),
+	}
+
+	render.Respond(w, r, resp)
 }
