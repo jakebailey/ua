@@ -202,3 +202,14 @@ func (a *App) Shutdown(ctx context.Context) error {
 	a.log.Info().Str("addr", a.addr).Msg("shutting down http server")
 	return a.srv.Shutdown(ctx)
 }
+
+// httpError writes a message to the writer. If the app is in debug mode,
+// then the message will be written, otherwise the default message
+// for the provided status code will be used.
+func (a *App) httpError(w http.ResponseWriter, msg string, code int) {
+	if a.debug {
+		http.Error(w, msg, code)
+	} else {
+		http.Error(w, http.StatusText(code), code)
+	}
+}

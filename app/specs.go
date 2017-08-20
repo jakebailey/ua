@@ -32,7 +32,7 @@ func (a *App) specPost(w http.ResponseWriter, r *http.Request) {
 
 	if err := render.Decode(r, &req); err != nil {
 		log.Warn().Err(err).Msg("error decoding specPostRequest")
-		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		a.httpError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -53,12 +53,7 @@ func (a *App) specPost(w http.ResponseWriter, r *http.Request) {
 
 	if err := a.specStore.Insert(spec); err != nil {
 		log.Error().Err(err).Interface("spec", spec).Msg("error inserting new spec")
-
-		if a.debug {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		} else {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		}
+		a.httpError(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 

@@ -38,11 +38,7 @@ func (a *App) route() {
 						Str("stack", stack).
 						Msg("PANIC")
 
-					if a.debug {
-						http.Error(w, stack, http.StatusInternalServerError)
-					} else {
-						http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-					}
+					a.httpError(w, stack, http.StatusInternalServerError)
 				}
 			}()
 

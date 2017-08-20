@@ -89,7 +89,7 @@ func (a *App) assignmentBuild(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Error().Err(err).Msg("error building image")
 
-		http.Error(w, err.Error(), 500)
+		a.httpError(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -108,7 +108,7 @@ func (a *App) assignmentBuild(w http.ResponseWriter, r *http.Request) {
 		Init: &truth,
 	}, nil, containerName)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		a.httpError(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 

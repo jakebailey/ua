@@ -37,7 +37,7 @@ func (a *App) routeContainers(r chi.Router) {
 				u, err := uuid.FromString(s)
 				if err != nil {
 					log.Error().Err(err).Msg("error parsing UUID")
-					http.Error(w, err.Error(), http.StatusBadRequest)
+					a.httpError(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
 
@@ -73,7 +73,7 @@ func (a *App) containersList(w http.ResponseWriter, r *http.Request) {
 	containers, err := a.cli.ContainerList(ctx, types.ContainerListOptions{})
 	if err != nil {
 		log.Error().Err(err).Msg("error listing containers")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		a.httpError(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -101,8 +101,8 @@ func (a *App) containerAttach(w http.ResponseWriter, r *http.Request) {
 
 	conn, _, _, err := ws.UpgradeHTTP(r, w, nil)
 	if err != nil {
+		// No need to write an error, UpgradeHTTP does this itself.
 		log.Error().Err(err).Msg("error upgrading to websocket")
-		http.Error(w, err.Error(), 500)
 		return
 	}
 
