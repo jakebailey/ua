@@ -13,8 +13,9 @@ import (
 )
 
 var args = struct {
-	Addr  string `arg:"env" help:"address to run the http server on"`
-	Debug bool   `arg:"env" help:"enables pretty logging and extra debug routes"`
+	Addr     string `arg:"env,help:address to run the http server on"`
+	Debug    bool   `arg:"env,help:enables pretty logging and extra debug routes"`
+	Database string `arg:"required,env,help:postgres database connection string"`
 }{
 	Addr: ":8000",
 }
@@ -35,12 +36,12 @@ func main() {
 		app.Debug(args.Debug),
 	}
 
-	a := app.NewApp(options...)
+	a := app.NewApp(args.Database, options...)
 
 	go func() {
-		log.Info().Msg("starting")
+		log.Info().Msg("starting app")
 		if err := a.Run(); err != nil {
-			log.Error().Err(err).Msg("app.Run error")
+			log.Fatal().Err(err).Msg("app.Run error")
 		}
 	}()
 
@@ -48,7 +49,7 @@ func main() {
 	signal.Notify(stopChan, os.Interrupt)
 
 	<-stopChan
-	log.Info().Msg("shutting down")
+	log.Info().Msg("shutting down app")
 
 	ctx, canc := context.WithTimeout(context.Background(), 5*time.Second)
 	defer canc()

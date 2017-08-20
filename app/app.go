@@ -2,14 +2,18 @@ package app
 
 import (
 	"context"
+	"database/sql"
 	"io/ioutil"
 	"net/http"
 	"sync"
+
+	_ "github.com/lib/pq" // postgresql driver
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/docker/docker/client"
 	"github.com/go-chi/chi"
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/satori/go.uuid"
 )
 
@@ -47,6 +51,9 @@ type App struct {
 	cli      client.CommonAPIClient
 	cliClose func() error
 
+	dbString string
+	db       *sql.DB
+
 	active   map[uuid.UUID]string
 	activeMu sync.RWMutex
 }
@@ -54,13 +61,14 @@ type App struct {
 // NewApp creates a new app, with an optional list of options.
 // This function does not open any connections, only setting up the app before
 // Run is called.
-func NewApp(options ...Option) *App {
+func NewApp(dbString string, options ...Option) *App {
 	a := &App{
 		addr:           DefaultAddr,
 		assignmentPath: DefaultAssignmentPath,
 		log:            DefaultLogger,
 		staticPath:     DefaultStaticPath,
 		spew:           DefaultSpew,
+		dbString:       dbString,
 		active:         make(map[uuid.UUID]string),
 	}
 
@@ -157,6 +165,19 @@ func (a *App) Run() error {
 	// Sanity check Docker client
 	_, err := a.cli.Info(context.Background())
 	if err != nil {
+		return err
+	}
+
+	if a.db, err = sql.Open("postgres", a.dbString); err != nil {
+		return err
+	}
+	defer func() {
+		if err := a.db.Close(); err != nil {
+			log.Error().Err(err).Msg("error closing database connection")
+		}
+	}()
+
+	if err := a.db.Ping(); err != nil {
 		return err
 	}
 
