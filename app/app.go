@@ -30,6 +30,7 @@ var (
 	DefaultSpew = &spew.ConfigState{Indent: "    ", ContinueOnMethod: true}
 )
 
+// App is the main application for uAssign.
 type App struct {
 	debug bool
 
@@ -50,6 +51,9 @@ type App struct {
 	activeMu sync.RWMutex
 }
 
+// NewApp creates a new app, with an optional list of options.
+// This function does not open any connections, only setting up the app before
+// Run is called.
 func NewApp(options ...Option) *App {
 	a := &App{
 		addr:           DefaultAddr,
@@ -73,38 +77,54 @@ func NewApp(options ...Option) *App {
 	return a
 }
 
+// Option is a function that runs on an App to configure it.
 type Option func(*App)
 
+// Debug sets the debug mode. The default is false.
 func Debug(debug bool) Option {
 	return func(a *App) {
 		a.debug = debug
 	}
 }
 
+// Addr sets the address of the app's HTTP server. If not provided,
+// DefaultAddr is used.
 func Addr(addr string) Option {
 	return func(a *App) {
 		a.addr = addr
 	}
 }
 
+// AssignmentPath sets the path for the assignment directory. If not
+// provided, DefaultAssignmentPath is used.
 func AssignmentPath(path string) Option {
 	return func(a *App) {
 		a.assignmentPath = path
 	}
 }
 
+// Logger sets the logger used within the app. If not provided,
+// DefaultLogger is used.
 func Logger(log zerolog.Logger) Option {
 	return func(a *App) {
 		a.log = log
 	}
 }
 
+// SpewConfig sets the spew config state used for various debugging
+// endpoints in the app. If not provided, DefaultSpew is used.
 func SpewConfig(c *spew.ConfigState) Option {
+	if c == nil {
+		panic("app: spew ConfigState cannot be nil")
+	}
+
 	return func(a *App) {
 		a.spew = c
 	}
 }
 
+// DockerClient sets the docker client used in the app. If closeFunc is not
+// nil, then it will be called when the app closes.
 func DockerClient(cli client.CommonAPIClient, closeFunc func() error) Option {
 	return func(a *App) {
 		a.cli = cli
@@ -112,6 +132,8 @@ func DockerClient(cli client.CommonAPIClient, closeFunc func() error) Option {
 	}
 }
 
+// Run runs the app, opening docker/db/etc connections. This function blocks
+// until an error occurs, or the app closes.
 func (a *App) Run() error {
 	if a.cli == nil {
 		cli, err := client.NewEnvClient()
@@ -147,6 +169,8 @@ func (a *App) Run() error {
 	return a.srv.ListenAndServe()
 }
 
+// Shutdown gracefully shuts down the bot. It behaves like
+// http.Server.Shutdown.
 func (a *App) Shutdown(ctx context.Context) error {
 	a.log.Info().Str("addr", a.addr).Msg("shutting down http server")
 	return a.srv.Shutdown(ctx)

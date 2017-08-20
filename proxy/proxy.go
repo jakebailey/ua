@@ -11,6 +11,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// Conn is the interface for sending proxy data to the client.
 type Conn interface {
 	ReadJSON(v interface{}) error
 	WriteJSON(v interface{}) error

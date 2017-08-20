@@ -10,6 +10,7 @@ import (
 	"github.com/gobwas/ws/wsutil"
 )
 
+// WSConn wraps a gobwas/ws connection.
 type WSConn struct {
 	c  net.Conn
 	mu sync.Mutex
@@ -17,10 +18,12 @@ type WSConn struct {
 
 var _ Conn = (*WSConn)(nil)
 
+// NewWSConn creates a new WSConn from a net.Conn.
 func NewWSConn(conn net.Conn) *WSConn {
 	return &WSConn{c: conn}
 }
 
+// ReadJSON parses the next text websocket text message into JSON.
 func (w *WSConn) ReadJSON(v interface{}) error {
 	buf, err := wsutil.ReadClientText(w.c)
 	if err != nil {
@@ -30,6 +33,8 @@ func (w *WSConn) ReadJSON(v interface{}) error {
 	return json.Unmarshal(buf, v)
 }
 
+// WriteJSON writes a value to the websocket as JSON. It is safe for
+// concurrent use.
 func (w *WSConn) WriteJSON(v interface{}) error {
 	buf, err := json.Marshal(v)
 	if err != nil {
@@ -42,10 +47,14 @@ func (w *WSConn) WriteJSON(v interface{}) error {
 	return err
 }
 
+// Close closes the connection.
 func (w *WSConn) Close() error {
 	return w.c.Close()
 }
 
+// IsClose returns true if the error provided is a normal closure error
+// and can be ignored. This includes io.EOF and a wsutil.ClosedError
+// with the code set to StatusNormalClosure or StatusGoingAway.
 func (w *WSConn) IsClose(err error) bool {
 	if err == io.EOF {
 		return true
