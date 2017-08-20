@@ -12,6 +12,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/docker/docker/client"
 	"github.com/go-chi/chi"
+	"github.com/jakebailey/ua/models"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/satori/go.uuid"
@@ -51,8 +52,10 @@ type App struct {
 	cli      client.CommonAPIClient
 	cliClose func() error
 
-	dbString string
-	db       *sql.DB
+	dbString      string
+	db            *sql.DB
+	specStore     *models.SpecStore
+	instanceStore *models.InstanceStore
 
 	active   map[uuid.UUID]string
 	activeMu sync.RWMutex
@@ -180,6 +183,9 @@ func (a *App) Run() error {
 	if err := a.db.Ping(); err != nil {
 		return err
 	}
+
+	a.specStore = models.NewSpecStore(a.db)
+	a.instanceStore = models.NewInstanceStore(a.db)
 
 	a.srv = &http.Server{
 		Addr:    a.addr,

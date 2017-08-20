@@ -15,10 +15,12 @@
 			"revisionTime": "2017-06-29T20:46:27Z"
 		},
 		{
-			"checksumSHA1": "SEWHtp6LFg0zD7ZEojzgOVYBx4E=",
+			"checksumSHA1": "ihF6r4qyn7jWp+8l9nuk+jx6ih8=",
 			"path": "github.com/Masterminds/squirrel",
-			"revision": "e13dbacee404686afd0acf2d44b8d34869605e03",
-			"revisionTime": "2015-03-02T16:50:45Z"
+			"revision": "6f6314605b0813a729e29fcc7a51ffae22d368f1",
+			"revisionTime": "2017-08-13T03:51:53Z",
+			"version": "v1",
+			"versionExact": "v1"
 		},
 		{
 			"checksumSHA1": "o/3cn04KAiwC7NqNVvmfVTD+hgA=",
