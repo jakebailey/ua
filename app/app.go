@@ -155,15 +155,14 @@ func (a *App) Run() error {
 		a.cli = cli
 		a.cliClose = cli.Close
 	}
-	defer func() {
-		if a.cliClose == nil {
-			return
-		}
 
-		if err := a.cliClose(); err != nil {
-			a.log.Error().Err(err).Msg("error closing docker client")
-		}
-	}()
+	if a.cliClose != nil {
+		defer func() {
+			if err := a.cliClose(); err != nil {
+				a.log.Error().Err(err).Msg("error closing docker client")
+			}
+		}()
+	}
 
 	// Sanity check Docker client
 	_, err := a.cli.Info(context.Background())
