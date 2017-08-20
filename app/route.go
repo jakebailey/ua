@@ -14,6 +14,7 @@ func (a *App) route() {
 	r := chi.NewRouter()
 
 	r.Use(hlog.NewHandler(a.log))
+	r.Use(hlog.RequestIDHandler("req_id", "Request-Id"))
 	r.Use(hlog.AccessHandler(func(r *http.Request, status, size int, duration time.Duration) {
 		hlog.FromRequest(r).Info().
 			Str("method", r.Method).
@@ -23,7 +24,6 @@ func (a *App) route() {
 			Dur("duration", duration).
 			Msg("http request")
 	}))
-	r.Use(hlog.RequestIDHandler("req_id", "Request-Id"))
 
 	r.Use(func(next http.Handler) http.Handler {
 		fn := func(w http.ResponseWriter, r *http.Request) {
@@ -55,7 +55,9 @@ func (a *App) route() {
 
 	r.Route("/assignments", a.routeAssignments)
 	r.Route("/containers", a.routeContainers)
+
 	r.Route("/specs", a.routeSpecs)
+	r.Route("/term", a.routeTerm)
 
 	a.router = r
 }

@@ -59,6 +59,8 @@ type App struct {
 
 	active   map[uuid.UUID]string
 	activeMu sync.RWMutex
+
+	instanceMu sync.RWMutex
 }
 
 // NewApp creates a new app, with an optional list of options.
