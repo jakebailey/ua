@@ -2,21 +2,19 @@ package main
 
 import (
 	"context"
-	"net/http"
+	"io"
 	"os"
 	"os/signal"
 	"time"
 
 	"github.com/alexflint/go-arg"
-	"github.com/davecgh/go-spew/spew"
-	"github.com/docker/docker/client"
 	"github.com/jakebailey/ua/app"
 	"github.com/rs/zerolog"
 )
 
 var args = struct {
-	Addr  string `arg:"env"`
-	Debug bool   `arg:"env"`
+	Addr  string `arg:"env" help:"address to run the http server on"`
+	Debug bool   `arg:"env" help:"enables pretty logging and extra debug routes"`
 }{
 	Addr: ":8000",
 }
@@ -24,53 +22,25 @@ var args = struct {
 func main() {
 	arg.MustParse(&args)
 
-	spew.Config.Indent = "    "
-	spew.Config.ContinueOnMethod = true
-
-	var log zerolog.Logger
-
+	var out io.Writer = os.Stderr
 	if args.Debug {
-		log = zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr}).With().
-			Timestamp().
-			Logger()
-
-	} else {
-		log = zerolog.New(os.Stderr).With().
-			Timestamp().
-			Logger()
+		out = zerolog.ConsoleWriter{Out: os.Stderr}
 	}
 
-	cli, err := client.NewEnvClient()
-	if err != nil {
-		log.Fatal().Err(err).Msg("error creating docker client")
+	log := zerolog.New(out).With().Timestamp().Logger()
+
+	options := []app.Option{
+		app.Logger(log),
+		app.Addr(args.Addr),
+		app.Debug(args.Debug),
 	}
 
-	defer func() {
-		if err := cli.Close(); err != nil {
-			log.Error().Err(err).Msg("error closing docker client")
-		}
-	}()
-
-	options := []app.Option{app.Logger(log)}
-
-	if args.Debug {
-		options = append(options, app.Debug())
-	}
-
-	a := app.NewApp(cli, options...)
-
-	addr := args.Addr
-	log = log.With().Str("addr", addr).Logger()
-
-	srv := &http.Server{
-		Addr:    addr,
-		Handler: a,
-	}
+	a := app.NewApp(options...)
 
 	go func() {
 		log.Info().Msg("starting")
-		if err := srv.ListenAndServe(); err != nil {
-			log.Error().Err(err).Msg("ListenAndServe error")
+		if err := a.Run(); err != nil {
+			log.Error().Err(err).Msg("app.Run error")
 		}
 	}()
 
@@ -83,7 +53,7 @@ func main() {
 	ctx, canc := context.WithTimeout(context.Background(), 5*time.Second)
 	defer canc()
 
-	if err := srv.Shutdown(ctx); err != nil {
+	if err := a.Shutdown(ctx); err != nil {
 		log.Error().Err(err).Msg("error shutting down")
 	}
 }
