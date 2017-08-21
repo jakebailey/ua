@@ -11,10 +11,11 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
+	"github.com/jakebailey/ua/ctxlog"
 	"github.com/jakebailey/ua/image"
 	"github.com/jakebailey/ua/templates"
-	"github.com/rs/zerolog"
 	"github.com/satori/go.uuid"
+	"go.uber.org/zap"
 )
 
 var (
@@ -32,7 +33,7 @@ func (a *App) routeAssignments(r chi.Router) {
 		r.Use(func(h http.Handler) http.Handler {
 			fn := func(w http.ResponseWriter, r *http.Request) {
 				ctx := r.Context()
-				log := zerolog.Ctx(ctx)
+				logger := ctxlog.FromContext(ctx)
 
 				name := chi.URLParam(r, "name")
 				path := filepath.Join(a.assignmentPath, name)
@@ -41,9 +42,9 @@ func (a *App) routeAssignments(r chi.Router) {
 				if err != nil {
 					http.NotFound(w, r)
 					if !os.IsNotExist(err) {
-						log.Error().
-							Err(err).
-							Msg("unexpected error while stat-ing assignment dir")
+						logger.Error("unexpected error while stat-ing assignment dir",
+							zap.Error(err),
+						)
 					}
 					return
 				}
@@ -71,7 +72,7 @@ func (a *App) assignmentsList(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) assignmentBuild(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	log := zerolog.Ctx(ctx)
+	logger := ctxlog.FromContext(ctx)
 
 	path := ctx.Value(assignmentPathKey).(string)
 	u := uuid.NewV4()
@@ -87,16 +88,16 @@ func (a *App) assignmentBuild(w http.ResponseWriter, r *http.Request) {
 
 	id, err := image.Build(ctx, a.cli, path, imageTag, data)
 	if err != nil {
-		log.Error().Err(err).Msg("error building image")
+		logger.Error("error building image")
 
 		a.httpError(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	log.Info().
-		Str("image_id", id).
-		Str("image_tag", imageTag).
-		Msg("built image")
+	logger.Info("built image",
+		zap.String("image_id", id),
+		zap.String("image_tag", imageTag),
+	)
 
 	truth := true
 
@@ -112,10 +113,10 @@ func (a *App) assignmentBuild(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Info().
-		Str("container_id", c.ID).
-		Str("container_name", containerName).
-		Msg("created container")
+	logger.Info("created container",
+		zap.String("container_id", c.ID),
+		zap.String("container_name", containerName),
+	)
 
 	a.activeMu.Lock()
 	a.active[u] = c.ID

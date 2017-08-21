@@ -9,15 +9,14 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/gobwas/ws"
+	"github.com/jakebailey/ua/ctxlog"
 	"github.com/jakebailey/ua/proxy"
 	"github.com/jakebailey/ua/templates"
-	"github.com/rs/zerolog"
 	"github.com/satori/go.uuid"
+	"go.uber.org/zap"
 )
 
-var (
-	containerUUIDKey = &contextKey{"containerUUID"}
-)
+var containerUUIDKey = &contextKey{"containerUUID"}
 
 func (a *App) routeContainers(r chi.Router) {
 	r.Use(middleware.NoCache)
@@ -30,13 +29,15 @@ func (a *App) routeContainers(r chi.Router) {
 		r.Use(func(h http.Handler) http.Handler {
 			fn := func(w http.ResponseWriter, r *http.Request) {
 				ctx := r.Context()
-				log := zerolog.Ctx(ctx)
+				logger := ctxlog.FromContext(ctx)
 
 				s := chi.URLParam(r, "uuid")
 
 				u, err := uuid.FromString(s)
 				if err != nil {
-					log.Error().Err(err).Msg("error parsing UUID")
+					logger.Error("error parsing UUID",
+						zap.Error(err),
+					)
 					a.httpError(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
@@ -68,11 +69,13 @@ func (a *App) routeContainers(r chi.Router) {
 
 func (a *App) containersList(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	log := zerolog.Ctx(ctx)
+	logger := ctxlog.FromContext(ctx)
 
 	containers, err := a.cli.ContainerList(ctx, types.ContainerListOptions{})
 	if err != nil {
-		log.Error().Err(err).Msg("error listing containers")
+		logger.Error("error listing containers",
+			zap.Error(err),
+		)
 		a.httpError(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -87,7 +90,7 @@ func (a *App) containerPage(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) containerAttach(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	log := zerolog.Ctx(ctx)
+	logger := ctxlog.FromContext(ctx)
 
 	u := ctx.Value(containerUUIDKey).(uuid.UUID)
 
@@ -96,13 +99,18 @@ func (a *App) containerAttach(w http.ResponseWriter, r *http.Request) {
 	delete(a.active, u)
 	a.activeMu.Unlock()
 
-	log = log.With().Str("container_id", id).Str("container_uuid", u.String()).Logger()
-	ctx = log.WithContext(ctx)
+	logger = logger.With(
+		zap.String("container_id", id),
+		zap.String("container_uuid", u.String()),
+	)
+	ctx = ctxlog.WithLogger(ctx, logger)
 
 	conn, _, _, err := ws.UpgradeHTTP(r, w, nil)
 	if err != nil {
 		// No need to write an error, UpgradeHTTP does this itself.
-		log.Error().Err(err).Msg("error upgrading to websocket")
+		logger.Error("error upgrading to websocket",
+			zap.Error(err),
+		)
 		return
 	}
 
@@ -113,30 +121,39 @@ func (a *App) containerAttach(w http.ResponseWriter, r *http.Request) {
 		defer cancel()
 
 		if err := a.cli.ContainerStart(ctx, id, types.ContainerStartOptions{}); err != nil {
-			log.Error().Err(err).Msg("error starting container")
+			logger.Error("error starting container",
+				zap.Error(err),
+			)
+
 			return
 		}
 
-		log.Info().Str("container_id", id).Msg("started container")
+		logger.Info("started container")
 
 		proxyConn := proxy.NewWSConn(conn)
 
 		if err := proxy.Proxy(ctx, id, proxyConn, a.cli); err != nil {
-			log.Error().Err(err).Msg("error proxying container")
+			logger.Error("error proxying container",
+				zap.Error(err),
+			)
 		}
 
 		if err := a.cli.ContainerStop(ctx, id, nil); err != nil {
-			log.Error().Err(err).Msg("error stopping container")
+			logger.Error("error stopping container",
+				zap.Error(err),
+			)
 		}
 
-		log.Info().Msg("stopped container")
+		logger.Info("stopped container")
 
 		if err := a.cli.ContainerRemove(ctx, id, types.ContainerRemoveOptions{
 			RemoveVolumes: true,
 		}); err != nil {
-			log.Error().Err(err).Msg("error removing container")
+			logger.Error("error removing container",
+				zap.Error(err),
+			)
 		}
 
-		log.Info().Msg("removed container")
+		logger.Info("removed container")
 	}()
 }

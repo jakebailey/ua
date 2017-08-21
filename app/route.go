@@ -2,52 +2,19 @@ package app
 
 import (
 	"net/http"
-	"runtime/debug"
-	"time"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
-	"github.com/rs/zerolog/hlog"
+	"github.com/jakebailey/ua/uamid"
 )
 
 func (a *App) route() {
 	r := chi.NewRouter()
 
-	r.Use(hlog.NewHandler(a.log))
-	r.Use(hlog.RequestIDHandler("req_id", "Request-Id"))
-	r.Use(hlog.AccessHandler(func(r *http.Request, status, size int, duration time.Duration) {
-		hlog.FromRequest(r).Info().
-			Str("method", r.Method).
-			Str("url", r.URL.String()).
-			Int("status", status).
-			Int("size", size).
-			Dur("duration", duration).
-			Msg("http request")
-	}))
-
-	r.Use(func(next http.Handler) http.Handler {
-		fn := func(w http.ResponseWriter, r *http.Request) {
-			defer func() {
-				if rvr := recover(); rvr != nil {
-					log := hlog.FromRequest(r)
-
-					stack := string(debug.Stack())
-
-					log.Error().
-						Interface("panic_value", rvr).
-						Str("stack", stack).
-						Msg("PANIC")
-
-					a.httpError(w, stack, http.StatusInternalServerError)
-				}
-			}()
-
-			next.ServeHTTP(w, r)
-		}
-
-		return http.HandlerFunc(fn)
-	})
-
+	r.Use(uamid.Logger(a.logger))
+	r.Use(uamid.RequestID("request_id", "Request-Id"))
+	r.Use(uamid.RequestLogger)
+	r.Use(uamid.Recoverer)
 	r.Use(middleware.CloseNotify)
 	r.Use(middleware.Heartbeat("/ping"))
 

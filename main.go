@@ -2,14 +2,14 @@ package main
 
 import (
 	"context"
-	"io"
 	"os"
 	"os/signal"
 	"time"
 
 	"github.com/alexflint/go-arg"
 	"github.com/jakebailey/ua/app"
-	"github.com/rs/zerolog"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 var args = struct {
@@ -23,15 +23,22 @@ var args = struct {
 func main() {
 	arg.MustParse(&args)
 
-	var out io.Writer = os.Stderr
+	var logConfig zap.Config
+
 	if args.Debug {
-		out = zerolog.ConsoleWriter{Out: os.Stderr}
+		logConfig = zap.NewDevelopmentConfig()
+		logConfig.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	} else {
+		logConfig = zap.NewProductionConfig()
 	}
 
-	log := zerolog.New(out).With().Timestamp().Logger()
+	logger, err := logConfig.Build()
+	if err != nil {
+		panic(err)
+	}
 
 	options := []app.Option{
-		app.Logger(log),
+		app.Logger(logger),
 		app.Addr(args.Addr),
 		app.Debug(args.Debug),
 	}
@@ -39,9 +46,11 @@ func main() {
 	a := app.NewApp(args.Database, options...)
 
 	go func() {
-		log.Info().Msg("starting app")
+		logger.Info("starting app")
 		if err := a.Run(); err != nil {
-			log.Fatal().Err(err).Msg("app.Run error")
+			logger.Fatal("app.Run error",
+				zap.Error(err),
+			)
 		}
 	}()
 
@@ -49,12 +58,14 @@ func main() {
 	signal.Notify(stopChan, os.Interrupt)
 
 	<-stopChan
-	log.Info().Msg("shutting down app")
+	logger.Info("shutting down app")
 
 	ctx, canc := context.WithTimeout(context.Background(), 5*time.Second)
 	defer canc()
 
 	if err := a.Shutdown(ctx); err != nil {
-		log.Error().Err(err).Msg("error shutting down")
+		logger.Error("error shutting down",
+			zap.Error(err),
+		)
 	}
 }

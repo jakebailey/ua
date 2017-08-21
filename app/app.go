@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"database/sql"
-	"io/ioutil"
 	"net/http"
 	"sync"
 
@@ -13,9 +12,8 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/go-chi/chi"
 	"github.com/jakebailey/ua/models"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	"github.com/satori/go.uuid"
+	"go.uber.org/zap"
 )
 
 var (
@@ -26,7 +24,7 @@ var (
 	DefaultAssignmentPath = "assignments"
 	// DefaultLogger is the default zerolog Logger that will be used. It
 	// defaults to logging nothing.
-	DefaultLogger = zerolog.New(ioutil.Discard).Level(zerolog.Disabled)
+	DefaultLogger = zap.NewNop()
 	// DefaultStaticPath is the path to the static elements served at /static
 	// by the app.
 	DefaultStaticPath = "static"
@@ -46,8 +44,8 @@ type App struct {
 	router chi.Router
 	srv    *http.Server
 
-	log  zerolog.Logger
-	spew *spew.ConfigState
+	logger *zap.Logger
+	spew   *spew.ConfigState
 
 	cli      client.CommonAPIClient
 	cliClose func() error
@@ -70,7 +68,7 @@ func NewApp(dbString string, options ...Option) *App {
 	a := &App{
 		addr:           DefaultAddr,
 		assignmentPath: DefaultAssignmentPath,
-		log:            DefaultLogger,
+		logger:         DefaultLogger,
 		staticPath:     DefaultStaticPath,
 		spew:           DefaultSpew,
 		dbString:       dbString,
@@ -82,10 +80,6 @@ func NewApp(dbString string, options ...Option) *App {
 	}
 
 	a.route()
-
-	// Ensure logger has a timestamp. This is a no-op if the logger already
-	// has the timestamp enabled.
-	a.log = a.log.With().Timestamp().Logger()
 
 	return a
 }
@@ -118,9 +112,9 @@ func AssignmentPath(path string) Option {
 
 // Logger sets the logger used within the app. If not provided,
 // DefaultLogger is used.
-func Logger(log zerolog.Logger) Option {
+func Logger(logger *zap.Logger) Option {
 	return func(a *App) {
-		a.log = log
+		a.logger = logger
 	}
 }
 
@@ -161,7 +155,7 @@ func (a *App) Run() error {
 	if a.cliClose != nil {
 		defer func() {
 			if err := a.cliClose(); err != nil {
-				a.log.Error().Err(err).Msg("error closing docker client")
+				a.logger.Error("error closing docker client", zap.Error(err))
 			}
 		}()
 	}
@@ -177,7 +171,7 @@ func (a *App) Run() error {
 	}
 	defer func() {
 		if err := a.db.Close(); err != nil {
-			log.Error().Err(err).Msg("error closing database connection")
+			a.logger.Error("error closing database connection", zap.Error(err))
 		}
 	}()
 
@@ -193,14 +187,14 @@ func (a *App) Run() error {
 		Handler: a.router,
 	}
 
-	a.log.Info().Str("addr", a.addr).Msg("starting http server")
+	a.logger.Info("starting http server", zap.String("addr", a.addr))
 	return a.srv.ListenAndServe()
 }
 
 // Shutdown gracefully shuts down the bot. It behaves like
 // http.Server.Shutdown.
 func (a *App) Shutdown(ctx context.Context) error {
-	a.log.Info().Str("addr", a.addr).Msg("shutting down http server")
+	a.logger.Info("shutting down http server", zap.String("addr", a.addr))
 	return a.srv.Shutdown(ctx)
 }
 

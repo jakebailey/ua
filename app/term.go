@@ -13,16 +13,15 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/go-chi/chi"
 	"github.com/gobwas/ws"
+	"github.com/jakebailey/ua/ctxlog"
 	"github.com/jakebailey/ua/image"
 	"github.com/jakebailey/ua/models"
 	"github.com/jakebailey/ua/proxy"
-	"github.com/rs/zerolog"
+	"go.uber.org/zap"
 	kallax "gopkg.in/src-d/go-kallax.v1"
 )
 
-var (
-	termIDKey = &contextKey{"termID"}
-)
+var termIDKey = &contextKey{"termID"}
 
 func (a *App) routeTerm(r chi.Router) {
 	r.Route("/{id}", func(r chi.Router) {
@@ -71,7 +70,7 @@ func (a *App) termPage(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) termWS(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	log := zerolog.Ctx(ctx)
+	logger := ctxlog.FromContext(ctx)
 
 	specID := ctx.Value(termIDKey).(kallax.ULID)
 
@@ -83,7 +82,9 @@ func (a *App) termWS(w http.ResponseWriter, r *http.Request) {
 		if err == kallax.ErrNotFound {
 			http.NotFound(w, r)
 		} else {
-			log.Error().Err(err).Msg("error querying spec")
+			logger.Error("error querying spec",
+				zap.Error(err),
+			)
 			a.httpError(w, err.Error(), http.StatusInternalServerError)
 		}
 		return
@@ -92,19 +93,24 @@ func (a *App) termWS(w http.ResponseWriter, r *http.Request) {
 	conn, _, _, err := ws.UpgradeHTTP(r, w, nil)
 	if err != nil {
 		// No need to write an error, UpgradeHTTP does this itself.
-		log.Error().Err(err).Msg("error upgrading to websocket")
+		logger.Error("error upgrading websocket",
+			zap.Error(err),
+		)
 		return
 	}
 
-	go a.handleTerm(conn, spec)
+	ctx = context.Background()
+	ctx = ctxlog.WithLogger(ctx, logger)
+
+	go a.handleTerm(ctx, conn, spec)
 }
 
-func (a *App) handleTerm(conn net.Conn, spec *models.Spec) {
-	ctx, cancel := context.WithCancel(context.Background())
+func (a *App) handleTerm(ctx context.Context, conn net.Conn, spec *models.Spec) {
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	log := a.log.With().Str("spec_id", spec.ID.String()).Logger()
-	ctx = log.WithContext(ctx)
+	logger := ctxlog.FromContext(ctx).With(zap.String("spec_id", spec.ID.String()))
+	ctx = ctxlog.WithLogger(ctx, logger)
 
 	var instance *models.Instance
 
@@ -113,14 +119,16 @@ func (a *App) handleTerm(conn net.Conn, spec *models.Spec) {
 		var err error
 		instance, err = a.createInstance(ctx, spec)
 		if err != nil {
-			log.Error().Err(err).Msg("error creating instance")
+			logger.Error("error creating instance",
+				zap.Error(err),
+			)
 			return
 		}
 	} else {
 		if instancesLen != 1 {
-			log.Warn().
-				Int("instances_len", instancesLen).
-				Msg("found multiple active instances, using most recently created")
+			logger.Warn("found multiple active instances, using most recently created",
+				zap.Int("instances_len", instancesLen),
+			)
 
 			sort.Slice(spec.Instances, func(i, j int) bool {
 				return spec.Instances[i].CreatedAt.After(spec.Instances[j].CreatedAt)
@@ -130,20 +138,22 @@ func (a *App) handleTerm(conn net.Conn, spec *models.Spec) {
 		// TODO: disconnect instance's existing client
 	}
 
-	log = log.With().Str("container_id", instance.ContainerID).Logger()
-	ctx = log.WithContext(ctx)
+	logger = logger.With(zap.String("container_id", instance.ContainerID))
+	ctx = ctxlog.WithLogger(ctx, logger)
 
 	proxyConn := proxy.NewWSConn(conn)
 
 	if err := proxy.Proxy(ctx, instance.ContainerID, proxyConn, a.cli); err != nil {
-		log.Error().Err(err).Msg("error proxying container")
+		logger.Error("error proxying container",
+			zap.Error(err),
+		)
 	}
 
 	a.stopInstance(ctx, instance)
 }
 
 func (a *App) createInstance(ctx context.Context, spec *models.Spec) (*models.Instance, error) {
-	log := zerolog.Ctx(ctx)
+	logger := ctxlog.FromContext(ctx)
 
 	a.instanceMu.RLock()
 	defer a.instanceMu.RUnlock()
@@ -155,7 +165,9 @@ func (a *App) createInstance(ctx context.Context, spec *models.Spec) (*models.In
 	// TODO: define build data struct with rand/data
 	imageID, err := image.Build(ctx, a.cli, path, imageTag, spec.Data)
 	if err != nil {
-		log.Error().Err(err).Msg("error building image")
+		logger.Error("error building image",
+			zap.Error(err),
+		)
 		return nil, err
 	}
 
@@ -170,12 +182,16 @@ func (a *App) createInstance(ctx context.Context, spec *models.Spec) (*models.In
 		Init: &truth,
 	}, nil, containerName)
 	if err != nil {
-		log.Error().Err(err).Msg("error creating container")
+		logger.Error("error creating container",
+			zap.Error(err),
+		)
 		return nil, err
 	}
 
 	if err := a.cli.ContainerStart(ctx, c.ID, types.ContainerStartOptions{}); err != nil {
-		log.Error().Err(err).Msg("error starting container")
+		logger.Error("error starting container",
+			zap.Error(err),
+		)
 		return nil, err
 	}
 
@@ -189,7 +205,9 @@ func (a *App) createInstance(ctx context.Context, spec *models.Spec) (*models.In
 
 	spec.Instances = append(spec.Instances, instance)
 	if _, err := a.specStore.Update(spec); err != nil {
-		log.Error().Err(err).Msg("error updating spec with new instance")
+		logger.Error("error updating spec with new instance",
+			zap.Error(err),
+		)
 		return nil, err
 	}
 
@@ -197,28 +215,34 @@ func (a *App) createInstance(ctx context.Context, spec *models.Spec) (*models.In
 }
 
 func (a *App) stopInstance(ctx context.Context, instance *models.Instance) {
-	log := zerolog.Ctx(ctx)
+	logger := ctxlog.FromContext(ctx)
 
 	a.instanceMu.RLock()
 	defer a.instanceMu.RUnlock()
 
 	if err := a.cli.ContainerStop(ctx, instance.ContainerID, nil); err != nil {
-		log.Error().Err(err).Msg("error stopping container")
+		logger.Error("error stopping container",
+			zap.Error(err),
+		)
 	}
 
-	log.Info().Msg("stopped container")
+	logger.Info("stopped container")
 
 	if err := a.cli.ContainerRemove(ctx, instance.ContainerID, types.ContainerRemoveOptions{
 		RemoveVolumes: true,
 	}); err != nil {
-		log.Error().Err(err).Msg("error removing container")
+		logger.Error("error removing container",
+			zap.Error(err),
+		)
 	}
 
-	log.Info().Msg("removed container")
+	logger.Info("removed container")
 
 	instance.Active = false
 
 	if _, err := a.instanceStore.Update(instance, models.Schema.Instance.Active); err != nil {
-		log.Error().Err(err).Msg("error marking instance as inactive in database")
+		logger.Error("error marking instance as inactive in database",
+			zap.Error(err),
+		)
 	}
 }

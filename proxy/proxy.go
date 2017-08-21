@@ -7,7 +7,8 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
-	"github.com/rs/zerolog"
+	"github.com/jakebailey/ua/ctxlog"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -22,7 +23,7 @@ type Conn interface {
 // Proxy attaches to a docker container and proxies its stdin/out/err
 // over a websocket using the terminado protocol.
 func Proxy(ctx context.Context, id string, conn Conn, cli client.CommonAPIClient) error {
-	log := zerolog.Ctx(ctx)
+	logger := ctxlog.FromContext(ctx)
 
 	hj, err := cli.ContainerAttach(ctx, id, types.ContainerAttachOptions{
 		Stream: true,
@@ -35,7 +36,7 @@ func Proxy(ctx context.Context, id string, conn Conn, cli client.CommonAPIClient
 	}
 	defer hj.Close()
 
-	log.Info().Msg("proxying")
+	logger.Info("proxying")
 
 	g, ctx := errgroup.WithContext(ctx)
 
@@ -59,10 +60,10 @@ func Proxy(ctx context.Context, id string, conn Conn, cli client.CommonAPIClient
 
 func proxyInputFunc(ctx context.Context, id string, conn Conn, cli client.CommonAPIClient, writer io.Writer) func() error {
 	return func() error {
-		log := zerolog.Ctx(ctx)
+		logger := ctxlog.FromContext(ctx).With(zap.String("pipe", "stdin"))
 
-		defer log.Debug().Msg("stdin proxy stopping")
-		log.Debug().Msg("stdin proxy starting")
+		defer logger.Debug("proxy stopping")
+		logger.Debug("stdin proxy starting")
 
 		var buf []interface{}
 		for {
@@ -79,22 +80,26 @@ func proxyInputFunc(ctx context.Context, id string, conn Conn, cli client.Common
 			case "set_size":
 				hFloat, hOk := buf[1].(float64)
 				if !hOk {
-					log.Error().Interface("bad_height", buf[1]).Msg("invalid height")
+					logger.Error("invalid height",
+						zap.Any("bad_height", buf[1]),
+					)
 					continue
 				}
 				height := uint(hFloat)
 
 				wFloat, wOk := buf[2].(float64)
 				if !wOk {
-					log.Error().Interface("bad_width", buf[2]).Msg("invalid width")
+					logger.Error("invalid width",
+						zap.Any("bad_width", buf[2]),
+					)
 					continue
 				}
 				width := uint(wFloat)
 
-				log.Debug().
-					Uint("height", height).
-					Uint("width", width).
-					Msg("resizing container")
+				logger.Debug("resizing container",
+					zap.Uint("height", height),
+					zap.Uint("width", width),
+				)
 
 				if err := cli.ContainerResize(ctx, id, types.ResizeOptions{
 					Height: height,
@@ -103,7 +108,9 @@ func proxyInputFunc(ctx context.Context, id string, conn Conn, cli client.Common
 					return err
 				}
 			default:
-				log.Warn().Interface("command", buf[0]).Msg("unknown command")
+				logger.Warn("unknown command",
+					zap.Any("command", buf[0]),
+				)
 			}
 		}
 	}
@@ -111,10 +118,10 @@ func proxyInputFunc(ctx context.Context, id string, conn Conn, cli client.Common
 
 func proxyOutputFunc(ctx context.Context, id string, conn Conn, reader io.Reader, name string) func() error {
 	return func() error {
-		log := zerolog.Ctx(ctx)
+		logger := ctxlog.FromContext(ctx).With(zap.String("pipe", name))
 
-		defer log.Debug().Msgf("%s proxy stopping", name)
-		log.Debug().Msgf("%s proxy starting", name)
+		defer logger.Debug("proxy stopping")
+		logger.Debug("proxy starting")
 
 		s := bufio.NewScanner(reader)
 		s.Split(ScanRunesGreedy)

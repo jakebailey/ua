@@ -6,8 +6,9 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/render"
+	"github.com/jakebailey/ua/ctxlog"
 	"github.com/jakebailey/ua/models"
-	"github.com/rs/zerolog/hlog"
+	"go.uber.org/zap"
 )
 
 func (a *App) routeSpecs(r chi.Router) {
@@ -26,12 +27,14 @@ type specPostResponse struct {
 }
 
 func (a *App) specPost(w http.ResponseWriter, r *http.Request) {
-	log := hlog.FromRequest(r)
+	logger := ctxlog.FromRequest(r)
 
 	var req specPostRequest
 
 	if err := render.Decode(r, &req); err != nil {
-		log.Warn().Err(err).Msg("error decoding specPostRequest")
+		logger.Warn("error decoding specPostRequest",
+			zap.Error(err),
+		)
 		a.httpError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -52,7 +55,11 @@ func (a *App) specPost(w http.ResponseWriter, r *http.Request) {
 	spec.Data = req.Data
 
 	if err := a.specStore.Insert(spec); err != nil {
-		log.Error().Err(err).Interface("spec", spec).Msg("error inserting new spec")
+		logger.Error("error inserting new spec",
+			zap.Error(err),
+			zap.Any("spec", spec),
+		)
+
 		a.httpError(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
