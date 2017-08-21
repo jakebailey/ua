@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"net/http"
 	"path/filepath"
@@ -17,6 +16,7 @@ import (
 	"github.com/jakebailey/ua/image"
 	"github.com/jakebailey/ua/models"
 	"github.com/jakebailey/ua/proxy"
+	"github.com/jakebailey/ua/templates"
 	"go.uber.org/zap"
 	kallax "gopkg.in/src-d/go-kallax.v1"
 )
@@ -25,54 +25,30 @@ var termIDKey = &contextKey{"termID"}
 
 func (a *App) routeTerm(r chi.Router) {
 	r.Route("/{id}", func(r chi.Router) {
-		r.Use(func(next http.Handler) http.Handler {
-			fn := func(w http.ResponseWriter, r *http.Request) {
-				IDStr := chi.URLParam(r, "id")
-				id, err := kallax.NewULIDFromText(IDStr)
-				if err != nil {
-					a.httpError(w, err.Error(), http.StatusBadRequest)
-					return
-				}
-
-				query := models.NewSpecQuery().FindByID(id)
-				n, err := a.specStore.Count(query)
-				if err != nil {
-					a.httpError(w, err.Error(), http.StatusInternalServerError)
-					return
-				}
-
-				if n == 0 {
-					http.NotFound(w, r)
-					return
-				}
-
-				ctx := r.Context()
-				ctx = context.WithValue(ctx, termIDKey, id)
-				r = r.WithContext(ctx)
-				next.ServeHTTP(w, r)
-			}
-			return http.HandlerFunc(fn)
-		})
-
 		if a.debug {
-			r.Get("/", a.termPage)
+			r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+				wsURL := r.Host + r.RequestURI + "/ws"
+				templates.WriteContainer(w, wsURL)
+			})
 		}
 
 		r.Get("/ws", a.termWS)
 	})
 }
 
-func (a *App) termPage(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	id := ctx.Value(termIDKey).(kallax.ULID)
-	fmt.Fprintf(w, "%v", id)
-}
-
 func (a *App) termWS(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := ctxlog.FromContext(ctx)
 
-	specID := ctx.Value(termIDKey).(kallax.ULID)
+	idStr := chi.URLParam(r, "id")
+	specID, err := kallax.NewULIDFromText(idStr)
+	if err != nil {
+		logger.Warn("error parsing specID",
+			zap.Error(err),
+		)
+		a.httpError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
 	activeInstances := kallax.Eq(models.Schema.Instance.Active, true)
 	specQuery := models.NewSpecQuery().FindByID(specID).WithInstances(activeInstances)
@@ -149,6 +125,7 @@ func (a *App) handleTerm(ctx context.Context, conn net.Conn, spec *models.Spec) 
 		)
 	}
 
+	// TODO: Don't do this, leave the container instead for future cleaning
 	a.stopInstance(ctx, instance)
 }
 
