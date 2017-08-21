@@ -479,12 +479,6 @@
 			"revisionTime": "2017-06-23T15:57:32Z"
 		},
 		{
-			"checksumSHA1": "g9hmnkrmD9/3bVFYssjA1mu+r2o=",
-			"path": "github.com/zenazn/goji/web/mutil",
-			"revision": "c05078ca81941f8e801bba3ddc0e6b86b7fdc893",
-			"revisionTime": "2017-08-12T21:53:39Z"
-		},
-		{
 			"checksumSHA1": "3IdEHJfBkeEE8guKA2tcA8Fv6eg=",
 			"path": "go.uber.org/atomic",
 			"revision": "70bd1261d36be490ebd22a62b385a3c5d23b6240",
