@@ -8,11 +8,17 @@ import (
 	"github.com/go-chi/render"
 	"github.com/jakebailey/ua/ctxlog"
 	"github.com/jakebailey/ua/models"
+	"github.com/jakebailey/ua/templates"
 	"go.uber.org/zap"
 )
 
 func (a *App) routeSpecs(r chi.Router) {
 	r.Use(middleware.NoCache)
+
+	if a.debug {
+		r.Get("/", a.specGet)
+	}
+
 	r.Post("/", a.specPost)
 }
 
@@ -69,4 +75,8 @@ func (a *App) specPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	render.Respond(w, r, resp)
+}
+
+func (a *App) specGet(w http.ResponseWriter, r *http.Request) {
+	templates.WriteSpec(w, r.URL.String())
 }

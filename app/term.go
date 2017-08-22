@@ -50,19 +50,18 @@ func (a *App) termWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	activeInstances := kallax.Eq(models.Schema.Instance.Active, true)
-	specQuery := models.NewSpecQuery().FindByID(specID).WithInstances(activeInstances)
-
-	spec, err := a.specStore.FindOne(specQuery)
+	specQuery := models.NewSpecQuery().FindByID(specID)
+	n, err := a.specStore.Count(specQuery)
 	if err != nil {
-		if err == kallax.ErrNotFound {
-			http.NotFound(w, r)
-		} else {
-			logger.Error("error querying spec",
-				zap.Error(err),
-			)
-			a.httpError(w, err.Error(), http.StatusInternalServerError)
-		}
+		logger.Error("error querying spec",
+			zap.Error(err),
+		)
+		a.httpError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if n == 0 {
+		http.NotFound(w, r)
 		return
 	}
 
@@ -78,22 +77,32 @@ func (a *App) termWS(w http.ResponseWriter, r *http.Request) {
 	ctx = context.Background()
 	ctx = ctxlog.WithLogger(ctx, logger)
 
-	go a.handleTerm(ctx, conn, spec)
+	go a.handleTerm(ctx, conn, specID)
 }
 
-func (a *App) handleTerm(ctx context.Context, conn net.Conn, spec *models.Spec) {
+func (a *App) handleTerm(ctx context.Context, conn net.Conn, specID kallax.ULID) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	logger := ctxlog.FromContext(ctx).With(zap.String("spec_id", spec.ID.String()))
+	logger := ctxlog.FromContext(ctx).With(zap.String("spec_id", specID.String()))
 	ctx = ctxlog.WithLogger(ctx, logger)
 
 	var instance *models.Instance
 
-	instancesLen := len(spec.Instances)
+	instanceQuery := models.NewInstanceQuery().FindBySpec(specID).FindByActive(true)
+	instances, err := a.instanceStore.FindAll(instanceQuery)
+	if err != nil {
+		logger.Error("error querying for instances",
+			zap.Error(err),
+		)
+		return
+	}
+
+	instancesLen := len(instances)
 	if instancesLen == 0 {
+		logger.Debug("no active instance found, creating a new instance")
 		var err error
-		instance, err = a.createInstance(ctx, spec)
+		instance, err = a.createInstance(ctx, specID)
 		if err != nil {
 			logger.Error("error creating instance",
 				zap.Error(err),
@@ -106,11 +115,12 @@ func (a *App) handleTerm(ctx context.Context, conn net.Conn, spec *models.Spec) 
 				zap.Int("instances_len", instancesLen),
 			)
 
-			sort.Slice(spec.Instances, func(i, j int) bool {
-				return spec.Instances[i].CreatedAt.After(spec.Instances[j].CreatedAt)
+			sort.Slice(instances, func(i, j int) bool {
+				return instances[i].CreatedAt.After(instances[j].CreatedAt)
 			})
 		}
-		instance = spec.Instances[0]
+		instance = instances[0]
+		logger.Debug("reusing active instance")
 		// TODO: disconnect instance's existing client
 	}
 
@@ -126,11 +136,24 @@ func (a *App) handleTerm(ctx context.Context, conn net.Conn, spec *models.Spec) 
 	}
 
 	// TODO: Don't do this, leave the container instead for future cleaning
-	a.stopInstance(ctx, instance)
+	// a.stopInstance(ctx, instance)
 }
 
-func (a *App) createInstance(ctx context.Context, spec *models.Spec) (*models.Instance, error) {
+func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.Instance, error) {
 	logger := ctxlog.FromContext(ctx)
+
+	specQuery := models.NewSpecQuery().FindByID(specID).Select(
+		models.Schema.Spec.AssignmentName,
+		models.Schema.Spec.Seed,
+		models.Schema.Spec.Data,
+	)
+	spec, err := a.specStore.FindOne(specQuery)
+	if err != nil {
+		logger.Error("error querying spec for build info",
+			zap.Error(err),
+		)
+		return nil, err
+	}
 
 	a.instanceMu.RLock()
 	defer a.instanceMu.RUnlock()
@@ -180,9 +203,19 @@ func (a *App) createInstance(ctx context.Context, spec *models.Spec) (*models.In
 	instance.ExpiresAt = &expiresAt
 	instance.Active = true
 
-	spec.Instances = append(spec.Instances, instance)
-	if _, err := a.specStore.Update(spec); err != nil {
-		logger.Error("error updating spec with new instance",
+	if err := a.specStore.Transaction(func(specStore *models.SpecStore) error {
+		specQuery := models.NewSpecQuery().FindByID(specID)
+		spec, err := specStore.FindOne(specQuery)
+		if err != nil {
+			return err
+		}
+
+		spec.Instances = append(spec.Instances, instance)
+
+		_, err = specStore.Update(spec)
+		return err
+	}); err != nil {
+		logger.Error("error inserting new instance",
 			zap.Error(err),
 		)
 		return nil, err

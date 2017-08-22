@@ -1,0 +1,55 @@
+{% func Spec(url string) %}
+<!doctype html>
+<html>
+
+<head>
+    
+</head>
+
+<body>
+    <form action="" method="post" id="form">
+        <div>
+            <label for="name">Assignment name:</label>
+            <input type="text" id="name" name="assignment_name" value="test"/>
+        </div>
+        <div>
+            <label for="seed">Seed:</label>
+            <input type="text" id="seed" name="seed" value="1234"/>
+        </div>
+        <div>
+            <label for="data">Message:</label>
+            <textarea id="data" name="data">{"NetID": "jbbaile2"}</textarea>
+        </div>
+        <button type="submit">Submit</button>
+    </form>
+
+    <div id="result"></div>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+
+    <script>
+        $("#form").submit(function(event) {
+            event.preventDefault();
+
+            var postData = {
+                assignmentName: $("#name").val(),
+                seed: $("#seed").val(),
+                data: JSON.parse($("#data").val())
+            };
+
+            $.ajax({
+                url: '{%s url %}',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(postData),
+                dataType: 'json',
+                success: function(data) {
+                    $("#result").append('<a href="/term/' + data.id + '" target="_blank">' + data.id + '</a>');
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>
+{% endfunc %}
