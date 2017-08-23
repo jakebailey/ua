@@ -20,9 +20,6 @@ func (a *App) route() {
 
 	routeStatic(r, "/static", a.staticPath)
 
-	r.Route("/assignments", a.routeAssignments)
-	r.Route("/containers", a.routeContainers)
-
 	r.Route("/specs", a.routeSpecs)
 	r.Route("/term", a.routeTerm)
 
