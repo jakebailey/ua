@@ -87,41 +87,12 @@ func (a *App) handleTerm(ctx context.Context, conn net.Conn, specID kallax.ULID)
 	logger := ctxlog.FromContext(ctx).With(zap.String("spec_id", specID.String()))
 	ctx = ctxlog.WithLogger(ctx, logger)
 
-	var instance *models.Instance
-
-	instanceQuery := models.NewInstanceQuery().FindBySpec(specID).FindByActive(true)
-	instances, err := a.instanceStore.FindAll(instanceQuery)
+	instance, err := a.getActiveInstance(ctx, specID)
 	if err != nil {
-		logger.Error("error querying for instances",
+		logger.Error("error getting active instance",
 			zap.Error(err),
 		)
 		return
-	}
-
-	instancesLen := len(instances)
-	if instancesLen == 0 {
-		logger.Debug("no active instance found, creating a new instance")
-		var err error
-		instance, err = a.createInstance(ctx, specID)
-		if err != nil {
-			logger.Error("error creating instance",
-				zap.Error(err),
-			)
-			return
-		}
-	} else {
-		if instancesLen != 1 {
-			logger.Warn("found multiple active instances, using most recently created",
-				zap.Int("instances_len", instancesLen),
-			)
-
-			sort.Slice(instances, func(i, j int) bool {
-				return instances[i].CreatedAt.After(instances[j].CreatedAt)
-			})
-		}
-		instance = instances[0]
-		logger.Debug("reusing active instance")
-		// TODO: disconnect instance's existing client
 	}
 
 	logger = logger.With(zap.String("container_id", instance.ContainerID))
@@ -137,6 +108,43 @@ func (a *App) handleTerm(ctx context.Context, conn net.Conn, specID kallax.ULID)
 
 	// TODO: Don't do this, leave the container instead for future cleaning
 	// a.stopInstance(ctx, instance)
+}
+
+func (a *App) getActiveInstance(ctx context.Context, specID kallax.ULID) (*models.Instance, error) {
+	logger := ctxlog.FromContext(ctx)
+
+	var instance *models.Instance
+
+	instanceQuery := models.NewInstanceQuery().FindBySpec(specID).FindByActive(true)
+	instances, err := a.instanceStore.FindAll(instanceQuery)
+	if err != nil {
+		logger.Error("error querying for instances",
+			zap.Error(err),
+		)
+		return nil, err
+	}
+
+	instancesLen := len(instances)
+	if instancesLen == 0 {
+		logger.Debug("no active instance found, creating a new instance")
+		return a.createInstance(ctx, specID)
+	}
+
+	if instancesLen != 1 {
+		logger.Warn("found multiple active instances, using most recently created",
+			zap.Int("instances_len", instancesLen),
+		)
+
+		sort.Slice(instances, func(i, j int) bool {
+			return instances[i].CreatedAt.After(instances[j].CreatedAt)
+		})
+	}
+
+	instance = instances[0]
+	logger.Debug("reusing active instance")
+	// TODO: disconnect instance's existing client
+
+	return instance, nil
 }
 
 func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.Instance, error) {
