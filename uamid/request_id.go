@@ -12,7 +12,9 @@ import (
 	"go.uber.org/zap"
 )
 
-type idKey struct{}
+type requestIDKey struct{}
+
+const requestIDHeader = "X-Request-ID"
 
 var randPool = &sync.Pool{
 	New: func() interface{} {
@@ -28,30 +30,45 @@ func newULID() ulid.ULID {
 	return id
 }
 
-// RequestID adds a request ID to the request context in the form of a ULID.
-// If fieldKey is set, then the field will be added to the zap logger in the
-// context. If headerName is set, then a HTTP header with that name will
-// be set to the request ID.
-func RequestID(fieldKey, headerName string) func(http.Handler) http.Handler {
+// RequestID manages request IDs, similarly to Heroku's method.
+// If the client sets X-Request-ID, then it is used. If no request ID
+// is provided, or the provided request ID is not between 20 and 200
+// characters (inclusive), then a ULID is generated and used.
+//
+// The request ID is also written to the ResponseWriter, and if a zap
+// logger is in the request context, added with the provided field key.
+//
+// NOTE: The http.Handler interface requires that handlers not modify
+// the request. In order to get the "real" request ID, use the
+// GetRequestID function.
+func RequestID(fieldKey string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		fn := func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
 
-			id, ok := ctx.Value(idKey{}).(ulid.ULID)
-			if !ok {
-				id = newULID()
-				ctx = context.WithValue(ctx, idKey{}, id)
-				r = r.WithContext(ctx)
+			requestID := r.Header.Get(requestIDHeader)
+			if len(requestID) < 20 || len(requestID) > 200 {
+				requestID = newULID().String()
 			}
+
+			w.Header().Set(requestIDHeader, requestID)
+			ctx = context.WithValue(ctx, requestIDKey{}, requestID)
+
 			if fieldKey != "" {
-				logger := ctxlog.FromContext(ctx).With(zap.String(fieldKey, id.String()))
-				r = r.WithContext(ctxlog.WithLogger(ctx, logger))
+				logger := ctxlog.FromContext(ctx).With(zap.String(fieldKey, requestID))
+				ctx = ctxlog.WithLogger(ctx, logger)
 			}
-			if headerName != "" {
-				w.Header().Set(headerName, id.String())
-			}
+
+			r = r.WithContext(ctx)
 			next.ServeHTTP(w, r)
 		}
 		return http.HandlerFunc(fn)
 	}
+}
+
+// GetRequestID gets the request id from a request's context. If none was set
+// (i.e. the RequestID middleware wasn't run), then an empty string is returned.
+func GetRequestID(r *http.Request) string {
+	requestID, _ := r.Context().Value(requestIDKey{}).(string)
+	return requestID
 }

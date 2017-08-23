@@ -12,7 +12,7 @@ func (a *App) route() {
 	r := chi.NewRouter()
 
 	r.Use(uamid.Logger(a.logger))
-	r.Use(uamid.RequestID("request_id", "Request-Id"))
+	r.Use(uamid.RequestID("request_id"))
 	r.Use(uamid.RequestLogger)
 	r.Use(uamid.Recoverer)
 	r.Use(middleware.CloseNotify)
