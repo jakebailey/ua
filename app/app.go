@@ -12,7 +12,6 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/go-chi/chi"
 	"github.com/jakebailey/ua/models"
-	"github.com/satori/go.uuid"
 	"go.uber.org/zap"
 )
 
@@ -55,9 +54,6 @@ type App struct {
 	specStore     *models.SpecStore
 	instanceStore *models.InstanceStore
 
-	active   map[uuid.UUID]string
-	activeMu sync.RWMutex
-
 	instanceMu sync.RWMutex
 }
 
@@ -72,7 +68,6 @@ func NewApp(dbString string, options ...Option) *App {
 		staticPath:     DefaultStaticPath,
 		spew:           DefaultSpew,
 		dbString:       dbString,
-		active:         make(map[uuid.UUID]string),
 	}
 
 	for _, o := range options {
