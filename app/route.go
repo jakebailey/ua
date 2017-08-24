@@ -19,6 +19,7 @@ func (a *App) route() {
 	r.Use(middleware.Heartbeat("/ping"))
 
 	routeStatic(r, "/static", a.staticPath)
+	r.Handle("/favicon.ico", http.RedirectHandler("/static/favicon.ico", http.StatusFound))
 
 	r.Route("/specs", a.routeSpecs)
 	r.Route("/term", a.routeTerm)
@@ -38,13 +39,11 @@ func routeStatic(r chi.Router, httpPath string, fsPath string) {
 		r.Use(middleware.DefaultCompress)
 
 		if httpPath != "/" && httpPath[len(httpPath)-1] != '/' {
-			r.Get(httpPath, http.RedirectHandler(httpPath+"/", http.StatusFound).ServeHTTP)
+			r.Handle(httpPath, http.RedirectHandler(httpPath+"/", http.StatusFound))
 			httpPath += "/"
 		}
 		httpPath += "*"
 
-		r.Get(httpPath, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			fs.ServeHTTP(w, r)
-		}))
+		r.Handle(httpPath, fs)
 	})
 }
