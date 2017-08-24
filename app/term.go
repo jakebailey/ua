@@ -163,9 +163,6 @@ func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.I
 		return nil, err
 	}
 
-	a.instanceMu.RLock()
-	defer a.instanceMu.RUnlock()
-
 	path := filepath.Join(a.assignmentPath, spec.AssignmentName)
 	imageTag := ""      // TODO: pick tag
 	containerName := "" // TODO: pick name
@@ -234,9 +231,6 @@ func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.I
 
 func (a *App) stopInstance(ctx context.Context, instance *models.Instance) {
 	logger := ctxlog.FromContext(ctx)
-
-	a.instanceMu.RLock()
-	defer a.instanceMu.RUnlock()
 
 	if err := a.cli.ContainerStop(ctx, instance.ContainerID, nil); err != nil {
 		logger.Error("error stopping container",

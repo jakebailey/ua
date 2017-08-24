@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"net/http"
-	"sync"
 
 	_ "github.com/lib/pq" // postgresql driver
 
@@ -53,8 +52,6 @@ type App struct {
 	db            *sql.DB
 	specStore     *models.SpecStore
 	instanceStore *models.InstanceStore
-
-	instanceMu sync.RWMutex
 }
 
 // NewApp creates a new app, with an optional list of options.

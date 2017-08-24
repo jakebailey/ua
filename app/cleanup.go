@@ -20,9 +20,6 @@ func (a *App) cleanInactiveInstances() {
 	iOpts := types.ImageRemoveOptions{PruneChildren: true}
 	stopTimeout := 10 * time.Second // default from docker CLI
 
-	a.instanceMu.Lock()
-	defer a.instanceMu.Unlock()
-
 	logger.Info("cleaning up instances")
 
 	instances, err := a.instanceStore.Find(instanceQuery)
