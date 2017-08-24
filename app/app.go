@@ -19,21 +19,27 @@ import (
 var (
 	// DefaultAddr is the default address where app will run its HTTP server.
 	DefaultAddr = ":8000"
+
 	// DefaultAssignmentPath is the path assignments are stored in. If relative,
 	// then this will be relative to the current working directory.
 	DefaultAssignmentPath = "assignments"
+
 	// DefaultLogger is the default zerolog Logger that will be used. It
 	// defaults to logging nothing.
 	DefaultLogger = zap.NewNop()
+
 	// DefaultStaticPath is the path to the static elements served at /static
 	// by the app.
 	DefaultStaticPath = "static"
+
 	// DefaultSpew is the spew configuration used in various debugging
 	// endpoints.
 	DefaultSpew = &spew.ConfigState{Indent: "    ", ContinueOnMethod: true}
+
 	// DefaultCleanInactiveEvery is the period at which the app will clean up
 	// inactive images and containers.
 	DefaultCleanInactiveEvery = time.Hour
+
 	// DefaultCheckExpiredEvery is the period at which the app will check for
 	// active instances past their expiry time and stop them.
 	DefaultCheckExpiredEvery = time.Minute
