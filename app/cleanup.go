@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
@@ -13,12 +14,15 @@ func (a *App) cleanInactiveInstances() {
 	ctx := context.Background()
 	logger := a.logger
 
-	logger.Info("cleaning up instances")
-
 	instanceQuery := models.NewInstanceQuery().FindByActive(false).FindByCleaned(true)
+	cOpts := types.ContainerRemoveOptions{RemoveVolumes: true}
+	iOpts := types.ImageRemoveOptions{PruneChildren: true}
+	stopTimeout := 10 * time.Second // default from docker CLI
 
 	a.instanceMu.Lock()
 	defer a.instanceMu.Unlock()
+
+	logger.Info("cleaning up instances")
 
 	instances, err := a.instanceStore.Find(instanceQuery)
 	if err != nil {
@@ -28,11 +32,17 @@ func (a *App) cleanInactiveInstances() {
 		return
 	}
 
-	cOpts := types.ContainerRemoveOptions{RemoveVolumes: true}
-	iOpts := types.ImageRemoveOptions{PruneChildren: true}
-
 	if err := instances.ForEach(func(instance *models.Instance) error {
 		logger := logger.With(zap.String("instance_id", instance.ID.String()))
+
+		if err := a.cli.ContainerStop(ctx, instance.ContainerID, &stopTimeout); err != nil {
+			if !client.IsErrNotFound(err) {
+				logger.Warn("error stopping container, will attempt to continue cleaning anyway",
+					zap.Error(err),
+					zap.String("container_id", instance.ContainerID),
+				)
+			}
+		}
 
 		if err := a.cli.ContainerRemove(ctx, instance.ContainerID, cOpts); err != nil {
 			if !client.IsErrNotFound(err) {
