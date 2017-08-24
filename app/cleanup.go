@@ -30,6 +30,8 @@ func (a *App) cleanInactiveInstances() {
 		return
 	}
 
+	count := 0
+
 	if err := instances.ForEach(func(instance *models.Instance) error {
 		logger := logger.With(zap.String("instance_id", instance.ID.String()))
 
@@ -78,6 +80,8 @@ func (a *App) cleanInactiveInstances() {
 			)
 		}
 
+		count++
+
 		return nil
 	}); err != nil {
 		logger.Error("error while looping over instances",
@@ -85,10 +89,14 @@ func (a *App) cleanInactiveInstances() {
 		)
 	}
 
+	logger.Info("cleaned up instances",
+		zap.Int("count", count),
+	)
+
 	// TODO: call ImagesPrune?
 }
 
-func (a *App) expireInstances() {
+func (a *App) checkExpiredInstances() {
 	logger := a.logger
 
 	instanceQuery := models.NewInstanceQuery().
@@ -106,6 +114,8 @@ func (a *App) expireInstances() {
 		return
 	}
 
+	count := 0
+
 	if err := instances.ForEach(func(instance *models.Instance) error {
 		// TODO: send signal to connection to close
 
@@ -117,10 +127,16 @@ func (a *App) expireInstances() {
 			)
 		}
 
+		count++
+
 		return nil
 	}); err != nil {
 		logger.Error("error while looping over instances",
 			zap.Error(err),
 		)
 	}
+
+	logger.Info("expired instances",
+		zap.Int("count", count),
+	)
 }

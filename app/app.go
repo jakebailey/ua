@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"net/http"
+	"time"
 
 	_ "github.com/lib/pq" // postgresql driver
 
@@ -11,6 +12,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/go-chi/chi"
 	"github.com/jakebailey/ua/models"
+	"github.com/jakebailey/ua/sched"
 	"go.uber.org/zap"
 )
 
@@ -29,6 +31,12 @@ var (
 	// DefaultSpew is the spew configuration used in various debugging
 	// endpoints.
 	DefaultSpew = &spew.ConfigState{Indent: "    ", ContinueOnMethod: true}
+	// DefaultCleanInactiveEvery is the period at which the app will clean up
+	// inactive images and containers.
+	DefaultCleanInactiveEvery = time.Hour
+	// DefaultCheckExpiredEvery is the period at which the app will check for
+	// active instances past their expiry time and stop them.
+	DefaultCheckExpiredEvery = time.Minute
 )
 
 // App is the main application for uAssign.
@@ -52,6 +60,11 @@ type App struct {
 	db            *sql.DB
 	specStore     *models.SpecStore
 	instanceStore *models.InstanceStore
+
+	cleanInactiveRunner *sched.Runner
+	cleanInactiveEvery  time.Duration
+	checkExpiredRunner  *sched.Runner
+	checkExpiredEvery   time.Duration
 }
 
 // NewApp creates a new app, with an optional list of options.
@@ -59,12 +72,14 @@ type App struct {
 // Run is called.
 func NewApp(dbString string, options ...Option) *App {
 	a := &App{
-		addr:           DefaultAddr,
-		assignmentPath: DefaultAssignmentPath,
-		logger:         DefaultLogger,
-		staticPath:     DefaultStaticPath,
-		spew:           DefaultSpew,
-		dbString:       dbString,
+		addr:               DefaultAddr,
+		assignmentPath:     DefaultAssignmentPath,
+		logger:             DefaultLogger,
+		staticPath:         DefaultStaticPath,
+		spew:               DefaultSpew,
+		dbString:           dbString,
+		cleanInactiveEvery: DefaultCleanInactiveEvery,
+		checkExpiredEvery:  DefaultCheckExpiredEvery,
 	}
 
 	for _, o := range options {
@@ -144,14 +159,6 @@ func (a *App) Run() error {
 		a.cliClose = cli.Close
 	}
 
-	if a.cliClose != nil {
-		defer func() {
-			if err := a.cliClose(); err != nil {
-				a.logger.Error("error closing docker client", zap.Error(err))
-			}
-		}()
-	}
-
 	// Sanity check Docker client
 	_, err := a.cli.Info(context.Background())
 	if err != nil {
@@ -161,11 +168,6 @@ func (a *App) Run() error {
 	if a.db, err = sql.Open("postgres", a.dbString); err != nil {
 		return err
 	}
-	defer func() {
-		if err := a.db.Close(); err != nil {
-			a.logger.Error("error closing database connection", zap.Error(err))
-		}
-	}()
 
 	if err := a.db.Ping(); err != nil {
 		return err
@@ -174,20 +176,48 @@ func (a *App) Run() error {
 	a.specStore = models.NewSpecStore(a.db)
 	a.instanceStore = models.NewInstanceStore(a.db)
 
+	a.cleanInactiveRunner = sched.NewRunner(a.cleanInactiveInstances, a.cleanInactiveEvery)
+	a.cleanInactiveRunner.Start()
+
+	a.checkExpiredRunner = sched.NewRunner(a.checkExpiredInstances, a.checkExpiredEvery)
+	a.checkExpiredRunner.Start()
+
 	a.srv = &http.Server{
 		Addr:    a.addr,
 		Handler: a.router,
 	}
 
 	a.logger.Info("starting http server", zap.String("addr", a.addr))
-	return a.srv.ListenAndServe()
+	err = a.srv.ListenAndServe()
+	if err == http.ErrServerClosed {
+		return nil
+	}
+	return err
 }
 
-// Shutdown gracefully shuts down the bot. It behaves like
-// http.Server.Shutdown.
-func (a *App) Shutdown(ctx context.Context) error {
+// Shutdown gracefully shuts down the bot.
+func (a *App) Shutdown() {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
 	a.logger.Info("shutting down http server", zap.String("addr", a.addr))
-	return a.srv.Shutdown(ctx)
+	if err := a.srv.Shutdown(ctx); err != nil {
+		a.logger.Error("error shutting down http server",
+			zap.Error(err),
+		)
+	}
+
+	a.cleanInactiveRunner.Stop()
+	a.checkExpiredRunner.Stop()
+
+	if a.cliClose != nil {
+		if err := a.cliClose(); err != nil {
+			a.logger.Error("error closing docker client", zap.Error(err))
+		}
+	}
+	if err := a.db.Close(); err != nil {
+		a.logger.Error("error closing database connection", zap.Error(err))
+	}
 }
 
 // httpError writes a message to the writer. If the app is in debug mode,

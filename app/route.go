@@ -23,6 +23,10 @@ func (a *App) route() {
 	r.Route("/specs", a.routeSpecs)
 	r.Route("/term", a.routeTerm)
 
+	if a.debug {
+		r.Route("/debug", a.routeDebug)
+	}
+
 	a.router = r
 }
 
