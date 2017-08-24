@@ -559,14 +559,14 @@
 		{
 			"checksumSHA1": "2N+zaafLJbM/BcU+j+/BER6Yiwk=",
 			"path": "golang.org/x/sys/unix",
-			"revision": "43e60d72a8e2bd92ee98319ba9a384a0e9837c08",
-			"revisionTime": "2017-08-16T15:16:36Z"
+			"revision": "07c182904dbd53199946ba614a412c61d3c548f5",
+			"revisionTime": "2017-08-16T12:26:40Z"
 		},
 		{
-			"checksumSHA1": "LkAsnLUlAZSg3lRYk7BEyNfog3A=",
+			"checksumSHA1": "gVfCD++7aVcdKF2spv6XkEM/wYw=",
 			"path": "golang.org/x/sys/windows",
-			"revision": "43e60d72a8e2bd92ee98319ba9a384a0e9837c08",
-			"revisionTime": "2017-08-16T15:16:36Z"
+			"revision": "07c182904dbd53199946ba614a412c61d3c548f5",
+			"revisionTime": "2017-08-16T12:26:40Z"
 		},
 		{
 			"checksumSHA1": "vGfePfr0+weQUeTM/71mu+LCFuE=",
