@@ -32,7 +32,8 @@ func RequestLogger(next http.Handler) http.Handler {
 
 			logger.Info("http request",
 				zap.String("method", r.Method),
-				zap.String("url", r.URL.String()),
+				zap.String("url", r.RequestURI),
+				zap.String("proto", r.Proto),
 				zap.Int("status", ww.Status()),
 				zap.Int("size", ww.BytesWritten()),
 				zap.Duration("duration", duration),
