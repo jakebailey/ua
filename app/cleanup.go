@@ -8,6 +8,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/jakebailey/ua/models"
 	"go.uber.org/zap"
+	kallax "gopkg.in/src-d/go-kallax.v1"
 )
 
 func (a *App) cleanInactiveInstances() {
@@ -88,4 +89,41 @@ func (a *App) cleanInactiveInstances() {
 	}
 
 	// TODO: call ImagesPrune?
+}
+
+func (a *App) expireInstances() {
+	logger := a.logger
+
+	instanceQuery := models.NewInstanceQuery().
+		FindByActive(true).
+		FindByCleaned(false).
+		FindByExpiresAt(kallax.Lt, time.Now())
+
+	logger.Info("looking for instances to expire")
+
+	instances, err := a.instanceStore.Find(instanceQuery)
+	if err != nil {
+		logger.Error("error querying for expired instances",
+			zap.Error(err),
+		)
+		return
+	}
+
+	if err := instances.ForEach(func(instance *models.Instance) error {
+		// TODO: send signal to connection to close
+
+		instance.Active = false
+
+		if _, err := a.instanceStore.Update(instance, models.Schema.Instance.Active); err != nil {
+			logger.Error("error marking instance as inactive in database",
+				zap.Error(err),
+			)
+		}
+
+		return nil
+	}); err != nil {
+		logger.Error("error while looping over instances",
+			zap.Error(err),
+		)
+	}
 }
