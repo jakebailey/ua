@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"net/http"
+	"sync"
 	"time"
 
 	_ "github.com/lib/pq" // postgresql driver
@@ -77,6 +78,7 @@ type App struct {
 	checkExpiredRunner  *sched.Runner
 	checkExpiredEvery   time.Duration
 
+	wsWG      sync.WaitGroup
 	wsTimeout time.Duration
 	wsManager *expire.Manager
 }
@@ -229,6 +231,10 @@ func (a *App) Shutdown() {
 	a.checkExpiredRunner.Stop()
 	a.wsManager.Stop()
 	a.wsManager.ExpireAndRemoveAll()
+
+	a.wsWG.Wait()
+
+	a.cleanupLeftoverInstances()
 
 	if a.cliClose != nil {
 		if err := a.cliClose(); err != nil {

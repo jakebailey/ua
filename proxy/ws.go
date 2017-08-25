@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net"
+	"strings"
 	"sync"
 
 	"github.com/gobwas/ws"
@@ -65,6 +66,10 @@ func (w *WSConn) IsClose(err error) bool {
 		case ws.StatusNormalClosure, ws.StatusGoingAway:
 			return true
 		}
+	}
+
+	if strings.Contains(err.Error(), "use of closed network connection") {
+		return true
 	}
 
 	return false

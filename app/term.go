@@ -78,10 +78,13 @@ func (a *App) termWS(w http.ResponseWriter, r *http.Request) {
 	ctx = context.Background()
 	ctx = ctxlog.WithLogger(ctx, logger)
 
+	a.wsWG.Add(1)
 	go a.handleTerm(ctx, conn, specID)
 }
 
 func (a *App) handleTerm(ctx context.Context, conn net.Conn, specID kallax.ULID) {
+	defer a.wsWG.Done()
+
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
