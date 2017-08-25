@@ -101,7 +101,6 @@ func (a *App) checkExpiredInstances() {
 
 	instanceQuery := models.NewInstanceQuery().
 		FindByActive(true).
-		FindByCleaned(false).
 		FindByExpiresAt(kallax.Lt, time.Now())
 
 	logger.Info("looking for instances to expire")
@@ -117,8 +116,6 @@ func (a *App) checkExpiredInstances() {
 	count := 0
 
 	if err := instances.ForEach(func(instance *models.Instance) error {
-		// TODO: send signal to connection to close
-
 		instance.Active = false
 
 		if _, err := a.instanceStore.Update(instance, models.Schema.Instance.Active); err != nil {

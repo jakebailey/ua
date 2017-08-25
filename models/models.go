@@ -8,7 +8,7 @@ import (
 
 // Spec specifies how to build an assignment's image from scratch.
 // This includes the assignment's name (same as the subdirectory),
-// data and seed to pass to the template, and any sessions associated
+// data and seed to pass to the template, and any instances associated
 // with the spec.
 type Spec struct {
 	kallax.Model `table:"specs"`
@@ -28,8 +28,8 @@ func newSpec() *Spec {
 
 // Instance describes a single instance of a Spec. This includes
 // the ID of the Docker image, the ID of the Docker container,
-// when the instance should expire (then clients disconnected,
-// image/container cleaned), and its status.
+// when the instance should expire (a new instance must be created),
+// and its status.
 type Instance struct {
 	kallax.Model `table:"instances"`
 	kallax.Timestamps

@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/gobwas/ws"
 	"github.com/jakebailey/ua/ctxlog"
+	"github.com/jakebailey/ua/expire"
 	"github.com/jakebailey/ua/image"
 	"github.com/jakebailey/ua/models"
 	"github.com/jakebailey/ua/proxy"
@@ -95,10 +96,31 @@ func (a *App) handleTerm(ctx context.Context, conn net.Conn, specID kallax.ULID)
 		return
 	}
 
-	logger = logger.With(zap.String("container_id", instance.ContainerID))
+	logger = logger.With(
+		zap.String("instance_id", instance.ID.String()),
+		zap.String("container_id", instance.ContainerID),
+	)
 	ctx = ctxlog.WithLogger(ctx, logger)
 
-	proxyConn := proxy.NewWSConn(conn)
+	var proxyConn proxy.Conn = proxy.NewWSConn(conn)
+
+	token := a.wsManager.Acquire(
+		instance.ID.String(),
+		func() {
+			logger.Debug("websocket expired")
+			if err := proxyConn.Close(); err != nil {
+				logger.Error("error closing connection on expiry",
+					zap.Error(err),
+				)
+			}
+		},
+	)
+	defer a.wsManager.Return(token)
+
+	proxyConn = tokenProxyConn{
+		Conn:  proxyConn,
+		token: token,
+	}
 
 	if err := proxy.Proxy(ctx, instance.ContainerID, proxyConn, a.cli); err != nil {
 		logger.Error("error proxying container",
@@ -106,8 +128,14 @@ func (a *App) handleTerm(ctx context.Context, conn net.Conn, specID kallax.ULID)
 		)
 	}
 
-	// TODO: Don't do this, leave the container instead for future cleaning
-	// a.stopInstance(ctx, instance)
+	expiresAt := time.Now().Add(4 * time.Hour)
+	instance.ExpiresAt = &expiresAt
+
+	if _, err := a.instanceStore.Update(instance, models.Schema.Instance.ExpiresAt); err != nil {
+		logger.Error("error adding ExpiresAt to instance",
+			zap.Error(err),
+		)
+	}
 }
 
 func (a *App) getActiveInstance(ctx context.Context, specID kallax.ULID) (*models.Instance, error) {
@@ -142,7 +170,14 @@ func (a *App) getActiveInstance(ctx context.Context, specID kallax.ULID) (*model
 
 	instance = instances[0]
 	logger.Debug("reusing active instance")
-	// TODO: disconnect instance's existing client
+
+	instance.ExpiresAt = nil
+	if _, err := a.instanceStore.Update(instance, models.Schema.Instance.ExpiresAt); err != nil {
+		logger.Error("error disabling expiry for instance",
+			zap.Error(err),
+		)
+		return nil, err
+	}
 
 	return instance, nil
 }
@@ -200,12 +235,9 @@ func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.I
 		return nil, err
 	}
 
-	expiresAt := time.Now().Add(4 * time.Hour)
-
 	instance := models.NewInstance()
 	instance.ImageID = imageID
 	instance.ContainerID = c.ID
-	instance.ExpiresAt = &expiresAt
 	instance.Active = true
 
 	if err := a.specStore.Transaction(func(specStore *models.SpecStore) error {
@@ -257,4 +289,21 @@ func (a *App) stopInstance(ctx context.Context, instance *models.Instance) {
 			zap.Error(err),
 		)
 	}
+}
+
+type tokenProxyConn struct {
+	proxy.Conn
+	token *expire.Token
+}
+
+var _ proxy.Conn = tokenProxyConn{}
+
+func (t tokenProxyConn) ReadJSON(v interface{}) error {
+	t.token.Update()
+	return t.Conn.ReadJSON(v)
+}
+
+func (t tokenProxyConn) WriteJSON(v interface{}) error {
+	t.token.Update()
+	return t.Conn.WriteJSON(v)
 }

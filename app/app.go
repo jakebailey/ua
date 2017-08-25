@@ -11,6 +11,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/docker/docker/client"
 	"github.com/go-chi/chi"
+	"github.com/jakebailey/ua/expire"
 	"github.com/jakebailey/ua/models"
 	"github.com/jakebailey/ua/sched"
 	"go.uber.org/zap"
@@ -43,6 +44,10 @@ var (
 	// DefaultCheckExpiredEvery is the period at which the app will check for
 	// active instances past their expiry time and stop them.
 	DefaultCheckExpiredEvery = time.Minute
+
+	// DefaultWebsocketTimeout is the maximum duration a websocket can be
+	// inactive before expiring.
+	DefaultWebsocketTimeout = time.Hour
 )
 
 // App is the main application for uAssign.
@@ -71,6 +76,9 @@ type App struct {
 	cleanInactiveEvery  time.Duration
 	checkExpiredRunner  *sched.Runner
 	checkExpiredEvery   time.Duration
+
+	wsTimeout time.Duration
+	wsManager *expire.Manager
 }
 
 // NewApp creates a new app, with an optional list of options.
@@ -86,6 +94,7 @@ func NewApp(dbString string, options ...Option) *App {
 		dbString:           dbString,
 		cleanInactiveEvery: DefaultCleanInactiveEvery,
 		checkExpiredEvery:  DefaultCheckExpiredEvery,
+		wsTimeout:          DefaultWebsocketTimeout,
 	}
 
 	for _, o := range options {
@@ -188,6 +197,9 @@ func (a *App) Run() error {
 	a.checkExpiredRunner = sched.NewRunner(a.checkExpiredInstances, a.checkExpiredEvery)
 	a.checkExpiredRunner.Start()
 
+	a.wsManager = expire.NewManager(time.Minute, a.wsTimeout)
+	a.wsManager.Run()
+
 	a.srv = &http.Server{
 		Addr:    a.addr,
 		Handler: a.router,
@@ -215,6 +227,8 @@ func (a *App) Shutdown() {
 
 	a.cleanInactiveRunner.Stop()
 	a.checkExpiredRunner.Stop()
+	a.wsManager.Stop()
+	a.wsManager.ExpireAndRemoveAll()
 
 	if a.cliClose != nil {
 		if err := a.cliClose(); err != nil {
