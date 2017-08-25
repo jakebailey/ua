@@ -88,8 +88,9 @@ func (a *App) handleTerm(ctx context.Context, conn net.Conn, specID kallax.ULID)
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	logger := ctxlog.FromContext(ctx).With(zap.String("spec_id", specID.String()))
-	ctx = ctxlog.WithLogger(ctx, logger)
+	ctx, logger := ctxlog.FromContextWith(ctx,
+		zap.String("spec_id", specID.String()),
+	)
 
 	instance, err := a.getActiveInstance(ctx, specID)
 	if err != nil {
@@ -99,11 +100,10 @@ func (a *App) handleTerm(ctx context.Context, conn net.Conn, specID kallax.ULID)
 		return
 	}
 
-	logger = logger.With(
+	ctx, logger = ctxlog.FromContextWith(ctx,
 		zap.String("instance_id", instance.ID.String()),
 		zap.String("container_id", instance.ContainerID),
 	)
-	ctx = ctxlog.WithLogger(ctx, logger)
 
 	var proxyConn proxy.Conn = proxy.NewWSConn(conn)
 

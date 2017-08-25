@@ -14,7 +14,10 @@ import (
 )
 
 func (a *App) cleanInstance(ctx context.Context, instance *models.Instance) error {
-	logger := ctxlog.FromContext(ctx).With(zap.String("instance_id", instance.ID.String()))
+	ctx, logger := ctxlog.FromContextWith(ctx,
+		zap.String("instance_id", instance.ID.String()),
+	)
+
 	cOpts := types.ContainerRemoveOptions{RemoveVolumes: true}
 	iOpts := types.ImageRemoveOptions{PruneChildren: true}
 

@@ -89,7 +89,9 @@ func Proxy(ctx context.Context, id string, conn Conn, cli client.CommonAPIClient
 
 func proxyInputFunc(ctx context.Context, id string, conn Conn, cli client.CommonAPIClient, writer io.Writer) func() error {
 	return func() error {
-		logger := ctxlog.FromContext(ctx).With(zap.String("pipe", "stdin"))
+		ctx, logger := ctxlog.FromContextWith(ctx,
+			zap.String("pipe", "stdin"),
+		)
 
 		defer logger.Debug("proxy stopping")
 		logger.Debug("stdin proxy starting")

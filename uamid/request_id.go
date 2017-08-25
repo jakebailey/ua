@@ -55,8 +55,9 @@ func RequestID(fieldKey string) func(http.Handler) http.Handler {
 			ctx = context.WithValue(ctx, requestIDKey{}, requestID)
 
 			if fieldKey != "" {
-				logger := ctxlog.FromContext(ctx).With(zap.String(fieldKey, requestID))
-				ctx = ctxlog.WithLogger(ctx, logger)
+				ctx, _ = ctxlog.FromContextWith(ctx,
+					zap.String(fieldKey, requestID),
+				)
 			}
 
 			r = r.WithContext(ctx)
