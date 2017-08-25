@@ -19,6 +19,8 @@ var args = struct {
 	Debug      bool   `arg:"env,help:enables pretty logging and extra debug routes"`
 	Database   string `arg:"required,env,help:postgres database connection string"`
 	APIKeyPath string `arg:"--api-key-path,env:API_KEY_PATH,help:path to api key csv"`
+	CertFile   string `arg:"env,help:path to HTTPS certificate file"`
+	KeyFile    string `arg:"env,help:path to HTTPS key file"`
 }{
 	Addr: ":8000",
 }
@@ -61,6 +63,10 @@ func main() {
 			)
 		}
 		options = append(options, app.APIKeys(keys))
+	}
+
+	if args.CertFile != "" || args.KeyFile != "" {
+		options = append(options, app.TLS(args.CertFile, args.KeyFile))
 	}
 
 	a := app.NewApp(args.Database, options...)

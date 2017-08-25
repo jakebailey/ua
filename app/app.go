@@ -60,6 +60,9 @@ type App struct {
 	staticPath     string
 	apiKeyNames    map[string]string
 
+	tls                     bool
+	tlsCertFile, tlsKeyFile string
+
 	router chi.Router
 	srv    *http.Server
 
@@ -172,6 +175,14 @@ func APIKeys(apiKeyNames map[string]string) Option {
 	}
 }
 
+func TLS(certFile, certKey string) Option {
+	return func(a *App) {
+		a.tls = true
+		a.tlsCertFile = certFile
+		a.tlsKeyFile = certKey
+	}
+}
+
 // Run runs the app, opening docker/db/etc connections. This function blocks
 // until an error occurs, or the app closes.
 func (a *App) Run() error {
@@ -217,7 +228,16 @@ func (a *App) Run() error {
 	}
 
 	a.logger.Info("starting http server", zap.String("addr", a.addr))
-	err = a.srv.ListenAndServe()
+
+	if a.tls {
+		err = a.srv.ListenAndServeTLS(a.tlsCertFile, a.tlsKeyFile)
+	} else {
+		if !a.debug {
+			a.logger.Warn("server running without https in production")
+		}
+		err = a.srv.ListenAndServe()
+	}
+
 	if err == http.ErrServerClosed {
 		return nil
 	}
