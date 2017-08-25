@@ -20,7 +20,6 @@ func (a *App) route() {
 
 	r.Use(uamid.RequestLogger)
 	r.Use(uamid.Recoverer)
-	r.Use(middleware.CloseNotify)
 	r.Use(middleware.Heartbeat("/ping"))
 
 	routeStatic(r, "/static", a.staticPath)
