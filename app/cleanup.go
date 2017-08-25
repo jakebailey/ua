@@ -212,3 +212,48 @@ func (a *App) cleanupLeftoverInstances() {
 		zap.Int("count", count),
 	)
 }
+
+func (a *App) markAllInstancesCleanedAndInactive() {
+	logger := a.logger
+
+	instanceQuery := models.NewInstanceQuery().
+		Where(kallax.Or(
+			kallax.Eq(models.Schema.Instance.Active, true),
+			kallax.Eq(models.Schema.Instance.Cleaned, false),
+		))
+
+	logger.Info("marking all instances as cleaned and inactive")
+
+	instances, err := a.instanceStore.Find(instanceQuery)
+	if err != nil {
+		logger.Error("error querying for uncleaned or active instances",
+			zap.Error(err),
+		)
+		return
+	}
+
+	count := 0
+
+	if err := instances.ForEach(func(instance *models.Instance) error {
+		instance.Active = false
+		instance.Cleaned = true
+
+		if _, err := a.instanceStore.Update(instance, models.Schema.Instance.Active, models.Schema.Instance.Cleaned); err != nil {
+			logger.Error("error marking instance as cleaned and inactive in database",
+				zap.Error(err),
+			)
+		}
+
+		count++
+
+		return nil
+	}); err != nil {
+		logger.Error("error while looping over instances",
+			zap.Error(err),
+		)
+	}
+
+	logger.Info("marked instances as cleaned and inactive",
+		zap.Int("count", count),
+	)
+}

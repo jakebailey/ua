@@ -269,6 +269,11 @@ func (a *App) Shutdown() {
 
 	a.cleanupLeftoverInstances()
 
+	// This shouldn't be needed, but by this point all instances should be both
+	// cleaned and inactive, so just force everything into the correct state
+	// ignoring all of the errors that happened during cleanup.
+	a.markAllInstancesCleanedAndInactive()
+
 	if a.cliClose != nil {
 		a.logger.Info("closing docker client")
 		if err := a.cliClose(); err != nil {
