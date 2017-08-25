@@ -213,6 +213,11 @@ func (a *App) Run() error {
 	a.specStore = models.NewSpecStore(a.db)
 	a.instanceStore = models.NewInstanceStore(a.db)
 
+	// Ensure that the database doesn't have any already active or uncleaned
+	// instances. For now, only one of these servers will run at a time. This
+	// will need to be removed once the platform improves.
+	a.markAllInstancesCleanedAndInactive()
+
 	a.cleanInactiveRunner = sched.NewRunner(a.cleanInactiveInstances, a.cleanInactiveEvery)
 	a.cleanInactiveRunner.Start()
 
