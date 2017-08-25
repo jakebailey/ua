@@ -25,12 +25,41 @@ type Conn interface {
 func Proxy(ctx context.Context, id string, conn Conn, cli client.CommonAPIClient) error {
 	logger := ctxlog.FromContext(ctx)
 
-	hj, err := cli.ContainerAttach(ctx, id, types.ContainerAttachOptions{
-		Stream: true,
-		Stdin:  true,
-		Stdout: true,
-		Stderr: true,
-	})
+	info, err := cli.ContainerInspect(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	var cmd []string
+	cmd = append(cmd, info.Config.Entrypoint...)
+	cmd = append(cmd, info.Config.Cmd...)
+
+	execConfig := types.ExecConfig{
+		User:         info.Config.User,
+		Tty:          true,
+		AttachStdin:  true,
+		AttachStdout: true,
+		AttachStderr: true,
+		Cmd:          cmd,
+	}
+
+	logger.Debug("creating exec",
+		zap.Any("exec_config", execConfig),
+	)
+
+	execResp, err := cli.ContainerExecCreate(ctx, id, execConfig)
+	if err != nil {
+		return err
+	}
+
+	execID := execResp.ID
+
+	logger = logger.With(zap.String("exec_id", execID))
+	ctx = ctxlog.WithLogger(ctx, logger)
+
+	logger.Debug("attaching to exec")
+
+	hj, err := cli.ContainerExecAttach(ctx, execID, execConfig)
 	if err != nil {
 		return err
 	}
@@ -40,9 +69,9 @@ func Proxy(ctx context.Context, id string, conn Conn, cli client.CommonAPIClient
 
 	g, ctx := errgroup.WithContext(ctx)
 
-	g.Go(proxyInputFunc(ctx, id, conn, cli, hj.Conn))
-	g.Go(proxyOutputFunc(ctx, id, conn, hj.Conn, "stdout"))
-	g.Go(proxyOutputFunc(ctx, id, conn, hj.Reader, "stderr"))
+	g.Go(proxyInputFunc(ctx, execID, conn, cli, hj.Conn))
+	g.Go(proxyOutputFunc(ctx, execID, conn, hj.Conn, "stdout"))
+	g.Go(proxyOutputFunc(ctx, execID, conn, hj.Reader, "stderr"))
 
 	g.Go(func() error {
 		<-ctx.Done()
@@ -101,7 +130,7 @@ func proxyInputFunc(ctx context.Context, id string, conn Conn, cli client.Common
 					zap.Uint("width", width),
 				)
 
-				if err := cli.ContainerResize(ctx, id, types.ResizeOptions{
+				if err := cli.ContainerExecResize(ctx, id, types.ResizeOptions{
 					Height: height,
 					Width:  width,
 				}); err != nil {
