@@ -75,7 +75,8 @@ func (m *Manager) Acquire(name string, onExpire func()) *Token {
 }
 
 // Return retuns a token to the manager, deregistering it. This will not
-// run the associated onExpire function.
+// run the associated onExpire function. If the given token is not being
+// tracked, Return does nothing.
 //
 // Return is safe for concurrent use.
 func (m *Manager) Return(token *Token) {
@@ -87,6 +88,32 @@ func (m *Manager) Return(token *Token) {
 	}
 
 	m.mu.Unlock()
+}
+
+// ExpireAndRemove expires an entry in the manager by name, removing it
+// and running its onExpire function.
+func (m *Manager) ExpireAndRemove(name string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if entry := m.entries[name]; entry != nil {
+		delete(m.entries, name)
+		delete(m.tokens, entry.token)
+		go entry.onExpire()
+	}
+}
+
+// ExpireAndRemoveAll expires all entries and removes them from the manager,
+// running onExpire functions.
+func (m *Manager) ExpireAndRemoveAll() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for name, entry := range m.entries {
+		delete(m.entries, name)
+		delete(m.tokens, entry.token)
+		go entry.onExpire()
+	}
 }
 
 func (m *Manager) run() {
