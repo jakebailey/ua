@@ -13,6 +13,11 @@ func (a *App) route() {
 
 	r.Use(uamid.Logger(a.logger))
 	r.Use(uamid.RequestID("request_id"))
+
+	if len(a.apiKeyNames) != 0 {
+		r.Use(uamid.APIKey(a.apiKeyNames))
+	}
+
 	r.Use(uamid.RequestLogger)
 	r.Use(uamid.Recoverer)
 	r.Use(middleware.CloseNotify)
@@ -21,7 +26,13 @@ func (a *App) route() {
 	routeStatic(r, "/static", a.staticPath)
 	r.Handle("/favicon.ico", http.RedirectHandler("/static/favicon.ico", http.StatusFound))
 
-	r.Route("/specs", a.routeSpecs)
+	r.Group(func(r chi.Router) {
+		if !a.debug {
+			r.Use(uamid.APIKeyProtect)
+		}
+		r.Route("/specs", a.routeSpecs)
+	})
+
 	r.Route("/term", a.routeTerm)
 
 	if a.debug {

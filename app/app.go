@@ -58,6 +58,7 @@ type App struct {
 	addr           string
 	assignmentPath string
 	staticPath     string
+	apiKeyNames    map[string]string
 
 	router chi.Router
 	srv    *http.Server
@@ -160,6 +161,14 @@ func DockerClient(cli client.CommonAPIClient, closeFunc func() error) Option {
 	return func(a *App) {
 		a.cli = cli
 		a.cliClose = closeFunc
+	}
+}
+
+// APIKeys sets up the API keys for the specs route, given a map from API key
+// strings to human-readable names.
+func APIKeys(apiKeyNames map[string]string) Option {
+	return func(a *App) {
+		a.apiKeyNames = apiKeyNames
 	}
 }
 
