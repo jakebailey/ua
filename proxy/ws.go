@@ -68,7 +68,13 @@ func (w *WSConn) IsClose(err error) bool {
 		}
 	}
 
-	if strings.Contains(err.Error(), "use of closed network connection") {
+	errText := err.Error()
+
+	if strings.Contains(errText, "use of closed network connection") {
+		return true
+	}
+
+	if strings.Contains(errText, "broken pipe") {
 		return true
 	}
 
