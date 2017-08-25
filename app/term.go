@@ -264,36 +264,6 @@ func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.I
 	return instance, nil
 }
 
-func (a *App) stopInstance(ctx context.Context, instance *models.Instance) {
-	logger := ctxlog.FromContext(ctx)
-
-	if err := a.cli.ContainerStop(ctx, instance.ContainerID, nil); err != nil {
-		logger.Error("error stopping container",
-			zap.Error(err),
-		)
-	}
-
-	logger.Info("stopped container")
-
-	if err := a.cli.ContainerRemove(ctx, instance.ContainerID, types.ContainerRemoveOptions{
-		RemoveVolumes: true,
-	}); err != nil {
-		logger.Error("error removing container",
-			zap.Error(err),
-		)
-	}
-
-	logger.Info("removed container")
-
-	instance.Active = false
-
-	if _, err := a.instanceStore.Update(instance, models.Schema.Instance.Active); err != nil {
-		logger.Error("error marking instance as inactive in database",
-			zap.Error(err),
-		)
-	}
-}
-
 type tokenProxyConn struct {
 	proxy.Conn
 	token *expire.Token

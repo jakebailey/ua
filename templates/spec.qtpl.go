@@ -70,7 +70,7 @@ func StreamSpec(qw422016 *qt422016.Writer, url string) {
                 data: JSON.stringify(postData),
                 dataType: 'json',
                 success: function(data) {
-                    $("#result").append('<a href="/term/' + data.id + '" target="_blank">' + data.id + '</a>');
+                    $("#result").append('<br><a href="/term/' + data.id + '" target="_blank">' + data.id + '</a>');
                 }
             });
         });

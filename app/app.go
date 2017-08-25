@@ -256,20 +256,27 @@ func (a *App) Shutdown() {
 		)
 	}
 
+	a.logger.Info("stopping scheduled tasks")
 	a.cleanInactiveRunner.Stop()
 	a.checkExpiredRunner.Stop()
+
+	a.logger.Info("expiring all websocket connections")
 	a.wsManager.Stop()
 	a.wsManager.ExpireAndRemoveAll()
 
+	a.logger.Info("waiting for websocket handlers to exit")
 	a.wsWG.Wait()
 
 	a.cleanupLeftoverInstances()
 
 	if a.cliClose != nil {
+		a.logger.Info("closing docker client")
 		if err := a.cliClose(); err != nil {
 			a.logger.Error("error closing docker client", zap.Error(err))
 		}
 	}
+
+	a.logger.Info("closing database connection")
 	if err := a.db.Close(); err != nil {
 		a.logger.Error("error closing database connection", zap.Error(err))
 	}

@@ -19,7 +19,7 @@ func (a *App) cleanInstance(ctx context.Context, instance *models.Instance) erro
 	)
 
 	cOpts := types.ContainerRemoveOptions{RemoveVolumes: true}
-	iOpts := types.ImageRemoveOptions{PruneChildren: true}
+	iOpts := types.ImageRemoveOptions{} //PruneChildren: true}
 
 	logger.Debug("killing container",
 		zap.String("container_id", instance.ContainerID),
@@ -28,7 +28,7 @@ func (a *App) cleanInstance(ctx context.Context, instance *models.Instance) erro
 	// Send KILL, since we don't care about the state of the container anyway and it's faster
 	if err := a.cli.ContainerKill(ctx, instance.ContainerID, "KILL"); err != nil {
 		if !client.IsErrNotFound(err) {
-			logger.Warn("error stopping container, will attempt to continue cleaning anyway",
+			logger.Warn("error killing container, will attempt to continue cleaning anyway",
 				zap.Error(err),
 				zap.String("container_id", instance.ContainerID),
 			)
@@ -54,7 +54,7 @@ func (a *App) cleanInstance(ctx context.Context, instance *models.Instance) erro
 	}
 
 	logger.Debug("removing image",
-		zap.String("container_id", instance.ImageID),
+		zap.String("image_id", instance.ImageID),
 	)
 
 	if _, err := a.cli.ImageRemove(ctx, instance.ImageID, iOpts); err != nil {
