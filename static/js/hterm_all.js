@@ -4,6 +4,8 @@
 // files...
 //
 // libdot/js/lib.js
+// libdot/js/lib_polyfill.js
+// libdot/js/lib_array.js
 // libdot/js/lib_colors.js
 // libdot/js/lib_f.js
 // libdot/js/lib_message_manager.js
@@ -15,7 +17,7 @@
 // libdot/js/lib_storage_memory.js
 // libdot/js/lib_test_manager.js
 // libdot/js/lib_utf8.js
-// libdot/js/lib_wc.js
+// libdot/third_party/wcwidth/lib_wc.js
 // hterm/js/hterm.js
 // hterm/js/hterm_frame.js
 // hterm/js/hterm_keyboard.js
@@ -197,6 +199,144 @@ lib.init = function(onInit, opt_logFunction) {
 
   setTimeout(initNext, 0);
 };
+// SOURCE FILE: libdot/js/lib_polyfill.js
+// Copyright 2017 The Chromium OS Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+'use strict';
+
+/**
+ * @fileoverview Polyfills for ES2016+ features we want to use.
+ */
+
+// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/padStart
+if (!String.prototype.padStart) {
+  String.prototype.padStart = function(targetLength, padString) {
+    // If the string is already long enough, nothing to do!
+    targetLength -= this.length;
+    if (targetLength <= 0)
+      return String(this);
+
+    if (padString === undefined)
+      padString = ' ';
+
+    // In case the pad is multiple chars long.
+    if (targetLength > padString.length)
+      padString = padString.repeat((targetLength / padString.length) + 1);
+
+    return padString.slice(0, targetLength) + String(this);
+  };
+}
+
+// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/padEnd
+if (!String.prototype.padEnd) {
+  String.prototype.padEnd = function(targetLength, padString) {
+    // If the string is already long enough, nothing to do!
+    targetLength -= this.length;
+    if (targetLength <= 0)
+      return String(this);
+
+    if (padString === undefined)
+      padString = ' ';
+
+    // In case the pad is multiple chars long.
+    if (targetLength > padString.length)
+      padString = padString.repeat((targetLength / padString.length) + 1);
+
+    return String(this) + padString.slice(0, targetLength);
+  };
+}
+// SOURCE FILE: libdot/js/lib_array.js
+// Copyright 2017 The Chromium OS Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+'use strict';
+
+/**
+ * @fileoverview Helper functions for (typed) arrays.
+ */
+
+lib.array = {};
+
+/**
+ * Convert an array of four unsigned bytes into an unsigned 32-bit integer (big
+ * endian).
+ *
+ * @param {!Array.<!number>} array
+ * @returns {!number}
+ */
+lib.array.arrayBigEndianToUint32 = function(array) {
+  const maybeSigned =
+      (array[0] << 24) | (array[1] << 16) | (array[2] << 8) | (array[3] << 0);
+  // Interpret the result of the bit operations as an unsigned integer.
+  return maybeSigned >>> 0;
+};
+
+/**
+ * Convert an unsigned 32-bit integer into an array of four unsigned bytes (big
+ * endian).
+ *
+ * @param {!number} uint32
+ * @returns {!Array.<!number>}
+ */
+lib.array.uint32ToArrayBigEndian = function(uint32) {
+  return [
+    (uint32 >>> 24) & 0xFF,
+    (uint32 >>> 16) & 0xFF,
+    (uint32 >>> 8) & 0xFF,
+    (uint32 >>> 0) & 0xFF,
+  ];
+};
+
+/**
+ * Concatenate an arbitrary number of typed arrays of the same type into a new
+ * typed array of this type.
+ *
+ * @template TYPED_ARRAY
+ * @param {...!TYPED_ARRAY} arrays
+ * @returns {!TYPED_ARRAY}
+ */
+lib.array.concatTyped = function(...arrays) {
+  let resultLength = 0;
+  for (const array of arrays) {
+    resultLength += array.length;
+  }
+  const result = new arrays[0].constructor(resultLength);
+  let pos = 0;
+  for (const array of arrays) {
+    result.set(array, pos);
+    pos += array.length;
+  }
+  return result;
+};
+
+/**
+ * Compare two array-like objects entrywise.
+ *
+ * @template ARRAY_LIKE
+ * @param {?ARRAY_LIKE} a
+ * @param {?ARRAY_LIKE} b
+ * @returns {!boolean} true if both arrays are null or they agree entrywise;
+ *     false otherwise.
+ */
+lib.array.compare = function(a, b) {
+  if (a === null || b === null) {
+    return a === null && b === null;
+  }
+
+  if (a.length !== b.length) {
+    return false;
+  }
+
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) {
+      return false;
+    }
+  }
+  return true;
+};
 // SOURCE FILE: libdot/js/lib_colors.js
 // Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
@@ -258,7 +398,7 @@ lib.colors.re_ = {
        '(?:,/s*(/d+(?:/./d+)?)/s*)?/)/s*$'
        ).replace(/\//g, '\\'), 'i'),
 
-  // An X11 "rgb:ddd/ddd/ddd" value.
+  // An X11 "rgb:dddd/dddd/dddd" value.
   x11rgb: /^\s*rgb:([a-f0-9]{1,4})\/([a-f0-9]{1,4})\/([a-f0-9]{1,4})\s*$/i,
 
   // English color name.
@@ -279,10 +419,7 @@ lib.colors.re_ = {
 lib.colors.rgbToX11 = function(value) {
   function scale(v) {
     v = (Math.min(v, 255) * 257).toString(16);
-    while (v.length < 4)
-      v = '0' + v;
-
-    return v;
+    return lib.f.zpad(v, 4);
   }
 
   var ary = value.match(lib.colors.re_.rgbx);
@@ -290,6 +427,48 @@ lib.colors.rgbToX11 = function(value) {
     return null;
 
   return 'rgb:' + scale(ary[1]) + '/' + scale(ary[2]) + '/' + scale(ary[3]);
+};
+
+/**
+ * Convert a legacy X11 colover value into an CSS rgb(...) color value.
+ *
+ * They take the form:
+ * 12 bit: #RGB          -> #R000G000B000
+ * 24 bit: #RRGGBB       -> #RR00GG00BB00
+ * 36 bit: #RRRGGGBBB    -> #RRR0GGG0BBB0
+ * 48 bit: #RRRRGGGGBBBB
+ * These are the most significant bits.
+ *
+ * Truncate values back down to 24 bit since that's all CSS supports.
+ */
+lib.colors.x11HexToCSS = function(v) {
+  if (!v.startsWith('#'))
+    return null;
+  // Strip the leading # off.
+  v = v.substr(1);
+
+  // Reject unknown sizes.
+  if ([3, 6, 9, 12].indexOf(v.length) == -1)
+    return null;
+
+  // Reject non-hex values.
+  if (v.match(/[^a-f0-9]/i))
+    return null;
+
+  // Split the colors out.
+  var size = v.length / 3;
+  var r = v.substr(0, size);
+  var g = v.substr(size, size);
+  var b = v.substr(size + size, size);
+
+  // Normalize to 16 bits.
+  function norm16(v) {
+    v = parseInt(v, 16);
+    return size == 2 ? v :         // 16 bit
+           size == 1 ? v << 4 :    // 8 bit
+           v >> (4 * (size - 2));  // 24 or 32 bit
+  }
+  return lib.colors.arrayToRGBA([r, g, b].map(norm16));
 };
 
 /**
@@ -336,8 +515,13 @@ lib.colors.x11ToCSS = function(v) {
   }
 
   var ary = v.match(lib.colors.re_.x11rgb);
-  if (!ary)
-    return lib.colors.nameToRGB(v);
+  if (!ary) {
+    // Handle the legacy format.
+    if (v.startsWith('#'))
+      return lib.colors.x11HexToCSS(v);
+    else
+      return lib.colors.nameToRGB(v);
+  }
 
   ary.splice(0, 1);
   return lib.colors.arrayToRGBA(ary.map(scale));
@@ -399,6 +583,8 @@ lib.colors.hexToRGB = function(arg) {
 lib.colors.rgbToHex = function(arg) {
   function convert(rgb) {
     var ary = lib.colors.crackRGB(rgb);
+    if (!ary)
+      return null;
     return '#' + lib.f.zpad(((parseInt(ary[0]) << 16) |
                              (parseInt(ary[1]) <<  8) |
                              (parseInt(ary[2]) <<  0)).toString(16), 6);
@@ -421,7 +607,7 @@ lib.colors.rgbToHex = function(arg) {
  * Returns null if the value could not be normalized.
  */
 lib.colors.normalizeCSS = function(def) {
-  if (def.substr(0, 1) == '#')
+  if (def.startsWith('#'))
     return lib.colors.hexToRGB(def);
 
   if (lib.colors.re_.rgbx.test(def))
@@ -469,7 +655,7 @@ lib.colors.mix = function(base, tint, percent) {
  * will be set to 1.
  */
 lib.colors.crackRGB = function(color) {
-  if (color.substr(0, 4) == 'rgba') {
+  if (color.startsWith('rgba')) {
     var ary = color.match(lib.colors.re_.rgba);
     if (ary) {
       ary.shift();
@@ -479,7 +665,7 @@ lib.colors.crackRGB = function(color) {
     var ary = color.match(lib.colors.re_.rgb);
     if (ary) {
       ary.shift();
-      ary.push(1);
+      ary.push('1');
       return ary;
     }
   }
@@ -1256,6 +1442,20 @@ lib.colors.colorNames = {
 lib.f = {};
 
 /**
+ * Create a unique enum value.
+ *
+ * @suppress {lintChecks}
+ * @param {string} name A human friendly name for debugging.
+ * @return {Object} A unique enum that won't compare equal to anything else.
+ */
+lib.f.createEnum = function(name) {
+  // We use a String object as nothing else should be using them -- we want to
+  // use string primitives normally.  But debuggers will include our name.
+  // eslint-disable-next-line no-new-wrappers
+  return new String(name);
+};
+
+/**
  * Replace variable references in a string.
  *
  * Variables are of the form %FUNCTION(VARNAME).  FUNCTION is an optional
@@ -1302,7 +1502,7 @@ lib.f.replaceVars.functions = {
       "'": '&#39;'
     };
 
-    return str.replace(/[<>&\"\']/g, function(m) { return map[m] });
+    return str.replace(/[<>&\"\']/g, (m) => map[m]);
   }
 };
 
@@ -1313,13 +1513,17 @@ lib.f.replaceVars.functions = {
  *     parameter is a list of locale names.
  */
 lib.f.getAcceptLanguages = function(callback) {
-  if (window.chrome && chrome.i18n) {
+  if (lib.f.getAcceptLanguages.chromeSupported()) {
     chrome.i18n.getAcceptLanguages(callback);
   } else {
     setTimeout(function() {
         callback([navigator.language.replace(/-/g, '_')]);
       }, 0);
   }
+};
+
+lib.f.getAcceptLanguages.chromeSupported = function() {
+  return window.chrome && chrome.i18n;
 };
 
 /**
@@ -1337,7 +1541,7 @@ lib.f.getAcceptLanguages = function(callback) {
  *     leading '?', the '?' will be ignored.
  */
 lib.f.parseQuery = function(queryString) {
-  if (queryString.substr(0, 1) == '?')
+  if (queryString.startsWith('?'))
     queryString = queryString.substr(1);
 
   var rv = {};
@@ -1352,10 +1556,14 @@ lib.f.parseQuery = function(queryString) {
 };
 
 lib.f.getURL = function(path) {
-  if (window.chrome && chrome.runtime && chrome.runtime.getURL)
+  if (lib.f.getURL.chromeSupported())
     return chrome.runtime.getURL(path);
 
   return path;
+};
+
+lib.f.getURL.chromeSupported = function() {
+  return window.chrome && chrome.runtime && chrome.runtime.getURL;
 };
 
 /**
@@ -1374,24 +1582,6 @@ lib.f.clamp = function(v, min, max) {
 };
 
 /**
- * Left pad a string to a given length using a given character.
- *
- * @param {string} str The string to pad.
- * @param {integer} length The desired length.
- * @param {string} opt_ch The optional padding character, defaults to ' '.
- * @return {string} The padded string.
- */
-lib.f.lpad = function(str, length, opt_ch) {
-  str = String(str);
-  opt_ch = opt_ch || ' ';
-
-  while (str.length < length)
-    str = opt_ch + str;
-
-  return str;
-};
-
-/**
  * Left pad a number to a given length with leading zeros.
  *
  * @param {string|integer} number The number to pad.
@@ -1399,7 +1589,7 @@ lib.f.lpad = function(str, length, opt_ch) {
  * @return {string} The padded number as a string.
  */
 lib.f.zpad = function(number, length) {
-  return lib.f.lpad(number, length, '0');
+  return String(number).padStart(length, '0');
 };
 
 /**
@@ -1413,7 +1603,7 @@ lib.f.zpad = function(number, length) {
  * @param {string} A string of spaces of the requested length.
  */
 lib.f.getWhitespace = function(length) {
-  if (length == 0)
+  if (length <= 0)
     return '';
 
   var f = this.getWhitespace;
@@ -1482,7 +1672,7 @@ lib.f.alarm = function(callback, opt_ms) {
         }
 
         return callback.apply(null, arguments);
-      }
+      };
     };
 
     if (typeof callback == 'string')
@@ -1549,6 +1739,17 @@ lib.f.smartFloorDivide = function(numerator,  denominator) {
     return Math.floor(val);
   }
 };
+
+/**
+ * Get a random integer in a range (inclusive).
+ *
+ * @param {number} min The lowest integer in the range.
+ * @param {number} max The highest integer in the range.
+ * @return {number} A random number between min & max.
+ */
+lib.f.randomInt = function(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+};
 // SOURCE FILE: libdot/js/lib_message_manager.js
 // Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
@@ -1561,7 +1762,7 @@ lib.f.smartFloorDivide = function(numerator,  denominator) {
  *
  * Note: chrome.i18n isn't sufficient because...
  *     1. There's a bug in chrome that makes it unavailable in iframes:
- *        http://crbug.com/130200
+ *        https://crbug.com/130200
  *     2. The client code may not be packaged in a Chrome extension.
  *     3. The client code may be part of a library packaged in a third-party
  *        Chrome extension.
@@ -1571,8 +1772,7 @@ lib.f.smartFloorDivide = function(numerator,  denominator) {
  *     automatically added as the first language if it is not already present.
  */
 lib.MessageManager = function(languages) {
-  this.languages_ = languages.map(
-      function(el) { return el.replace(/-/g, '_') });
+  this.languages_ = languages.map((el) => el.replace(/-/g, '_'));
 
   if (this.languages_.indexOf('en') == -1)
     this.languages_.unshift('en');
@@ -1584,7 +1784,7 @@ lib.MessageManager = function(languages) {
  * Add message definitions to the message manager.
  *
  * This takes an object of the same format of a Chrome messages.json file.  See
- * <http://code.google.com/chrome/extensions/i18n-messages.html>.
+ * <https://developer.chrome.com/extensions/i18n-messages>.
  */
 lib.MessageManager.prototype.addMessages = function(defs) {
   for (var key in defs) {
@@ -1719,10 +1919,22 @@ lib.MessageManager.prototype.get = function(msgname, opt_args, opt_default) {
 /**
  * Process all of the "i18n" html attributes found in a given dom fragment.
  *
- * Each i18n attribute should contain a JSON object.  The keys are taken to
+ * The real work happens in processI18nAttribute.
+ */
+lib.MessageManager.prototype.processI18nAttributes = function(dom) {
+  var nodes = dom.querySelectorAll('[i18n]');
+
+  for (var i = 0; i < nodes.length; i++)
+    this.processI18nAttribute(nodes[i]);
+};
+
+/**
+ * Process the "i18n" attribute in the specified node.
+ *
+ * The i18n attribute should contain a JSON object.  The keys are taken to
  * be attribute names, and the values are message names.
  *
- * If the JSON object has a "_" (underscore) key, it's value is used as the
+ * If the JSON object has a "_" (underscore) key, its value is used as the
  * textContent of the element.
  *
  * Message names can refer to other attributes on the same element with by
@@ -1736,40 +1948,44 @@ lib.MessageManager.prototype.get = function(msgname, opt_args, opt_default) {
  * Notice that the "id" attribute was appended to the target attribute, and
  * the result converted to UPPER_AND_UNDER style.
  */
-lib.MessageManager.prototype.processI18nAttributes = function(dom) {
+lib.MessageManager.prototype.processI18nAttribute = function(node) {
   // Convert the "lower-and-dashes" attribute names into
   // "UPPER_AND_UNDER" style.
-  function thunk(str) { return str.replace(/-/g, '_').toUpperCase() }
+  const thunk = (str) => str.replace(/-/g, '_').toUpperCase();
 
-  var nodes = dom.querySelectorAll('[i18n]');
+  var i18n = node.getAttribute('i18n');
+  if (!i18n)
+    return;
 
-  for (var i = 0; i < nodes.length; i++) {
-    var node = nodes[i];
-    var i18n = node.getAttribute('i18n');
+  try {
+    i18n = JSON.parse(i18n);
+  } catch (ex) {
+    console.error('Can\'t parse ' + node.tagName + '#' + node.id + ': ' + i18n);
+    throw ex;
+  }
 
-    if (!i18n)
-      continue;
+  // Load all the messages specified in the i18n attributes.
+  for (var key in i18n) {
+    // The node attribute we'll be setting.
+    var attr = key;
 
-    try {
-      i18n = JSON.parse(i18n);
-    } catch (ex) {
-      console.error('Can\'t parse ' + node.tagName + '#' + node.id + ': ' +
-                    i18n);
-      throw ex;
+    var msgname = i18n[key];
+    // For "=foo", re-use the referenced message name.
+    if (msgname.startsWith('=')) {
+      key = msgname.substr(1);
+      msgname = i18n[key];
     }
 
-    for (var key in i18n) {
-      var msgname = i18n[key];
-      if (msgname.substr(0, 1) == '$')
-        msgname = thunk(node.getAttribute(msgname.substr(1)) + '_' + key);
+    // For "$foo", calculate the message name.
+    if (msgname.startsWith('$'))
+      msgname = thunk(node.getAttribute(msgname.substr(1)) + '_' + key);
 
-      var msg = this.get(msgname);
-      if (key == '_') {
-        node.textContent = msg;
-      } else {
-        node.setAttribute(key, msg);
-      }
-    }
+    // Finally load the message.
+    var msg = this.get(msgname);
+    if (attr == '_')
+      node.textContent = msg;
+    else
+      node.setAttribute(attr, msg);
   }
 };
 // SOURCE FILE: libdot/js/lib_preference_manager.js
@@ -1807,7 +2023,7 @@ lib.PreferenceManager = function(storage, opt_prefix) {
   this.trace = false;
 
   var prefix = opt_prefix || '/';
-  if (prefix.substr(prefix.length - 1) != '/')
+  if (!prefix.endsWith('/'))
     prefix += '/';
 
   this.prefix = prefix;
@@ -1840,7 +2056,7 @@ lib.PreferenceManager = function(storage, opt_prefix) {
  *
  * Equality tests against this value MUST use '===' or '!==' to be accurate.
  */
-lib.PreferenceManager.prototype.DEFAULT_VALUE = new String('DEFAULT');
+lib.PreferenceManager.prototype.DEFAULT_VALUE = lib.f.createEnum('DEFAULT');
 
 /**
  * An individual preference.
@@ -1956,8 +2172,7 @@ lib.PreferenceManager.prototype.readStorage = function(opt_callback) {
       opt_callback();
   }
 
-  var keys = Object.keys(this.prefRecords_).map(
-      function(el) { return this.prefix + el }.bind(this));
+  var keys = Object.keys(this.prefRecords_).map((el) => this.prefix + el);
 
   if (this.trace)
     console.log('Preferences read: ' + this.prefix);
@@ -2141,7 +2356,7 @@ lib.PreferenceManager.prototype.createChild = function(listName, opt_hint,
   } else {
     // Pick a random, unique 4-digit hex identifier for the new profile.
     while (!id || ids.indexOf(id) != -1) {
-      id = Math.floor(Math.random() * 0xffff + 1).toString(16);
+      id = lib.f.randomInt(1, 0xffff).toString(16);
       id = lib.f.zpad(id, 4);
       if (opt_hint)
         id = opt_hint + ':' + id;
@@ -2566,7 +2781,7 @@ lib.PreferenceManager.prototype.onStorageChange_ = function(map) {
       currentValue = (void 0);
 
     if (this.diff(currentValue, newValue)) {
-      if (typeof newValue == 'undefined') {
+      if (typeof newValue == 'undefined' || newValue === null) {
         record.currentValue = record.DEFAULT_VALUE;
       } else {
         record.currentValue = newValue;
@@ -2840,9 +3055,11 @@ lib.Storage.Local.prototype.onStorage_ = function(e) {
   if (e.storageArea != this.storage_)
     return;
 
-  // IE throws an exception if JSON.parse is given an empty string.
-  var prevValue = e.oldValue ? JSON.parse(e.oldValue) : "";
-  var curValue = e.newValue ? JSON.parse(e.newValue) : "";
+  // JS throws an exception if JSON.parse is given an empty string. So here we
+  // only parse if the value is truthy. This mean the empty string, undefined
+  // and null will not be parsed.
+  var prevValue = e.oldValue ? JSON.parse(e.oldValue) : e.oldValue;
+  var curValue = e.newValue ? JSON.parse(e.newValue) : e.newValue;
   var o = {};
   o[e.key] = {
     oldValue: prevValue,
@@ -3230,7 +3447,7 @@ lib.Storage.Memory.prototype.removeItems = function(ary, opt_callback) {
  */
 lib.TestManager = function(opt_log) {
   this.log = opt_log || new lib.TestManager.Log();
-}
+};
 
 /**
  * Create a new test run object for this test manager.
@@ -3252,85 +3469,76 @@ lib.TestManager.prototype.createTestRun = function(opt_cx) {
 lib.TestManager.prototype.onTestRunComplete = function(testRun) {};
 
 /**
+ * Called before a test associated with this test manager is run.
+ *
+ * @param {lib.TestManager.Result} result The result object for the upcoming
+ *     test.
+ * @param {Object} cx The context object for a test run.
+ */
+lib.TestManager.prototype.testPreamble = function(result, cx) {};
+
+/**
+ * Called after a test associated with this test manager finishes.
+ *
+ * @param {lib.TestManager.Result} result The result object for the finished
+ *     test.
+ * @param {Object} cx The context object for a test run.
+ */
+lib.TestManager.prototype.testPostamble = function(result, cx) {};
+
+/**
  * Destination for test case output.
  *
- * @param {function(string)} opt_logFunction Optional function to call to
- *     write a string to the log.  If omitted, console.log is used.
+ * Thw API will be the same as the console object.  e.g. We support info(),
+ * warn(), error(), etc... just like console.info(), etc...
+ *
+ * @param {Object} opt_console The console object to route all logging through.
+ *     Should provide saome API as the standard console API.
  */
-lib.TestManager.Log = function(opt_logFunction) {
-  this.logFunction_ = opt_logFunction || function(s) { console.log(s) };
-  this.pending_ = '';
+lib.TestManager.Log = function(opt_console=console) {
+  this.save = false;
+  this.data = '';
   this.prefix_ = '';
-  this.prefixStack_ = [];
-};
+  this.prefixStack_ = 0;
 
-/**
- * Add a prefix to log messages.
- *
- * This only affects log messages that are added after the prefix is pushed.
- *
- * @param {string} str The prefix to prepend to future log messages.
- */
-lib.TestManager.Log.prototype.pushPrefix = function(str) {
-  this.prefixStack_.push(str);
-  this.prefix_ = this.prefixStack_.join('');
-};
+  // Capture all the console entry points in case code at runtime calls these
+  // directly.  We want to be able to still see things.
+  // We also expose the direct API to our callers (e.g. we provide warn()).
+  this.console_ = opt_console;
+  ['log', 'debug', 'info', 'warn', 'error'].forEach((level) => {
+    let msgPrefix = '';
+    switch (level) {
+      case 'debug':
+      case 'warn':
+      case 'error':
+        msgPrefix = level.toUpperCase() + ': ';
+        break;
+    }
 
-/**
- * Remove the most recently added message prefix.
- */
-lib.TestManager.Log.prototype.popPrefix = function() {
-  this.prefixStack_.pop();
-  this.prefix_ = this.prefixStack_.join('');
-};
+    const oLog = this.console_[level];
+    this[level] = this.console_[level] = (...args) => {
+      if (this.save)
+        this.data += this.prefix_ + msgPrefix + args.join(' ') + '\n';
+      oLog.apply(this.console_, args);
+    };
+  });
 
-/**
- * Queue up a string to print to the log.
- *
- * If a line is already pending, this string is added to it.
- *
- * The string is not actually printed to the log until flush() or println()
- * is called.  The following call sequence will result in TWO lines in the
- * log...
- *
- *   log.print('hello');
- *   log.print(' ');
- *   log.println('world');
- *
- * While a typical stream-like thing would result in 'hello world\n', this one
- * results in 'hello \nworld\n'.
- *
- * @param {string} str The string to add to the log.
- */
-lib.TestManager.Log.prototype.print = function(str) {
-  if (this.pending_) {
-    this.pending_ += str;
-  } else {
-    this.pending_ = this.prefix_ + str;
-  }
-};
+  // Wrap/bind the group functions.
+  ['group', 'groupCollapsed'].forEach((group) => {
+    const oGroup = this.console_[group];
+    this[group] = this.console_[group] = (label='') => {
+      oGroup(label);
+      if (this.save)
+        this.data += this.prefix_ + label + '\n';
+      this.prefix_ = '  '.repeat(++this.prefixStack_);
+    };
+  });
 
-/**
- * Print a line to the log and flush it immediately.
- *
- * @param {string} str The string to add to the log.
- */
-lib.TestManager.Log.prototype.println = function(str) {
-  if (this.pending_)
-    this.flush();
-
-  this.logFunction_(this.prefix_ + str);
-};
-
-/**
- * Flush any pending log message.
- */
-lib.TestManager.Log.prototype.flush = function() {
-  if (!this.pending_)
-    return;
-
-  this.logFunction_(this.pending_);
-  this.pending_ = '';
+  const oGroupEnd = this.console_.groupEnd;
+  this.groupEnd = this.console_.groupEnd = () => {
+    oGroupEnd();
+    this.prefix_ = '  '.repeat(--this.prefixStack_);
+  };
 };
 
 /**
@@ -3372,10 +3580,8 @@ lib.TestManager.Log.prototype.flush = function() {
  *
  *   // Sample asynchronous test case.
  *   MyTests.addTest('async-pop-length', function(result, cx) {
- *       var self = this;
- *
- *       var callback = function() {
- *           result.assertEQ(self.list.length, self.size - 1);
+ *       var callback = () => {
+ *           result.assertEQ(this.list.length, this.size - 1);
  *           result.pass();
  *       };
  *
@@ -3409,7 +3615,8 @@ lib.TestManager.Suite = function(suiteName) {
   ctor.getTestList = lib.TestManager.Suite.getTestList;
   ctor.testList_ = [];
   ctor.testMap_ = {};
-  ctor.prototype = { __proto__: lib.TestManager.Suite.prototype };
+  ctor.prototype = Object.create(lib.TestManager.Suite.prototype);
+  ctor.constructor = lib.TestManager.Suite;
 
   lib.TestManager.Suite.subclasses.push(ctor);
 
@@ -3545,7 +3752,7 @@ lib.TestManager.Suite.prototype.preamble = function(result, cx) {};
  *
  * Any exception here will abort the remainder of the test run.
  *
- * @param {lib.TestManager.Result} result The result object for the upcoming
+ * @param {lib.TestManager.Result} result The result object for the finished
  *     test.
  * @param {Object} cx The context object for a test run.
  */
@@ -3694,7 +3901,7 @@ lib.TestManager.TestRun = function(testManager, cx) {
  * This value can be passed to select() to indicate that all tests should
  * be selected.
  */
-lib.TestManager.TestRun.prototype.ALL_TESTS = new String('<all-tests>');
+lib.TestManager.TestRun.prototype.ALL_TESTS = lib.f.createEnum('<all-tests>');
 
 /**
  * Add a single test to the test run.
@@ -3751,7 +3958,7 @@ lib.TestManager.TestRun.prototype.selectPattern = function(pattern) {
   }
 
   if (!selectCount) {
-    this.log.println('No tests matched selection criteria: ' + pattern);
+    this.log.warn('No tests matched selection criteria: ' + pattern);
   }
 
   return selectCount;
@@ -3785,9 +3992,9 @@ lib.TestManager.TestRun.prototype.onUncaughtException_ = function(
   if (this.currentResult.status != this.currentResult.PENDING)
     when = 'after';
 
-  this.log.println('Uncaught exception ' + when + ' test case: ' +
-                   this.currentResult.test.fullName);
-  this.log.println(message + ', ' + file + ':' + line);
+  this.log.error('Uncaught exception ' + when + ' test case: ' +
+                 this.currentResult.test.fullName);
+  this.log.error(message + ', ' + file + ':' + line);
 
   this.currentResult.completeTest_(this.currentResult.FAILED, false);
 
@@ -3818,11 +4025,10 @@ lib.TestManager.TestRun.prototype.onTestRunComplete_ = function(
 
   this.duration = (new Date()) - this.startDate;
 
-  this.log.popPrefix();
-  this.log.println('} ' + this.passes.length + ' passed, ' +
-                   this.failures.length + ' failed, '  +
-                   this.msToSeconds_(this.duration));
-  this.log.println('');
+  this.log.groupEnd();
+  this.log.info(this.passes.length + ' passed, ' +
+                this.failures.length + ' failed, '  +
+                this.msToSeconds_(this.duration));
 
   this.summarize();
 
@@ -3839,17 +4045,19 @@ lib.TestManager.TestRun.prototype.onTestRunComplete_ = function(
  */
 lib.TestManager.TestRun.prototype.onResultComplete = function(result) {
   try {
-    result.suite.postamble();
+    this.testManager.testPostamble(result, this.cx);
+    result.suite.postamble(result, this.ctx);
   } catch (ex) {
-    this.log.println('Unexpected exception in postamble: ' +
-                     (ex.stack ? ex.stack : ex));
+    this.log.error('Unexpected exception in postamble: ' +
+                   (ex.stack ? ex.stack : ex));
     this.panic = true;
   }
 
-  this.log.popPrefix();
-  this.log.print('} ' + result.status + ', ' +
-                 this.msToSeconds_(result.duration));
-  this.log.flush();
+  if (result.status != result.PASSED)
+    this.log.error(result.status);
+  else if (result.duration > 500)
+    this.log.warn('Slow test took ' + this.msToSeconds_(result.duration));
+  this.log.groupEnd();
 
   if (result.status == result.FAILED) {
     this.failures.push(result);
@@ -3857,9 +4065,10 @@ lib.TestManager.TestRun.prototype.onResultComplete = function(result) {
   } else if (result.status == result.PASSED) {
     this.passes.push(result);
   } else {
-    this.log.println('Unknown result status: ' + result.test.fullName + ': ' +
-                     result.status);
-    return this.panic = true;
+    this.log.error('Unknown result status: ' + result.test.fullName + ': ' +
+                   result.status);
+    this.panic = true;
+    return;
   }
 
   this.runNextTest_();
@@ -3886,8 +4095,8 @@ lib.TestManager.TestRun.prototype.onResultComplete = function(result) {
  */
 lib.TestManager.TestRun.prototype.onResultReComplete = function(
     result, lateStatus) {
-  this.log.println('Late complete for test: ' + result.test.fullName + ': ' +
-                   lateStatus);
+  this.log.error('Late complete for test: ' + result.test.fullName + ': ' +
+                 lateStatus);
 
   // Consider any late completion a failure, even if it's a double-pass, since
   // it's a misuse of the testing API.
@@ -3902,12 +4111,15 @@ lib.TestManager.TestRun.prototype.onResultReComplete = function(
  * Run the next test in the queue.
  */
 lib.TestManager.TestRun.prototype.runNextTest_ = function() {
-  if (this.panic || !this.testQueue_.length)
-    return this.onTestRunComplete_();
+  if (this.panic || !this.testQueue_.length) {
+    this.onTestRunComplete_();
+    return;
+  }
 
   if (this.maxFailures && this.failures.length >= this.maxFailures) {
-    this.log.println('Maximum failure count reached, aborting test run.');
-    return this.onTestRunComplete_();
+    this.log.error('Maximum failure count reached, aborting test run.');
+    this.onTestRunComplete_();
+    return;
   }
 
   // Peek at the top test first.  We remove it later just before it's about
@@ -3918,30 +4130,31 @@ lib.TestManager.TestRun.prototype.runNextTest_ = function() {
 
   try {
     if (!suite || !(suite instanceof test.suiteClass)) {
-      this.log.println('Initializing suite: ' + test.suiteClass.suiteName);
+      if (suite)
+        this.log.groupEnd();
+      this.log.group(test.suiteClass.suiteName);
       suite = new test.suiteClass(this.testManager, this.cx);
     }
   } catch (ex) {
     // If test suite setup fails we're not even going to try to run the tests.
-    this.log.println('Exception during setup: ' + (ex.stack ? ex.stack : ex));
+    this.log.error('Exception during setup: ' + (ex.stack ? ex.stack : ex));
     this.panic = true;
     this.onTestRunComplete_();
     return;
   }
 
   try {
-    this.log.print('Test: ' + test.fullName + ' {');
-    this.log.pushPrefix('  ');
+    this.log.group(test.testName);
 
     this.currentResult = new lib.TestManager.Result(this, suite, test);
+    this.testManager.testPreamble(this.currentResult, this.cx);
     suite.preamble(this.currentResult, this.cx);
 
     this.testQueue_.shift();
   } catch (ex) {
-    this.log.println('Unexpected exception during test preamble: ' +
-                     (ex.stack ? ex.stack : ex));
-    this.log.popPrefix();
-    this.log.println('}');
+    this.log.error('Unexpected exception during test preamble: ' +
+                   (ex.stack ? ex.stack : ex));
+    this.log.groupEnd();
 
     this.panic = true;
     this.onTestRunComplete_();
@@ -3953,8 +4166,8 @@ lib.TestManager.TestRun.prototype.runNextTest_ = function() {
   } catch (ex) {
     // Result.run() should catch test exceptions and turn them into failures.
     // If we got here, it means there is trouble in the testing framework.
-    this.log.println('Unexpected exception during test run: ' +
-                     (ex.stack ? ex.stack : ex));
+    this.log.error('Unexpected exception during test run: ' +
+                   (ex.stack ? ex.stack : ex));
     this.panic = true;
   }
 };
@@ -3978,8 +4191,7 @@ lib.TestManager.TestRun.prototype.runNextTest_ = function() {
  * preamble will cause the test run to abort.
  */
 lib.TestManager.TestRun.prototype.run = function() {
-  this.log.println('Running ' + this.testQueue_.length + ' test(s) {');
-  this.log.pushPrefix('  ');
+  this.log.info('Running ' + this.testQueue_.length + ' test(s)');
 
   window.onerror = this.onUncaughtException_.bind(this);
   this.startDate = new Date();
@@ -4000,13 +4212,13 @@ lib.TestManager.TestRun.prototype.msToSeconds_ = function(ms) {
 lib.TestManager.TestRun.prototype.summarize = function() {
   if (this.failures.length) {
     for (var i = 0; i < this.failures.length; i++) {
-      this.log.println('FAILED: ' + this.failures[i].test.fullName);
+      this.log.error('FAILED: ' + this.failures[i].test.fullName);
     }
   }
 
   if (this.testQueue_.length) {
-    this.log.println('Test run incomplete: ' + this.testQueue_.length +
-                     ' test(s) were not run.');
+    this.log.warn('Test run incomplete: ' + this.testQueue_.length +
+                  ' test(s) were not run.');
   }
 };
 
@@ -4081,14 +4293,12 @@ lib.TestManager.Result.TestComplete = function(result) {
 lib.TestManager.Result.TestComplete.prototype.toString = function() {
   return 'lib.TestManager.Result.TestComplete: ' + this.result.test.fullName +
       ', status: ' + this.result.status;
-}
+};
 
 /**
  * Start the test associated with this result.
  */
 lib.TestManager.Result.prototype.run = function() {
-  var self = this;
-
   this.startDate = new Date();
   this.test.run(this);
 
@@ -4190,7 +4400,7 @@ lib.TestManager.Result.prototype.assertEQ = function(
       return value;
 
     var str = String(value);
-    var ary = str.split('\n').map(function (e) { return JSON.stringify(e) });
+    var ary = str.split('\n').map((e) => JSON.stringify(e));
     if (ary.length > 1) {
       // If the string has newlines, start it off on its own line so that
       // it's easier to compare against another string with newlines.
@@ -4202,6 +4412,11 @@ lib.TestManager.Result.prototype.assertEQ = function(
 
   if (actual === expected)
     return;
+
+  // Deal with common object types since JavaScript can't.
+  if (expected instanceof Array)
+    if (lib.array.compare(actual, expected))
+      return;
 
   var name = opt_name ? '[' + opt_name + ']' : '';
 
@@ -4257,7 +4472,7 @@ lib.TestManager.Result.prototype.getCallerLocation_ = function(frameIndex) {
  * Write a message to the result log.
  */
 lib.TestManager.Result.prototype.println = function(message) {
-  this.testRun.log.println(message);
+  this.testRun.log.info(message);
 };
 
 /**
@@ -4292,8 +4507,8 @@ lib.TestManager.Result.prototype.pass = function() {
 // TODO(davidben): When the string encoding API is implemented,
 // replace this with the native in-browser implementation.
 //
-// http://wiki.whatwg.org/wiki/StringEncoding
-// http://dvcs.w3.org/hg/encoding/raw-file/tip/Overview.html
+// https://wiki.whatwg.org/wiki/StringEncoding
+// https://encoding.spec.whatwg.org/
 
 /**
  * A stateful UTF-8 decoder.
@@ -4452,7 +4667,7 @@ lib.encodeUTF8 = function(str) {
   }
   return ret;
 };
-// SOURCE FILE: libdot/js/lib_wc.js
+// SOURCE FILE: libdot/third_party/wcwidth/lib_wc.js
 // Copyright (c) 2014 The Chromium OS Authors. All rights reserved.
 // Use of lib.wc source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
@@ -4553,56 +4768,6 @@ lib.encodeUTF8 = function(str) {
  *
  * This implementation assumes that characters are encoded in ISO 10646.
  */
-
-/**
- * This library relies on the use of codePointAt, which is not supported in
- * all browsers. Polyfill if not.  See
- * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/codePointAt#Polyfill
- */
-if (!String.prototype.codePointAt) {
-  (function() {
-    'use strict'; // needed to support `apply`/`call` with `undefined`/`null`
-    var codePointAt = function(position) {
-      if (this == null) {
-        throw TypeError();
-      }
-      var string = String(this);
-      var size = string.length;
-      // `ToInteger`
-      var index = position ? Number(position) : 0;
-      if (index != index) { // better `isNaN`
-        index = 0;
-      }
-      // Account for out-of-bounds indices:
-      if (index < 0 || index >= size) {
-        return undefined;
-      }
-      // Get the first code unit
-      var first = string.charCodeAt(index);
-      var second;
-      if ( // check if it’s the start of a surrogate pair
-        first >= 0xD800 && first <= 0xDBFF && // high surrogate
-        size > index + 1 // there is a next code unit
-      ) {
-        second = string.charCodeAt(index + 1);
-        if (second >= 0xDC00 && second <= 0xDFFF) { // low surrogate
-          // http://mathiasbynens.be/notes/javascript-encoding#surrogate-formulae
-          return (first - 0xD800) * 0x400 + second - 0xDC00 + 0x10000;
-        }
-      }
-      return first;
-    };
-    if (Object.defineProperty) {
-      Object.defineProperty(String.prototype, 'codePointAt', {
-        'value': codePointAt,
-        'configurable': true,
-        'writable': true
-      });
-    } else {
-      String.prototype.codePointAt = codePointAt;
-    }
-  }());
-}
 
 lib.wc = {};
 
@@ -4890,20 +5055,33 @@ lib.wc.strWidth = function(str) {
  * @return {string} The substring.
  */
 lib.wc.substr = function(str, start, opt_width) {
-  var startIndex, endIndex, width;
+  var startIndex = 0;
+  var endIndex, width;
 
-  for (startIndex = 0, width = 0; startIndex < str.length; startIndex++) {
-    width += lib.wc.charWidth(str.charCodeAt(startIndex));
-    if (width > start)
-      break;
+  // Fun edge case: Normally we associate zero width codepoints (like combining
+  // characters) with the previous codepoint, so we skip any leading ones while
+  // including trailing ones.  However, if there are zero width codepoints at
+  // the start of the string, and the substring starts at 0, lets include them
+  // in the result.  This also makes for a simple optimization for a common
+  // request.
+  if (start) {
+    for (width = 0; startIndex < str.length;) {
+      const codePoint = str.codePointAt(startIndex);
+      width += lib.wc.charWidth(codePoint);
+      if (width > start)
+        break;
+      startIndex += (codePoint <= 0xffff) ? 1 : 2;
+    }
   }
 
   if (opt_width != undefined) {
-    for (endIndex = startIndex, width = 0;
-         endIndex < str.length && width < opt_width;
-         width += lib.wc.charWidth(str.charCodeAt(endIndex)), endIndex++);
-    if (width > opt_width)
-      endIndex--;
+    for (endIndex = startIndex, width = 0; endIndex < str.length;) {
+      const codePoint = str.codePointAt(endIndex);
+      width += lib.wc.charWidth(codePoint);
+      if (width > opt_width)
+        break;
+      endIndex += (codePoint <= 0xffff) ? 1 : 2;
+    }
     return str.substring(startIndex, endIndex);
   }
 
@@ -4923,12 +5101,12 @@ lib.wc.substring = function(str, start, end) {
   return lib.wc.substr(str, start, end - start);
 };
 lib.resource.add('libdot/changelog/version', 'text/plain',
-'1.10' +
+'1.16' +
 ''
 );
 
 lib.resource.add('libdot/changelog/date', 'text/plain',
-'2017-03-01' +
+'2017-08-16' +
 ''
 );
 
@@ -5016,10 +5194,7 @@ lib.registerInit('hterm', function(onInit) {
   }
 
   if (!hterm.defaultStorage) {
-    var ary = navigator.userAgent.match(/\sChrome\/(\d\d)/);
-    var version = ary ? parseInt(ary[1]) : -1;
-    if (window.chrome && chrome.storage && chrome.storage.sync &&
-        version > 21) {
+    if (window.chrome && chrome.storage && chrome.storage.sync) {
       hterm.defaultStorage = new lib.Storage.Chrome(chrome.storage.sync);
     } else {
       hterm.defaultStorage = new lib.Storage.Local();
@@ -5086,15 +5261,53 @@ hterm.copySelectionToClipboard = function(document) {
 /**
  * Paste the system clipboard into the element with focus.
  *
+ * Note: In Chrome/Firefox app/extension environments, you'll need the
+ * "clipboardRead" permission.  In other environments, this might always
+ * fail as the browser frequently blocks access for security reasons.
+ *
  * @param {HTMLDocument} The document to paste into.
+ * @return {boolean} True if the paste succeeded.
  */
 hterm.pasteFromClipboard = function(document) {
   try {
-    document.execCommand('paste');
+    return document.execCommand('paste');
   } catch (firefoxException) {
-    // Ignore this. FF throws an exception if there was an error, even though
-    // the spec says just return false.
+    // Ignore this.  FF 40 and older would incorrectly throw an exception if
+    // there was an error instead of returning false.
+    return false;
   }
+};
+
+/**
+ * Create a new notification.
+ *
+ * @param {Object} params Various parameters for the notification.
+ * @param {string} params.title The title (defaults to the window's title).
+ * @param {string} params.body The message body (main text).
+ */
+hterm.notify = function(params) {
+  var def = (curr, fallback) => curr !== undefined ? curr : fallback;
+  if (params === undefined || params === null)
+    params = {};
+
+  // Merge the user's choices with the default settings.  We don't take it
+  // directly in case it was stuffed with excess junk.
+  var options = {
+      'body': params.body,
+      'icon': def(params.icon, lib.resource.getDataUrl('hterm/images/icon-96')),
+  }
+
+  var title = def(params.title, window.document.title);
+  if (!title)
+    title = 'hterm';
+  title = lib.f.replaceVars(hterm.desktopNotificationTitle, {'title': title});
+
+  var n = new Notification(title, options);
+  n.onclick = function() {
+    window.focus();
+    this.close();
+  };
+  return n;
 };
 
 /**
@@ -5282,14 +5495,23 @@ hterm.Frame = function(terminal, url, opt_options) {
  * Handle messages from the iframe.
  */
 hterm.Frame.prototype.onMessage_ = function(e) {
-  if (e.data.name != 'ipc-init-ok') {
-    console.log('Unknown message from frame:', e.data);
-    return;
+  switch (e.data.name) {
+    case 'ipc-init-ok':
+      // We get this response after we send them ipc-init and they finish.
+      this.sendTerminalInfo_();
+      return;
+    case 'terminal-info-ok':
+      // We get this response after we send them terminal-info and they finish.
+      // Show the finished frame, and then rebind our message handler to the
+      // callback below.
+      this.container_.style.display = 'flex';
+      this.messageChannel_.port1.onmessage = this.onMessage.bind(this);
+      this.onLoad();
+      return;
+    default:
+      console.log('Unknown message from frame:', e.data);
+      return;
   }
-
-  this.sendTerminalInfo_();
-  this.messageChannel_.port1.onmessage = this.onMessage.bind(this);
-  this.onLoad();
 };
 
 /**
@@ -5405,28 +5627,30 @@ hterm.Frame.prototype.show = function() {
   var container = this.container_ = document.createElement('div');
   container.style.cssText = (
       'position: absolute;' +
-      'display: -webkit-flex;' +
-      '-webkit-flex-direction: column;' +
+      'display: none;' +
+      'flex-direction: column;' +
       'top: 10%;' +
       'left: 4%;' +
       'width: 90%;' +
       'height: 80%;' +
+      'min-height: 20%;' +
+      'max-height: 80%;' +
       'box-shadow: 0 0 2px ' + this.terminal_.getForegroundColor() + ';' +
       'border: 2px ' + this.terminal_.getForegroundColor() + ' solid;');
 
-  var header = document.createElement('div');
-  header.style.cssText = (
-      'display: -webkit-flex;' +
-      '-webkit-justify-content: flex-end;' +
-      'height: ' + headerHeight + ';' +
-      'background-color: ' + this.terminal_.getForegroundColor() + ';' +
-      'color: ' + this.terminal_.getBackgroundColor() + ';' +
-      'font-size: 16px;' +
-      'font-family: ' + this.terminal_.getFontFamily());
-  container.appendChild(header);
-
   if (false) {
-    // No use for the close button.
+    // No use for the close button, so no use for the window header either.
+    var header = document.createElement('div');
+    header.style.cssText = (
+        'display: flex;' +
+        'justify-content: flex-end;' +
+        'height: ' + headerHeight + ';' +
+        'background-color: ' + this.terminal_.getForegroundColor() + ';' +
+        'color: ' + this.terminal_.getBackgroundColor() + ';' +
+        'font-size: 16px;' +
+        'font-family: ' + this.terminal_.getFontFamily());
+    container.appendChild(header);
+
     var button = document.createElement('div');
     button.setAttribute('role', 'button');
     button.style.cssText = (
@@ -5441,8 +5665,8 @@ hterm.Frame.prototype.show = function() {
   var iframe = this.iframe_ = document.createElement('iframe');
   iframe.onload = this.onLoad_.bind(this);
   iframe.style.cssText = (
-      'display: -webkit-flex;' +
-      '-webkit-flex: 1;' +
+      'display: flex;' +
+      'flex: 1;' +
       'width: 100%');
   iframe.setAttribute('src', this.url);
   iframe.setAttribute('seamless', true);
@@ -5479,7 +5703,7 @@ hterm.Keyboard = function(terminal) {
   // The event handlers we are interested in, and their bound callbacks, saved
   // so they can be uninstalled with removeEventListener, when required.
   this.handlers_ = [
-      ['blur', this.onBlur_.bind(this)],
+      ['focusout', this.onFocusOut_.bind(this)],
       ['keydown', this.onKeyDown_.bind(this)],
       ['keypress', this.onKeyPress_.bind(this)],
       ['keyup', this.onKeyUp_.bind(this)],
@@ -5604,7 +5828,7 @@ hterm.Keyboard = function(terminal) {
    * that it's impossible to do meta-backspace. If the user enables this pref,
    * we use a trick to tell a true DEL keypress from alt-backspace: on
    * alt-backspace, we will see the alt key go down, then get a DEL keystroke
-   * that indicates that alt is not pressed. See http://crbug.com/174410 .
+   * that indicates that alt is not pressed. See https://crbug.com/174410 .
    */
   this.altBackspaceIsMetaBackspace = false;
 
@@ -5638,7 +5862,7 @@ hterm.Keyboard.KeyActions = {
    * Call preventDefault and stopPropagation for this key event and nothing
    * else.
    */
-  CANCEL: new String('CANCEL'),
+  CANCEL: lib.f.createEnum('CANCEL'),
 
   /**
    * This performs the default terminal action for the key.  If used in the
@@ -5664,13 +5888,13 @@ hterm.Keyboard.KeyActions = {
    *  - If meta is down and configured to send an escape, '\x1b' will be sent
    *    before the normal action is performed.
    */
-  DEFAULT: new String('DEFAULT'),
+  DEFAULT: lib.f.createEnum('DEFAULT'),
 
   /**
    * Causes the terminal to opt out of handling the key event, instead letting
    * the browser deal with it.
    */
-  PASS: new String('PASS'),
+  PASS: lib.f.createEnum('PASS'),
 
   /**
    * Insert the first or second character of the keyCap, based on e.shiftKey.
@@ -5680,7 +5904,7 @@ hterm.Keyboard.KeyActions = {
    * It is useful for a modified key action, where it essentially strips the
    * modifier while preventing the browser from reacting to the key.
    */
-  STRIP: new String('STRIP')
+  STRIP: lib.f.createEnum('STRIP')
 };
 
 /**
@@ -5797,7 +6021,7 @@ hterm.Keyboard.prototype.preventChromeAppNonCtrlShiftDefault_ = function(e) {
     e.preventDefault();
 };
 
-hterm.Keyboard.prototype.onBlur_ = function(e) {
+hterm.Keyboard.prototype.onFocusOut_ = function(e) {
   this.altKeyPressed = 0;
 };
 
@@ -6529,8 +6753,8 @@ hterm.Keyboard.KeyMap.prototype.reset = function() {
 
     // Arrow keys.  When unmodified they respect the application cursor state,
     // otherwise they always send the CSI codes.
-    [38, '[UP]',    ac(CSI + 'A', SS3 + 'A'), DEFAULT, DEFAULT, DEFAULT],
-    [40, '[DOWN]',  ac(CSI + 'B', SS3 + 'B'), DEFAULT, DEFAULT, DEFAULT],
+    [38, '[UP]',    c('onKeyArrowUp_'), DEFAULT, DEFAULT, DEFAULT],
+    [40, '[DOWN]',  c('onKeyArrowDown_'), DEFAULT, DEFAULT, DEFAULT],
     [39, '[RIGHT]', ac(CSI + 'C', SS3 + 'C'), DEFAULT, DEFAULT, DEFAULT],
     [37, '[LEFT]',  ac(CSI + 'D', SS3 + 'D'), DEFAULT, DEFAULT, DEFAULT],
 
@@ -6653,6 +6877,32 @@ hterm.Keyboard.KeyMap.prototype.onKeyPageDown_ = function(e) {
 };
 
 /**
+ * Either scroll the scrollback buffer or send a key sequence.
+ */
+hterm.Keyboard.KeyMap.prototype.onKeyArrowUp_ = function(e) {
+  if (!this.keyboard.applicationCursor && e.shiftKey) {
+    this.keyboard.terminal.scrollLineUp();
+    return hterm.Keyboard.KeyActions.CANCEL;
+  }
+
+  return (e.shiftKey || e.ctrlKey || e.altKey || e.metaKey ||
+          !this.keyboard.applicationCursor) ? '\x1b[A' : '\x1bOA';
+};
+
+/**
+ * Either scroll the scrollback buffer or send a key sequence.
+ */
+hterm.Keyboard.KeyMap.prototype.onKeyArrowDown_ = function(e) {
+  if (!this.keyboard.applicationCursor && e.shiftKey) {
+    this.keyboard.terminal.scrollLineDown();
+    return hterm.Keyboard.KeyActions.CANCEL;
+  }
+
+  return (e.shiftKey || e.ctrlKey || e.altKey || e.metaKey ||
+          !this.keyboard.applicationCursor) ? '\x1b[B' : '\x1bOB';
+};
+
+/**
  * Clear the primary/alternate screens and the scrollback buffer.
  */
 hterm.Keyboard.KeyMap.prototype.onClear_ = function(e, keyDef) {
@@ -6756,17 +7006,24 @@ hterm.Keyboard.KeyMap.prototype.onCtrlN_ = function(e, keyDef) {
 };
 
 /**
- * Either send a ^V or allow the browser to interpret the keystroke as a paste
- * command.
+ * Either send a ^V or issue a paste command.
  *
  * The default behavior is to paste if the user presses Ctrl-Shift-V, and send
  * a ^V if the user presses Ctrl-V. This can be flipped with the
  * 'ctrl-v-paste' preference.
+ *
  */
 hterm.Keyboard.KeyMap.prototype.onCtrlV_ = function(e, keyDef) {
   if ((!e.shiftKey && this.keyboard.ctrlVPaste) ||
       (e.shiftKey && !this.keyboard.ctrlVPaste)) {
-    return hterm.Keyboard.KeyActions.PASS;
+    // We try to do the pasting ourselves as not all browsers/OSs bind Ctrl-V to
+    // pasting.  Notably, on macOS, Ctrl-V/Ctrl-Shift-V do nothing.
+    // However, this might run into web restrictions, so if it fails, we still
+    // fallback to the letting the native behavior (hopefully) save us.
+    if (this.keyboard.terminal.paste())
+      return hterm.Keyboard.KeyActions.CANCEL;
+    else
+      return hterm.Keyboard.KeyActions.PASS;
   }
 
   return '\x16';
@@ -7101,14 +7358,17 @@ hterm.Parser.prototype.parseKeySequence = function() {
       rv.keyCode = token.value;
 
     } else if (token.type == 'identifier') {
-      if (token.value in hterm.Parser.identifiers.modifierKeys) {
-        var mod = hterm.Parser.identifiers.modifierKeys[token.value];
+      var ucValue = token.value.toUpperCase();
+      if (ucValue in hterm.Parser.identifiers.modifierKeys &&
+          hterm.Parser.identifiers.modifierKeys.hasOwnProperty(ucValue)) {
+        var mod = hterm.Parser.identifiers.modifierKeys[ucValue];
         if (rv[mod] && rv[mod] != '*')
           throw this.error('Duplicate modifier: ' + token.value);
         rv[mod] = true;
 
-      } else if (token.value in hterm.Parser.identifiers.keyCodes) {
-        rv.keyCode = hterm.Parser.identifiers.keyCodes[token.value];
+      } else if (ucValue in hterm.Parser.identifiers.keyCodes &&
+                 hterm.Parser.identifiers.keyCodes.hasOwnProperty(ucValue)) {
+        rv.keyCode = hterm.Parser.identifiers.keyCodes[ucValue];
 
       } else {
         throw this.error('Unknown key: ' + token.value);
@@ -7154,7 +7414,8 @@ hterm.Parser.prototype.parseKeyAction = function() {
     return token.value;
 
   if (token.type == 'identifier') {
-    if (token.value in hterm.Parser.identifiers.actions)
+    if (token.value in hterm.Parser.identifiers.actions &&
+        hterm.Parser.identifiers.actions.hasOwnProperty(token.value))
       return hterm.Parser.identifiers.actions[token.value];
 
     throw this.error('Unknown key action: ' + token.value);
@@ -7297,7 +7558,7 @@ hterm.Parser.prototype.parseEscape = function() {
     }
   };
 
-  if (!(this.ch in map))
+  if (!(this.ch in map && map.hasOwnProperty(this.ch)))
     throw this.error('Unknown escape: ' + this.ch);
 
   var value = map[this.ch];
@@ -7380,11 +7641,21 @@ hterm.Parser.prototype.skipSpace = function(opt_expect) {
  */
 hterm.Parser.identifiers = {};
 
+/**
+ * Modifier key names used when defining key sequences.
+ *
+ * These are upper case so we can normalize the user input and be forgiving.
+ * "CTRL-A" and "Ctrl-A" and "ctrl-a" are all accepted.
+ *
+ * Note: Names here cannot overlap with hterm.Parser.identifiers.keyCodes.
+ */
 hterm.Parser.identifiers.modifierKeys = {
-  Shift: 'shift',
-  Ctrl: 'ctrl',
-  Alt: 'alt',
-  Meta: 'meta'
+  SHIFT: 'shift',
+  CTRL: 'ctrl',
+  // Common alias.
+  CONTROL: 'ctrl',
+  ALT: 'alt',
+  META: 'meta'
 };
 
 /**
@@ -7395,9 +7666,18 @@ hterm.Parser.identifiers.modifierKeys = {
  *
  * In a key sequence like "Ctrl-ESC", the ESC comes from this list of
  * identifiers.  It is equivalent to "Ctrl-27" and "Ctrl-0x1b".
+ *
+ * These are upper case so we can normalize the user input and be forgiving.
+ * "Ctrl-ESC" and "Ctrl-Esc" an "Ctrl-esc" are all accepted.
+ *
+ * We also include common aliases for the same key.  "Esc" and "Escape" are the
+ * same key.
+ *
+ * Note: Names here cannot overlap with hterm.Parser.identifiers.modifierKeys.
  */
 hterm.Parser.identifiers.keyCodes = {
   // Top row.
+  ESCAPE: 27,
   ESC: 27,
   F1: 112,
   F2: 113,
@@ -7424,6 +7704,8 @@ hterm.Parser.identifiers.keyCodes = {
   NINE: 57,
   ZERO: 48,
   BACKSPACE: 8,
+  BKSP: 8,
+  BS: 8,
 
   // Row three.
   TAB: 9,
@@ -7439,7 +7721,9 @@ hterm.Parser.identifiers.keyCodes = {
   P: 80,
 
   // Row four.
+  CAPS_LOCK: 20,
   CAPSLOCK: 20,
+  CAPS: 20,
   A: 65,
   S: 83,
   D: 68,
@@ -7449,7 +7733,14 @@ hterm.Parser.identifiers.keyCodes = {
   J: 74,
   K: 75,
   L: 76,
+  // We map enter and return together even though enter should really be 10
+  // because most people don't know or care about the history here.  Plus,
+  // most keyboards/programs map them together already.  If they really want
+  // to bind them differently, they can also use the numeric value.
   ENTER: 13,
+  ENT: 13,
+  RETURN: 13,
+  RET: 13,
 
   // Row five.
   Z: 90,
@@ -7462,15 +7753,24 @@ hterm.Parser.identifiers.keyCodes = {
 
   // Etc.
   SPACE: 32,
+  SP: 32,
   PRINT_SCREEN: 42,
+  PRTSC: 42,
   SCROLL_LOCK: 145,
+  SCRLK: 145,
   BREAK: 19,
+  BRK: 19,
   INSERT: 45,
+  INS: 45,
   HOME: 36,
+  PAGE_UP: 33,
   PGUP: 33,
+  DELETE: 46,
   DEL: 46,
   END: 35,
+  PAGE_DOWN: 34,
   PGDOWN: 34,
+  PGDN: 34,
   UP: 38,
   DOWN: 40,
   RIGHT: 39,
@@ -7489,10 +7789,14 @@ hterm.Parser.identifiers.keyCodes = {
   KP8: 104,
   KP9: 105,
   KP_PLUS: 107,
+  KP_ADD: 107,
   KP_MINUS: 109,
+  KP_SUBTRACT: 109,
   KP_STAR: 106,
+  KP_MULTIPLY: 106,
   KP_DIVIDE: 111,
   KP_DECIMAL: 110,
+  KP_PERIOD: 110,
 
   // Chrome OS media keys
   NAVIGATE_BACK: 166,
@@ -7658,7 +7962,7 @@ hterm.PreferenceManager.defaultPreferences = {
   'desktop-notification-bell':
   [hterm.PreferenceManager.categories.Sounds, false, 'bool',
    'If true, terminal bells in the background will create a Web ' +
-   'Notification. http://www.w3.org/TR/notifications/\n' +
+   'Notification. https://www.w3.org/TR/notifications/\n' +
    '\n'+
    'Displaying notifications requires permission from the user. When this ' +
    'option is set to true, hterm will attempt to ask the user for permission ' +
@@ -7794,6 +8098,10 @@ hterm.PreferenceManager.defaultPreferences = {
    'True if we should use bright colors (8-15 on a 16 color palette) ' +
    'for any text with the bold attribute.  False otherwise.'],
 
+  'enable-blink':
+  [hterm.PreferenceManager.categories.Appearance, true, 'bool',
+   'True if we should respect the blink attribute.  False to ignore it.  '],
+
   'enable-clipboard-notice':
   [hterm.PreferenceManager.categories.CopyPaste, true, 'bool',
    'Show a message in the terminal when the host writes to the clipboard.'],
@@ -7842,11 +8150,11 @@ hterm.PreferenceManager.defaultPreferences = {
    'more modifier keys followed by a key code.  Key codes can be decimal or ' +
    'hexadecimal numbers, or a key identifier.  Key actions can be specified ' +
    'a string to send to the host, or an action identifier.  For a full ' +
-   'list of key code and action identifiers, see https://goo.gl/8AoD09.' +
-   '\n' +
+   'explanation of the format, see https://goo.gl/LWRndr.\n' +
    '\n' +
    'Sample keybindings:\n' +
-   '{ "Ctrl-Alt-K": "clearScrollback",\n' +
+   '{\n' +
+   '  "Ctrl-Alt-K": "clearScrollback",\n' +
    '  "Ctrl-Shift-L": "PASS",\n' +
    '  "Ctrl-H": "\'HELLO\\n\'"\n' +
    '}'],
@@ -7865,13 +8173,57 @@ hterm.PreferenceManager.defaultPreferences = {
   [hterm.PreferenceManager.categories.Keyboard, true, 'bool',
    'Set whether the meta key sends a leading escape or not.'],
 
+  'mouse-right-click-paste':
+  [hterm.PreferenceManager.categories.CopyPaste, true, 'bool',
+   'Paste on right mouse button clicks.\n' +
+   '\n' +
+   'This option is activate independent of the "mouse-paste-button" ' +
+   'setting.\n' +
+   '\n' +
+   'Note: This will handle left & right handed mice correctly.'],
+
   'mouse-paste-button':
   [hterm.PreferenceManager.categories.CopyPaste, null,
    [null, 0, 1, 2, 3, 4, 5, 6],
    'Mouse paste button, or null to autodetect.\n' +
    '\n' +
-   'For autodetect, we\'ll try to enable middle button paste for non-X11 ' +
-   'platforms.  On X11 we move it to button 3.'],
+   'For autodetect, we\'ll use the middle mouse button for non-X11 ' +
+   'platforms (including Chrome OS).  On X11, we\'ll use the right mouse ' +
+   'button (since the native window manager should paste via the middle ' +
+   'mouse button).\n' +
+   '\n' +
+   '0 == left (primary) button.\n' +
+   '1 == middle (auxiliary) button.\n' +
+   '2 == right (secondary) button.\n' +
+   '\n' +
+   'This option is activate independent of the "mouse-right-click-paste" ' +
+   'setting.\n' +
+   '\n' +
+   'Note: This will handle left & right handed mice correctly.'],
+
+  'word-break-match-left':
+  [hterm.PreferenceManager.categories.CopyPaste,
+   '[^\\s\\[\\](){}<>"\'\\^!@#$%&*,;:`]', 'string',
+   'Regular expression to halt matching to the left (start) of a selection.\n' +
+   '\n' +
+   'Normally this is a character class to reject specific characters.\n' +
+   'We allow "~" and "." by default as paths frequently start with those.'],
+
+  'word-break-match-right':
+  [hterm.PreferenceManager.categories.CopyPaste,
+   '[^\\s\\[\\](){}<>"\'\\^!@#$%&*,;:~.`]', 'string',
+   'Regular expression to halt matching to the right (end) of a selection.\n' +
+   '\n' +
+   'Normally this is a character class to reject specific characters.'],
+
+  'word-break-match-middle':
+  [hterm.PreferenceManager.categories.CopyPaste,
+   '[^\\s\\[\\](){}<>"\'\\^]*', 'string',
+   'Regular expression to match all the characters in the middle.\n' +
+   '\n' +
+   'Normally this is a character class to reject specific characters.\n' +
+   '\n' +
+   'Used to expand the selection surrounding the starting point.'],
 
   'page-keys-scroll':
   [hterm.PreferenceManager.categories.Keyboard, false, 'bool',
@@ -7940,14 +8292,38 @@ hterm.PreferenceManager.defaultPreferences = {
   [hterm.PreferenceManager.categories.Scrolling, true, 'bool',
    'The vertical scrollbar mode.'],
 
+  'scroll-wheel-may-send-arrow-keys':
+  [hterm.PreferenceManager.categories.Scrolling, false, 'bool',
+   'When using the alternative screen buffer, and DECCKM (Application Cursor ' +
+   'Keys) is active, mouse wheel scroll events will emulate arrow keys.\n' +
+   '\n' +
+   'It can be temporarily disabled by holding the shift key.\n' +
+   '\n' +
+   'This frequently comes up when using pagers (less) or reading man pages ' +
+   'or text editors (vi/nano) or using screen/tmux.'],
+
   'scroll-wheel-move-multiplier':
   [hterm.PreferenceManager.categories.Scrolling, 1, 'int',
-   'The multiplier for the pixel delta in mousewheel event caused by the ' +
+   'The multiplier for the pixel delta in wheel events caused by the ' +
    'scroll wheel. Alters how fast the page scrolls.'],
 
   'send-encoding':
   [hterm.PreferenceManager.categories.Encoding, 'utf-8', ['utf-8', 'raw'],
    'Set the encoding for data sent to host.'],
+
+  'terminal-encoding':
+  [hterm.PreferenceManager.categories.Encoding, 'iso-2022',
+   ['iso-2022', 'utf-8', 'utf-8-locked'],
+   'The default terminal encoding (DOCS).\n' +
+   '\n' +
+   'ISO-2022 enables character map translations (like graphics maps).\n' +
+   'UTF-8 disables support for those.\n' +
+   '\n' +
+   'The locked variant means the encoding cannot be changed at runtime ' +
+   'via terminal escape sequences.\n' +
+   '\n' +
+   'You should stick with UTF-8 unless you notice broken rendering with ' +
+   'legacy applications.'],
 
   'shift-insert-paste':
   [hterm.PreferenceManager.categories.Keyboard, true, 'bool',
@@ -7955,12 +8331,16 @@ hterm.PreferenceManager.defaultPreferences = {
 
   'user-css':
   [hterm.PreferenceManager.categories.Appearance, '', 'url',
-   'URL of user stylesheet to include in the terminal document.']
+   'URL of user stylesheet to include in the terminal document.'],
+
+  'user-css-text':
+  [hterm.PreferenceManager.categories.Appearance, '', 'multiline-string',
+   'Custom CSS text for styling the terminal.'],
 };
 
-hterm.PreferenceManager.prototype = {
-  __proto__: lib.PreferenceManager.prototype
-};
+hterm.PreferenceManager.prototype =
+    Object.create(lib.PreferenceManager.prototype);
+hterm.PreferenceManager.constructor = hterm.PreferenceManager;
 // SOURCE FILE: hterm/js/hterm_pubsub.js
 // Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
@@ -8134,6 +8514,11 @@ hterm.Screen = function(opt_columnCount) {
 
   // The offset in column width into cursorNode_ where the cursor is positioned.
   this.cursorOffset_ = null;
+
+  // Regexes for expanding word selections.
+  this.wordBreakMatchLeft = null;
+  this.wordBreakMatchRight = null;
+  this.wordBreakMatchMiddle = null;
 };
 
 /**
@@ -8556,12 +8941,14 @@ hterm.Screen.prototype.insertString = function(str) {
           this.textAttributes.strikethrough ||
           this.textAttributes.background ||
           this.textAttributes.wcNode ||
+          !this.textAttributes.asciiNode ||
           this.textAttributes.tileData != null)) {
       // Best case scenario, we can just pretend the spaces were part of the
       // original string.
       str = ws + str;
     } else if (cursorNode.nodeType == 3 ||
                !(cursorNode.wcNode ||
+                 !cursorNode.asciiNode ||
                  cursorNode.tileNode ||
                  cursorNode.style.textDecoration ||
                  cursorNode.style.backgroundColor)) {
@@ -8832,6 +9219,10 @@ hterm.Screen.prototype.getPositionWithOverflow_ = function(row, node, offset) {
  **/
 hterm.Screen.prototype.getPositionWithinRow_ = function(row, node, offset) {
   if (node.parentNode != row) {
+    // If we traversed to the top node, then there's nothing to find here.
+    if (node.parentNode == null)
+      return -1;
+
     return this.getPositionWithinRow_(node.parentNode, node, offset) +
            this.getPositionWithinRow_(row, node.parentNode, 0);
   }
@@ -8938,10 +9329,10 @@ hterm.Screen.prototype.expandSelection = function(selection) {
   if (endPosition == -1)
     return;
 
-  // Matches can start with '~' or '.', since paths frequently do.
-  var leftMatch   = '[^\\s\\[\\](){}<>"\'\\^!@#$%&*,;:`]';
-  var rightMatch  = '[^\\s\\[\\](){}<>"\'\\^!@#$%&*,;:~.`]';
-  var insideMatch = '[^\\s\\[\\](){}<>"\'\\^]*';
+  // Use the user configurable match settings.
+  var leftMatch   = this.wordBreakMatchLeft;
+  var rightMatch  = this.wordBreakMatchRight;
+  var insideMatch = this.wordBreakMatchMiddle;
 
   //Move start to the left.
   var rowText = this.getLineText_(row);
@@ -9033,16 +9424,17 @@ hterm.ScrollPort = function(rowProvider) {
   this.lastRowCount_ = 0;
 
   // The scroll wheel pixel delta multiplier to increase/decrease
-  // the scroll speed of mouse wheel events. See: http://goo.gl/sXelnq
+  // the scroll speed of mouse wheel events. See: https://goo.gl/sXelnq
   this.scrollWheelMultiplier_ = 1;
+
+  // The last touch events we saw to support touch based scrolling.  Indexed
+  // by touch identifier since we can have more than one touch active.
+  this.lastTouch_ = {};
 
   /**
    * True if the last scroll caused the scrollport to show the final row.
    */
   this.isScrolledEnd = true;
-
-  // The css rule that we use to control the height of a row.
-  this.xrowCssRule_ = null;
 
   /**
    * A guess at the current scrollbar width, fixed in resize().
@@ -9262,27 +9654,52 @@ hterm.ScrollPort.prototype.decorate = function(div) {
       'height: 100%;' +
       'width: 100%;' +
       'overflow: hidden;' +
-      'cursor: text;' +
+      'cursor: var(--hterm-mouse-cursor-style);' +
       '-webkit-user-select: none;' +
       '-moz-user-select: none;');
 
-  var style = doc.createElement('style');
-  style.textContent = 'x-row {}';
-  doc.head.appendChild(style);
+  if (this.DEBUG_) {
+    // When we're debugging we add padding to the body so that the offscreen
+    // elements are visible.
+    this.document_.body.style.paddingTop =
+        this.document_.body.style.paddingBottom =
+        'calc(var(--hterm-charsize-height) * 3)';
+  }
 
-  this.xrowCssRule_ = doc.styleSheets[0].cssRules[0];
-  this.xrowCssRule_.style.display = 'block';
+  var style = doc.createElement('style');
+  style.textContent = (
+      'x-row {' +
+      '  display: block;' +
+      '  height: var(--hterm-charsize-height);' +
+      '  line-height: var(--hterm-charsize-height);' +
+      '}');
+  doc.head.appendChild(style);
 
   this.userCssLink_ = doc.createElement('link');
   this.userCssLink_.setAttribute('rel', 'stylesheet');
 
+  this.userCssText_ = doc.createElement('style');
+  doc.head.appendChild(this.userCssText_);
+
   // TODO(rginda): Sorry, this 'screen_' isn't the same thing as hterm.Screen
   // from screen.js.  I need to pick a better name for one of them to avoid
   // the collision.
+  // We make this field editable even though we don't actually allow anything
+  // to be edited here so that Chrome will do the right thing with virtual
+  // keyboards and IMEs.  But make sure we turn off all the input helper logic
+  // that doesn't make sense here, and might inadvertently mung or save input.
+  // Some of these attributes are standard while others are browser specific,
+  // but should be safely ignored by other browsers.
   this.screen_ = doc.createElement('x-screen');
+  this.screen_.setAttribute('contenteditable', 'true');
+  this.screen_.setAttribute('spellcheck', 'false');
+  this.screen_.setAttribute('autocomplete', 'off');
+  this.screen_.setAttribute('autocorrect', 'off');
+  this.screen_.setAttribute('autocaptalize', 'none');
   this.screen_.setAttribute('role', 'textbox');
   this.screen_.setAttribute('tabindex', '-1');
   this.screen_.style.cssText = (
+      'caret-color: transparent;' +
       'display: block;' +
       'font-family: monospace;' +
       'font-size: 15px;' +
@@ -9296,16 +9713,25 @@ hterm.ScrollPort.prototype.decorate = function(div) {
   doc.body.appendChild(this.screen_);
 
   this.screen_.addEventListener('scroll', this.onScroll_.bind(this));
-  this.screen_.addEventListener('mousewheel', this.onScrollWheel_.bind(this));
-  this.screen_.addEventListener(
-      'DOMMouseScroll', this.onScrollWheel_.bind(this));
+  this.screen_.addEventListener('wheel', this.onScrollWheel_.bind(this));
+  this.screen_.addEventListener('touchstart', this.onTouch_.bind(this));
+  this.screen_.addEventListener('touchmove', this.onTouch_.bind(this));
+  this.screen_.addEventListener('touchend', this.onTouch_.bind(this));
+  this.screen_.addEventListener('touchcancel', this.onTouch_.bind(this));
   this.screen_.addEventListener('copy', this.onCopy_.bind(this));
   this.screen_.addEventListener('paste', this.onPaste_.bind(this));
+  // Disable drag & drop of text/content.  We don't handle it at all (yet?),
+  // and the default behavior just confuses hterm.
+  this.screen_.addEventListener('drop', function(e) {
+    e.preventDefault();
+    return false;
+  });
 
   doc.body.addEventListener('keydown', this.onBodyKeyDown_.bind(this));
 
   // This is the main container for the fixed rows.
   this.rowNodes_ = doc.createElement('div');
+  this.rowNodes_.id = 'hterm:row-nodes';
   this.rowNodes_.style.cssText = (
       'display: block;' +
       'position: fixed;' +
@@ -9319,6 +9745,7 @@ hterm.ScrollPort.prototype.decorate = function(div) {
   this.topSelectBag_.style.cssText = (
       'display: block;' +
       'overflow: hidden;' +
+      'height: var(--hterm-charsize-height);' +
       'white-space: pre;');
 
   this.bottomSelectBag_ = this.topSelectBag_.cloneNode();
@@ -9327,10 +9754,12 @@ hterm.ScrollPort.prototype.decorate = function(div) {
   // only used to hold rows that are part of the selection but are currently
   // scrolled off the top or bottom of the visible range.
   this.topFold_ = doc.createElement('x-fold');
+  this.topFold_.id = 'hterm:top-fold-for-row-selection';
   this.topFold_.style.cssText = 'display: block;';
   this.rowNodes_.appendChild(this.topFold_);
 
   this.bottomFold_ = this.topFold_.cloneNode();
+  this.bottomFold_.id = 'hterm:bottom-fold-for-row-selection';
   this.rowNodes_.appendChild(this.bottomFold_);
 
   // This hidden div accounts for the vertical space that would be consumed by
@@ -9343,6 +9772,7 @@ hterm.ScrollPort.prototype.decorate = function(div) {
   // select and scroll at the same time).  Without this, the selection gets
   // out of whack.
   this.scrollArea_ = doc.createElement('div');
+  this.scrollArea_.id = 'hterm:scrollarea';
   this.scrollArea_.style.cssText = 'visibility: hidden';
   this.screen_.appendChild(this.scrollArea_);
 
@@ -9350,9 +9780,11 @@ hterm.ScrollPort.prototype.decorate = function(div) {
   // placed in the outermost document for currentScale to be correct.
   // TODO(rginda): This means that hterm nested in an iframe will not correctly
   // detect browser zoom level.  We should come up with a better solution.
-  this.svg_ = this.div_.ownerDocument.createElementNS(
-      'http://www.w3.org/2000/svg', 'svg');
-  this.svg_.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  // Note: This must be http:// else Chrome cannot create the element correctly.
+  var xmlns = 'http://www.w3.org/2000/svg';
+  this.svg_ = this.div_.ownerDocument.createElementNS(xmlns, 'svg');
+  this.svg_.id = 'hterm:zoom-detector';
+  this.svg_.setAttribute('xmlns', xmlns);
   this.svg_.setAttribute('version', '1.1');
   this.svg_.style.cssText = (
       'position: absolute;' +
@@ -9364,6 +9796,7 @@ hterm.ScrollPort.prototype.decorate = function(div) {
   // We send focus to this element just before a paste happens, so we can
   // capture the pasted text and forward it on to someone who cares.
   this.pasteTarget_ = doc.createElement('textarea');
+  this.pasteTarget_.id = 'hterm:ctrl-v-paste-target';
   this.pasteTarget_.setAttribute('tabindex', '-1');
   this.pasteTarget_.style.cssText = (
     'position: absolute;' +
@@ -9410,7 +9843,7 @@ hterm.ScrollPort.prototype.getFontFamily = function() {
  * Defaults to null, meaning no custom css is loaded.  Set it back to null or
  * the empty string to remove a previously applied custom css.
  */
-hterm.ScrollPort.prototype.setUserCss = function(url) {
+hterm.ScrollPort.prototype.setUserCssUrl = function(url) {
   if (url) {
     this.userCssLink_.setAttribute('href', url);
 
@@ -9419,6 +9852,10 @@ hterm.ScrollPort.prototype.setUserCss = function(url) {
   } else if (this.userCssLink_.parentNode) {
     this.document_.head.removeChild(this.userCssLink_);
   }
+};
+
+hterm.ScrollPort.prototype.setUserCssText = function(text) {
+  this.userCssText_.textContent = text;
 };
 
 hterm.ScrollPort.prototype.focus = function() {
@@ -9587,13 +10024,12 @@ hterm.ScrollPort.prototype.getFontSize = function() {
 hterm.ScrollPort.prototype.measureCharacterSize = function(opt_weight) {
   // Number of lines used to average the height of a single character.
   var numberOfLines = 100;
-  var rulerSingleLineContents = ('XXXXXXXXXXXXXXXXXXXX' +
-                                 'XXXXXXXXXXXXXXXXXXXX' +
-                                 'XXXXXXXXXXXXXXXXXXXX' +
-                                 'XXXXXXXXXXXXXXXXXXXX' +
-                                 'XXXXXXXXXXXXXXXXXXXX');
+  // Number of chars per line used to average the width of a single character.
+  var lineLength = 100;
+
   if (!this.ruler_) {
     this.ruler_ = this.document_.createElement('div');
+    this.ruler_.id = 'hterm:ruler-character-size';
     this.ruler_.style.cssText = (
         'position: absolute;' +
         'top: 0;' +
@@ -9605,14 +10041,13 @@ hterm.ScrollPort.prototype.measureCharacterSize = function(opt_weight) {
     // We need to put the text in a span to make the size calculation
     // work properly in Firefox
     this.rulerSpan_ = this.document_.createElement('span');
-    var rulerContents = '' + rulerSingleLineContents;
-    for (var i = 0; i < numberOfLines - 1; ++i)
-      rulerContents += String.fromCharCode(13) + rulerSingleLineContents;
-
-    this.rulerSpan_.innerHTML = rulerContents;
+    this.rulerSpan_.id = 'hterm:ruler-span-workaround';
+    this.rulerSpan_.innerHTML =
+        ('X'.repeat(lineLength) + '\r').repeat(numberOfLines);
     this.ruler_.appendChild(this.rulerSpan_);
 
     this.rulerBaseline_ = this.document_.createElement('span');
+    this.rulerSpan_.id = 'hterm:ruler-baseline';
     // We want to collapse it on the baseline
     this.rulerBaseline_.style.fontSize = '0px';
     this.rulerBaseline_.textContent = 'X';
@@ -9623,7 +10058,7 @@ hterm.ScrollPort.prototype.measureCharacterSize = function(opt_weight) {
   this.rowNodes_.appendChild(this.ruler_);
   var rulerSize = hterm.getClientSize(this.rulerSpan_);
 
-  var size = new hterm.Size(rulerSize.width / rulerSingleLineContents.length,
+  var size = new hterm.Size(rulerSize.width / lineLength,
                             rulerSize.height / numberOfLines);
 
   this.ruler_.appendChild(this.rulerBaseline_);
@@ -9648,20 +10083,7 @@ hterm.ScrollPort.prototype.measureCharacterSize = function(opt_weight) {
 hterm.ScrollPort.prototype.syncCharacterSize = function() {
   this.characterSize = this.measureCharacterSize();
 
-  var lineHeight = this.characterSize.height + 'px';
-  this.xrowCssRule_.style.height = lineHeight;
-  this.topSelectBag_.style.height = lineHeight;
-  this.bottomSelectBag_.style.height = lineHeight;
-
   this.resize();
-
-  if (this.DEBUG_) {
-    // When we're debugging we add padding to the body so that the offscreen
-    // elements are visible.
-    this.document_.body.style.paddingTop =
-        this.document_.body.style.paddingBottom =
-        3 * this.characterSize.height + 'px';
-  }
 };
 
 /**
@@ -10215,11 +10637,8 @@ hterm.ScrollPort.prototype.onScrollWheel_ = function(e) {
   if (e.defaultPrevented)
     return;
 
-  // In FF, the event is DOMMouseScroll and puts the scroll pixel delta in the
-  // 'detail' field of the event.  It also flips the mapping of which direction
-  // a negative number means in the scroll.
-  var delta = e.type == 'DOMMouseScroll' ? (-1 * e.detail) : e.wheelDeltaY;
-  delta *= this.scrollWheelMultiplier_;
+  // Figure out how far this event wants us to scroll.
+  var delta = this.scrollWheelDelta(e);
 
   var top = this.screen_.scrollTop - delta;
   if (top < 0)
@@ -10238,6 +10657,110 @@ hterm.ScrollPort.prototype.onScrollWheel_ = function(e) {
     // overscroll.
     e.preventDefault();
   }
+};
+
+/**
+ * Calculate how far a wheel event should scroll.
+ *
+ * @param {WheelEvent} e The mouse wheel event to process.
+ * @return {number} How far (in pixels) to scroll.
+ */
+hterm.ScrollPort.prototype.scrollWheelDelta = function(e) {
+  var delta;
+
+  switch (e.deltaMode) {
+    case WheelEvent.DOM_DELTA_PIXEL:
+      delta = e.deltaY * this.scrollWheelMultiplier_;
+      break;
+    case WheelEvent.DOM_DELTA_LINE:
+      delta = e.deltaY * this.characterSize.height;
+      break;
+    case WheelEvent.DOM_DELTA_PAGE:
+      delta = e.deltaY * this.characterSize.height * this.screen_.getHeight();
+      break;
+  }
+
+  // The sign is inverted from what we would expect.
+  return delta * -1;
+};
+
+
+/**
+ * Clients can override this if they want to hear touch events.
+ *
+ * Clients may call event.preventDefault() if they want to keep the scrollport
+ * from also handling the events.
+ */
+hterm.ScrollPort.prototype.onTouch = function(e) {};
+
+/**
+ * Handler for touch events.
+ */
+hterm.ScrollPort.prototype.onTouch_ = function(e) {
+  this.onTouch(e);
+
+  if (e.defaultPrevented)
+    return;
+
+  // Extract the fields from the Touch event that we need.  If we saved the
+  // event directly, it has references to other objects (like x-row) that
+  // might stick around for a long time.  This way we only have small objects
+  // in our lastTouch_ state.
+  var scrubTouch = function(t) {
+    return {
+      id: t.identifier,
+      y: t.clientY,
+      x: t.clientX,
+    };
+  };
+
+  var i, touch;
+  switch (e.type) {
+    case 'touchstart':
+      // Save the current set of touches.
+      for (i = 0; i < e.changedTouches.length; ++i) {
+        touch = scrubTouch(e.changedTouches[i]);
+        this.lastTouch_[touch.id] = touch;
+      }
+      break;
+
+    case 'touchcancel':
+    case 'touchend':
+      // Throw away existing touches that we're finished with.
+      for (i = 0; i < e.changedTouches.length; ++i)
+        delete this.lastTouch_[e.changedTouches[i].identifier];
+      break;
+
+    case 'touchmove':
+      // Walk all of the touches in this one event and merge all of their
+      // changes into one delta.  This lets multiple fingers scroll faster.
+      var delta = 0;
+      for (i = 0; i < e.changedTouches.length; ++i) {
+        touch = scrubTouch(e.changedTouches[i]);
+        delta += (this.lastTouch_[touch.id].y - touch.y);
+        this.lastTouch_[touch.id] = touch;
+      }
+
+      // Invert to match the touchscreen scrolling direction of browser windows.
+      delta *= -1;
+
+      var top = this.screen_.scrollTop - delta;
+      if (top < 0)
+        top = 0;
+
+      var scrollMax = this.getScrollMax_();
+      if (top > scrollMax)
+        top = scrollMax;
+
+      if (top != this.screen_.scrollTop) {
+        // Moving scrollTop causes a scroll event, which triggers the redraw.
+        this.screen_.scrollTop = top;
+      }
+      break;
+  }
+
+  // To disable gestures or anything else interfering with our scrolling.
+  e.preventDefault();
 };
 
 /**
@@ -10472,12 +10995,14 @@ hterm.Terminal = function(opt_profileId) {
   this.foregroundColor_ = null;
   this.scrollOnOutput_ = null;
   this.scrollOnKeystroke_ = null;
+  this.scrollWheelArrowKeys_ = null;
 
   // True if we should override mouse event reporting to allow local selection.
   this.defeatMouseReports_ = false;
 
   // Terminal bell sound.
   this.bellAudio_ = this.document_.createElement('audio');
+  this.bellAudio_.id = 'hterm:bell-audio';
   this.bellAudio_.setAttribute('preload', 'auto');
 
   // All terminal bell notifications that have been generated (not necessarily
@@ -10510,6 +11035,7 @@ hterm.Terminal = function(opt_profileId) {
   this.enableMouseDragScroll = true;
 
   this.copyOnSelect = null;
+  this.mouseRightClickPaste = null;
   this.mousePasteButton = null;
 
   // Whether to use the default window copy behavior.
@@ -10658,13 +11184,8 @@ hterm.Terminal.prototype.setProfile = function(profileId, opt_callback) {
         return;
       }
 
-      for (var code in v) {
-        var glmap = hterm.VT.CharacterMap.maps[code].glmap;
-        for (var received in v[code]) {
-          glmap[received] = v[code][received];
-        }
-        hterm.VT.CharacterMap.maps[code].reset(glmap);
-      }
+      terminal.vt.characterMaps.reset();
+      terminal.vt.characterMaps.setOverrides(v);
     },
 
     'cursor-blink': function(v) {
@@ -10759,6 +11280,10 @@ hterm.Terminal.prototype.setProfile = function(profileId, opt_callback) {
       terminal.alternateScreen_.textAttributes.enableBoldAsBright = !!v;
     },
 
+    'enable-blink': function(v) {
+      terminal.syncBlinkState();
+    },
+
     'enable-clipboard-write': function(v) {
       terminal.vt.enableClipboardWrite = !!v;
     },
@@ -10815,6 +11340,10 @@ hterm.Terminal.prototype.setProfile = function(profileId, opt_callback) {
 
     'meta-sends-escape': function(v) {
       terminal.keyboard.metaSendsEscape = v;
+    },
+
+    'mouse-right-click-paste': function(v) {
+      terminal.mouseRightClickPaste = v;
     },
 
     'mouse-paste-button': function(v) {
@@ -10886,6 +11415,10 @@ hterm.Terminal.prototype.setProfile = function(profileId, opt_callback) {
       terminal.setScrollbarVisible(v);
     },
 
+    'scroll-wheel-may-send-arrow-keys': function(v) {
+      terminal.scrollWheelArrowKeys_ = v;
+    },
+
     'scroll-wheel-move-multiplier': function(v) {
       terminal.setScrollWheelMoveMultipler(v);
     },
@@ -10903,9 +11436,32 @@ hterm.Terminal.prototype.setProfile = function(profileId, opt_callback) {
       terminal.keyboard.shiftInsertPaste = v;
     },
 
+    'terminal-encoding': function(v) {
+      terminal.vt.setEncoding(v);
+    },
+
     'user-css': function(v) {
-      terminal.scrollPort_.setUserCss(v);
-    }
+      terminal.scrollPort_.setUserCssUrl(v);
+    },
+
+    'user-css-text': function(v) {
+      terminal.scrollPort_.setUserCssText(v);
+    },
+
+    'word-break-match-left': function(v) {
+      terminal.primaryScreen_.wordBreakMatchLeft = v;
+      terminal.alternateScreen_.wordBreakMatchLeft = v;
+    },
+
+    'word-break-match-right': function(v) {
+      terminal.primaryScreen_.wordBreakMatchRight = v;
+      terminal.alternateScreen_.wordBreakMatchRight = v;
+    },
+
+    'word-break-match-middle': function(v) {
+      terminal.primaryScreen_.wordBreakMatchMiddle = v;
+      terminal.alternateScreen_.wordBreakMatchMiddle = v;
+    },
   });
 
   this.prefs_.readStorage(function() {
@@ -11080,6 +11636,21 @@ hterm.Terminal.prototype.uninstallKeyboard = function() {
 }
 
 /**
+ * Set a CSS variable.
+ *
+ * Normally this is used to set variables in the hterm namespace.
+ *
+ * @param {string} name The variable to set.
+ * @param {string} value The value to assign to the variable.
+ * @param {string?} opt_prefix The variable namespace/prefix to use.
+ */
+hterm.Terminal.prototype.setCssVar = function(name, value,
+                                              opt_prefix='--hterm-') {
+  this.document_.documentElement.style.setProperty(
+      `${opt_prefix}${name}`, value);
+};
+
+/**
  * Set the font size for this terminal.
  *
  * Call setFontSize(0) to reset to the default font size.
@@ -11093,10 +11664,9 @@ hterm.Terminal.prototype.setFontSize = function(px) {
     px = this.prefs_.get('font-size');
 
   this.scrollPort_.setFontSize(px);
-  if (this.wcCssRule_) {
-    this.wcCssRule_.style.width = this.scrollPort_.characterSize.width * 2 +
-        'px';
-  }
+  this.setCssVar('charsize-width', this.scrollPort_.characterSize.width + 'px');
+  this.setCssVar('charsize-height',
+                 this.scrollPort_.characterSize.height + 'px');
 };
 
 /**
@@ -11138,10 +11708,10 @@ hterm.Terminal.prototype.syncMousePasteButton = function() {
   }
 
   var ary = navigator.userAgent.match(/\(X11;\s+(\S+)/);
-  if (!ary || ary[2] == 'CrOS') {
-    this.mousePasteButton = 2;
+  if (!ary || ary[1] == 'CrOS') {
+    this.mousePasteButton = 1;  // Middle mouse button.
   } else {
-    this.mousePasteButton = 3;
+    this.mousePasteButton = 2;  // Right mouse button.
   }
 };
 
@@ -11169,6 +11739,24 @@ hterm.Terminal.prototype.syncBoldSafeState = function() {
 
   this.primaryScreen_.textAttributes.enableBold = isBoldSafe;
   this.alternateScreen_.textAttributes.enableBold = isBoldSafe;
+};
+
+/**
+ * Enable or disable blink based on the enable-blink pref.
+ */
+hterm.Terminal.prototype.syncBlinkState = function() {
+  this.setCssVar('node-duration',
+                 this.prefs_.get('enable-blink') ? '0.7s' : '0');
+};
+
+/**
+ * Set the mouse cursor style based on the current terminal mode.
+ */
+hterm.Terminal.prototype.syncMouseStyle = function() {
+  this.setCssVar('mouse-cursor-style',
+                 this.vt.mouseReport == this.vt.MOUSE_REPORT_DISABLED ?
+                     'var(--hterm-mouse-cursor-text)' :
+                     'var(--hterm-mouse-cursor-pointer)');
 };
 
 /**
@@ -11443,6 +12031,22 @@ hterm.Terminal.prototype.scrollPageDown = function() {
 };
 
 /**
+ * Scroll the terminal one line up relative to the current position.
+ */
+hterm.Terminal.prototype.scrollLineUp = function() {
+  var i = this.scrollPort_.getTopRowIndex();
+  this.scrollPort_.scrollRowToTop(i - 1);
+};
+
+/**
+ * Scroll the terminal one line down relative to the current position.
+ */
+hterm.Terminal.prototype.scrollLineDown = function() {
+  var i = this.scrollPort_.getTopRowIndex();
+  this.scrollPort_.scrollRowToTop(i + 1);
+};
+
+/**
  * Clear primary screen, secondary screen, and the scrollback buffer.
  */
 hterm.Terminal.prototype.wipeContents = function() {
@@ -11636,7 +12240,8 @@ hterm.Terminal.prototype.decorate = function(div) {
   this.scrollPort_.setBackgroundSize(this.prefs_.get('background-size'));
   this.scrollPort_.setBackgroundPosition(
       this.prefs_.get('background-position'));
-  this.scrollPort_.setUserCss(this.prefs_.get('user-css'));
+  this.scrollPort_.setUserCssUrl(this.prefs_.get('user-css'));
+  this.scrollPort_.setUserCssText(this.prefs_.get('user-css-text'));
 
   this.div_.focus = this.focus.bind(this);
 
@@ -11680,22 +12285,43 @@ hterm.Terminal.prototype.decorate = function(div) {
        '.wc-node {' +
        '  display: inline-block;' +
        '  text-align: center;' +
-       '  width: ' + this.scrollPort_.characterSize.width * 2 + 'px;' +
+       '  width: calc(var(--hterm-charsize-width) * 2);' +
+       '  line-height: var(--hterm-charsize-height);' +
+       '}' +
+       ':root {' +
+       '  --hterm-charsize-width: ' + this.scrollPort_.characterSize.width + 'px;' +
+       '  --hterm-charsize-height: ' + this.scrollPort_.characterSize.height + 'px;' +
+       // Default position hides the cursor for when the window is initializing.
+       '  --hterm-cursor-offset-col: -1;' +
+       '  --hterm-cursor-offset-row: -1;' +
+       '  --hterm-blink-node-duration: 0.7s;' +
+       '  --hterm-mouse-cursor-text: text;' +
+       '  --hterm-mouse-cursor-pointer: default;' +
+       '  --hterm-mouse-cursor-style: var(--hterm-mouse-cursor-text);' +
+       '}' +
+       '@keyframes blink {' +
+       '  from { opacity: 1.0; }' +
+       '  to { opacity: 0.0; }' +
+       '}' +
+       '.blink-node {' +
+       '  animation-name: blink;' +
+       '  animation-duration: var(--hterm-blink-node-duration);' +
+       '  animation-iteration-count: infinite;' +
+       '  animation-timing-function: ease-in-out;' +
+       '  animation-direction: alternate;' +
        '}');
   this.document_.head.appendChild(style);
 
-  var styleSheets = this.document_.styleSheets;
-  var cssRules = styleSheets[styleSheets.length - 1].cssRules;
-  this.wcCssRule_ = cssRules[cssRules.length - 1];
-
   this.cursorNode_ = this.document_.createElement('div');
+  this.cursorNode_.id = 'hterm:terminal-cursor';
   this.cursorNode_.className = 'cursor-node';
   this.cursorNode_.style.cssText =
       ('position: absolute;' +
-       'top: -99px;' +
+       'left: calc(var(--hterm-charsize-width) * var(--hterm-cursor-offset-col));' +
+       'top: calc(var(--hterm-charsize-height) * var(--hterm-cursor-offset-row));' +
        'display: block;' +
-       'width: ' + this.scrollPort_.characterSize.width + 'px;' +
-       'height: ' + this.scrollPort_.characterSize.height + 'px;' +
+       'width: var(--hterm-charsize-width);' +
+       'height: var(--hterm-charsize-height);' +
        '-webkit-transition: opacity, background-color 100ms linear;' +
        '-moz-transition: opacity, background-color 100ms linear;');
 
@@ -11713,6 +12339,7 @@ hterm.Terminal.prototype.decorate = function(div) {
   //
   // It's a hack, but it's the cleanest way I could find.
   this.scrollBlockerNode_ = this.document_.createElement('div');
+  this.scrollBlockerNode_.id = 'hterm:mouse-drag-scroll-blocker';
   this.scrollBlockerNode_.style.cssText =
       ('position: absolute;' +
        'top: -99px;' +
@@ -11943,6 +12570,10 @@ hterm.Terminal.prototype.print = function(str) {
   var startOffset = 0;
 
   var strWidth = lib.wc.strWidth(str);
+  // Fun edge case: If the string only contains zero width codepoints (like
+  // combining characters), we make sure to iterate at least once below.
+  if (strWidth == 0 && str)
+    strWidth = 1;
 
   while (startOffset < strWidth) {
     if (this.options_.wraparound && this.screen_.cursorPosition.overflow) {
@@ -11972,8 +12603,8 @@ hterm.Terminal.prototype.print = function(str) {
 
     var tokens = hterm.TextAttributes.splitWidecharString(substr);
     for (var i = 0; i < tokens.length; i++) {
-      if (tokens[i].wcNode)
-        this.screen_.textAttributes.wcNode = true;
+      this.screen_.textAttributes.wcNode = tokens[i].wcNode;
+      this.screen_.textAttributes.asciiNode = tokens[i].asciiNode;
 
       if (this.options_.insertMode) {
           this.screen_.insertString(tokens[i].str);
@@ -11981,6 +12612,7 @@ hterm.Terminal.prototype.print = function(str) {
         this.screen_.overwriteString(tokens[i].str);
       }
       this.screen_.textAttributes.wcNode = false;
+      this.screen_.textAttributes.asciiNode = true;
     }
 
     this.screen_.maybeClipCurrentRow();
@@ -12509,7 +13141,7 @@ hterm.Terminal.prototype.setAbsoluteCursorRow = function(row) {
  *
  * @return {integer} The zero-based cursor row.
  */
-hterm.Terminal.prototype.getCursorRow = function(row) {
+hterm.Terminal.prototype.getCursorRow = function() {
   return this.screen_.cursorPosition.row;
 };
 
@@ -12687,9 +13319,7 @@ hterm.Terminal.prototype.ringBell = function() {
   }
 
   if (this.desktopNotificationBell_ && !this.document_.hasFocus()) {
-    var n = new Notification(
-        lib.f.replaceVars(hterm.desktopNotificationTitle,
-                          {'title': window.document.title || 'hterm'}));
+    var n = hterm.notify();
     this.bellNotificationList_.push(n);
     // TODO: Should we try to raise the window here?
     n.onclick = function() { self.closeBellNotifications_(); };
@@ -12883,7 +13513,7 @@ hterm.Terminal.prototype.syncCursorPosition_ = function() {
 
   if (cursorRowIndex > bottomRowIndex) {
     // Cursor is scrolled off screen, move it outside of the visible area.
-    this.cursorNode_.style.top = -this.scrollPort_.characterSize.height + 'px';
+    this.setCssVar('cursor-offset-row', '-1');
     return;
   }
 
@@ -12893,16 +13523,18 @@ hterm.Terminal.prototype.syncCursorPosition_ = function() {
     this.cursorNode_.style.display = '';
   }
 
-
-  this.cursorNode_.style.top = this.scrollPort_.visibleRowTopMargin +
-      this.scrollPort_.characterSize.height * (cursorRowIndex - topRowIndex) +
-      'px';
-  this.cursorNode_.style.left = this.scrollPort_.characterSize.width *
-      this.screen_.cursorPosition.column + 'px';
+  // Position the cursor using CSS variable math.  If we do the math in JS,
+  // the float math will end up being more precise than the CSS which will
+  // cause the cursor tracking to be off.
+  this.setCssVar(
+      'cursor-offset-row',
+      `${cursorRowIndex - topRowIndex} + ` +
+      `${this.scrollPort_.visibleRowTopMargin}px`);
+  this.setCssVar('cursor-offset-col', this.screen_.cursorPosition.column);
 
   this.cursorNode_.setAttribute('title',
-                                '(' + this.screen_.cursorPosition.row +
-                                ', ' + this.screen_.cursorPosition.column +
+                                '(' + this.screen_.cursorPosition.column +
+                                ', ' + this.screen_.cursorPosition.row +
                                 ')');
 
   // Update the caret for a11y purposes.
@@ -12925,11 +13557,9 @@ hterm.Terminal.prototype.restyleCursor_ = function() {
 
   var style = this.cursorNode_.style;
 
-  style.width = this.scrollPort_.characterSize.width + 'px';
-
   switch (shape) {
     case hterm.Terminal.cursorShape.BEAM:
-      style.height = this.scrollPort_.characterSize.height + 'px';
+      style.height = 'var(--hterm-charsize-height)';
       style.backgroundColor = 'transparent';
       style.borderBottomStyle = null;
       style.borderLeftStyle = 'solid';
@@ -12944,7 +13574,7 @@ hterm.Terminal.prototype.restyleCursor_ = function() {
       break;
 
     default:
-      style.height = this.scrollPort_.characterSize.height + 'px';
+      style.height = 'var(--hterm-charsize-height)';
       style.backgroundColor = this.cursorColor_;
       style.borderBottomStyle = null;
       style.borderLeftStyle = null;
@@ -12983,6 +13613,7 @@ hterm.Terminal.prototype.showZoomWarning_ = function(state) {
       return;
 
     this.zoomWarningNode_ = this.document_.createElement('div');
+    this.zoomWarningNode_.id = 'hterm:zoom-warning';
     this.zoomWarningNode_.style.cssText = (
         'color: black;' +
         'background-color: #ff2222;' +
@@ -13094,7 +13725,7 @@ hterm.Terminal.prototype.showOverlay = function(msg, opt_timeout) {
  * Paste from the system clipboard to the terminal.
  */
 hterm.Terminal.prototype.paste = function() {
-  hterm.pasteFromClipboard(this.document_);
+  return hterm.pasteFromClipboard(this.document_);
 };
 
 /**
@@ -13109,6 +13740,7 @@ hterm.Terminal.prototype.copyStringToClipboard = function(str) {
     setTimeout(this.showOverlay.bind(this, hterm.notifyCopyMessage, 500), 200);
 
   var copySource = this.document_.createElement('pre');
+  copySource.id = 'hterm:copy-to-clipboard-source';
   copySource.textContent = str;
   copySource.style.cssText = (
       '-webkit-user-select: text;' +
@@ -13229,8 +13861,13 @@ hterm.Terminal.prototype.onVTKeystroke = function(string) {
  * @param {string} url URL to launch in a new tab.
  */
 hterm.Terminal.prototype.openUrl = function(url) {
-  var win = window.open(url, '_blank');
-  win.focus();
+  if (window.chrome && window.chrome.browser) {
+    // For Chrome v2 apps, we need to use this API to properly open windows.
+    chrome.browser.openTab({'url': url});
+  } else {
+    var win = window.open(url, '_blank');
+    win.focus();
+  }
 }
 
 /**
@@ -13243,15 +13880,29 @@ hterm.Terminal.prototype.openSelectedUrl_ = function() {
   if (str == null) {
     this.screen_.expandSelection(this.document_.getSelection());
     str = this.getSelectionText();
+
+    // If clicking in empty space, return.
+    if (str == null)
+      return;
   }
 
   // Make sure URL is valid before opening.
   if (str.length > 2048 || str.search(/[\s\[\](){}<>"'\\^`]/) >= 0)
     return;
-  // If the URL isn't anchored, it'll open relative to the extension.
+
+  // If the URI isn't anchored, it'll open relative to the extension.
   // We have no way of knowing the correct schema, so assume http.
-  if (str.search('^[a-zA-Z][a-zA-Z0-9+.-]*://') < 0)
-    str = 'http://' + str;
+  if (str.search('^[a-zA-Z][a-zA-Z0-9+.-]*://') < 0) {
+    // We have to whitelist a few protocols that lack authorities and thus
+    // never use the //.  Like mailto.
+    switch (str.split(':', 1)[0]) {
+      case 'mailto':
+        break;
+      default:
+        str = 'http://' + str;
+        break;
+    }
+  }
 
   this.openUrl(str);
 }
@@ -13328,7 +13979,7 @@ hterm.Terminal.prototype.onMouse_ = function(e) {
       this.copySelectionToClipboard(this.document_);
     }
 
-    if (e.type == 'click' && !e.shiftKey && e.ctrlKey) {
+    if (e.type == 'click' && !e.shiftKey && (e.ctrlKey || e.metaKey)) {
       // Debounce this event with the dblclick event.  If you try to doubleclick
       // a URL to open it, Chrome will fire click then dblclick, but we won't
       // have expanded the selection text at the first click event.
@@ -13338,10 +13989,15 @@ hterm.Terminal.prototype.onMouse_ = function(e) {
       return;
     }
 
-    if (e.type == 'mousedown' && e.which == this.mousePasteButton)
-      this.paste();
+    if (e.type == 'mousedown') {
+      if ((this.mouseRightClickPaste && e.button == 2 /* right button */) ||
+          e.button == this.mousePasteButton) {
+        if (!this.paste())
+          console.warning('Could not paste manually due to web restrictions');;
+      }
+    }
 
-    if (e.type == 'mouseup' && e.which == 1 && this.copyOnSelect &&
+    if (e.type == 'mouseup' && e.button == 0 && this.copyOnSelect &&
         !this.document_.getSelection().isCollapsed) {
       this.copySelectionToClipboard(this.document_);
     }
@@ -13353,6 +14009,20 @@ hterm.Terminal.prototype.onMouse_ = function(e) {
       this.scrollBlockerNode_.style.top = '-99px';
     }
 
+    // Emulate arrow key presses via scroll wheel events.
+    if (this.scrollWheelArrowKeys_ && !e.shiftKey &&
+        this.keyboard.applicationCursor && !this.isPrimaryScreen()) {
+      if (e.type == 'wheel') {
+        var delta = this.scrollPort_.scrollWheelDelta(e);
+        var lines = lib.f.smartFloorDivide(
+            Math.abs(delta), this.scrollPort_.characterSize.height);
+
+        var data = '\x1bO' + (delta < 0 ? 'B' : 'A');
+        this.io.sendString(data.repeat(lines));
+
+        e.preventDefault();
+      }
+    }
   } else /* if (this.reportMouseEvents) */ {
     if (!this.scrollBlockerNode_.engaged) {
       if (e.type == 'mousedown') {
@@ -13510,7 +14180,7 @@ hterm.Terminal.prototype.setScrollbarVisible = function(state) {
 
 /**
  * Set the scroll wheel move multiplier.  This will affect how fast the page
- * scrolls on mousewheel events.
+ * scrolls on wheel events.
  *
  * Defaults to 1.
  *
@@ -13775,6 +14445,7 @@ hterm.TextAttributes = function(document) {
   this.inverse = false;
   this.invisible = false;
   this.wcNode = false;
+  this.asciiNode = true;
   this.tileData = null;
 
   this.colorPalette = null;
@@ -13799,7 +14470,7 @@ hterm.TextAttributes.prototype.enableBoldAsBright = true;
 /**
  * A sentinel constant meaning "whatever the default color is in this context".
  */
-hterm.TextAttributes.prototype.DEFAULT_COLOR = new String('');
+hterm.TextAttributes.prototype.DEFAULT_COLOR = lib.f.createEnum('');
 
 /**
  * A constant string used to specify that source color is context default.
@@ -13858,6 +14529,7 @@ hterm.TextAttributes.prototype.reset = function() {
   this.inverse = false;
   this.invisible = false;
   this.wcNode = false;
+  this.asciiNode = true;
 };
 
 /**
@@ -13885,6 +14557,7 @@ hterm.TextAttributes.prototype.isDefault = function() {
           !this.inverse &&
           !this.invisible &&
           !this.wcNode &&
+          this.asciiNode &&
           this.tileData == null);
 };
 
@@ -13909,6 +14582,7 @@ hterm.TextAttributes.prototype.createContainer = function(opt_textContent) {
 
   var span = this.document_.createElement('span');
   var style = span.style;
+  var classes = [];
 
   if (this.foreground != this.DEFAULT_COLOR)
     style.color = this.foreground;
@@ -13925,8 +14599,10 @@ hterm.TextAttributes.prototype.createContainer = function(opt_textContent) {
   if (this.italic)
     style.fontStyle = 'italic';
 
-  if (this.blink)
-    style.fontStyle = 'italic';
+  if (this.blink) {
+    classes.push('blink-node');
+    span.blinkNode = true;
+  }
 
   var textDecoration = '';
   if (this.underline) {
@@ -13942,18 +14618,22 @@ hterm.TextAttributes.prototype.createContainer = function(opt_textContent) {
   }
 
   if (this.wcNode) {
-    span.className = 'wc-node';
+    classes.push('wc-node');
     span.wcNode = true;
+    span.asciiNode = false;
   }
 
   if (this.tileData != null) {
-    // This could be a wcNode too, so we add to the className here.
-    span.className += ' tile tile_' + this.tileData;
+    classes.push('tile');
+    classes.push('tile_' + this.tileData);
     span.tileNode = true;
   }
 
   if (opt_textContent)
     span.textContent = opt_textContent;
+
+  if (classes.length)
+    span.className = classes.join(' ');
 
   return span;
 };
@@ -13980,11 +14660,13 @@ hterm.TextAttributes.prototype.matchesContainer = function(obj) {
   // We don't want to put multiple characters in a wcNode or a tile.
   // See the comments in createContainer.
   return (!(this.wcNode || obj.wcNode) &&
+          this.asciiNode == this.asciiNode &&
           !(this.tileData != null || obj.tileNode) &&
           this.foreground == style.color &&
           this.background == style.backgroundColor &&
           (this.enableBold && this.bold) == !!style.fontWeight &&
-          (this.blink || this.italic) == !!style.fontStyle &&
+          this.blink == obj.blinkNode &&
+          this.italic == !!style.fontStyle &&
           !!this.underline == !!obj.underline &&
           !!this.strikethrough == !!obj.strikethrough);
 };
@@ -14111,7 +14793,7 @@ hterm.TextAttributes.containerIsDefault = function(obj) {
  * @return {integer} The column width of the node's textContent.
  */
 hterm.TextAttributes.nodeWidth = function(node) {
-  if (node.wcNode) {
+  if (!node.asciiNode) {
     return lib.wc.strWidth(node.textContent);
   } else {
     return node.textContent.length;
@@ -14129,7 +14811,7 @@ hterm.TextAttributes.nodeWidth = function(node) {
  * @return {integer} The extracted substr of the node's textContent.
  */
 hterm.TextAttributes.nodeSubstr = function(node, start, width) {
-  if (node.wcNode) {
+  if (!node.asciiNode) {
     return lib.wc.substr(node.textContent, start, width);
   } else {
     return node.textContent.substr(start, width);
@@ -14147,7 +14829,7 @@ hterm.TextAttributes.nodeSubstr = function(node, start, width) {
  * @return {integer} The extracted substring of the node's textContent.
  */
 hterm.TextAttributes.nodeSubstring = function(node, start, end) {
-  if (node.wcNode) {
+  if (!node.asciiNode) {
     return lib.wc.substring(node.textContent, start, end);
   } else {
     return node.textContent.substring(start, end);
@@ -14161,31 +14843,48 @@ hterm.TextAttributes.nodeSubstring = function(node, start, end) {
  * @param {string} str The string to split.
  * @return {Array} An array of objects that contain substrings of str, where
  *     each substring is either a contiguous runs of single-width characters
- *     or a double-width character.  For object that contains a double-width
- *     character, its wcNode property is set to true.
+ *     or a double-width character.  For objects that contain a double-width
+ *     character, its wcNode property is set to true.  For objects that contain
+ *     only ASCII content, its asciiNode property is set to true.
  */
 hterm.TextAttributes.splitWidecharString = function(str) {
   var rv = [];
   var base = 0, length = 0;
+  var asciiNode = true;
 
   for (var i = 0; i < str.length;) {
     var c = str.codePointAt(i);
     var increment = (c <= 0xffff) ? 1 : 2;
-    if (c < 128 || lib.wc.charWidth(c) == 1) {
+    if (c < 128) {
       length += increment;
+    } else if (lib.wc.charWidth(c) <= 1) {
+      length += increment;
+      asciiNode = false;
     } else {
       if (length) {
-        rv.push({str: str.substr(base, length)});
+        rv.push({
+          str: str.substr(base, length),
+          asciiNode: asciiNode,
+        });
+        asciiNode = true;
       }
-      rv.push({str: str.substr(i, increment), wcNode: true});
+      rv.push({
+        str: str.substr(i, increment),
+        wcNode: true,
+        asciiNode: false,
+      });
       base = i + increment;
       length = 0;
     }
     i += increment;
   }
 
-  if (length)
-    rv.push({str: str.substr(base, length)});
+  if (length) {
+    rv.push({
+      str: str.substr(base, length),
+      asciiNode: asciiNode,
+    });
+  }
 
   return rv;
 };
@@ -14208,24 +14907,7 @@ lib.rtdep('lib.colors', 'lib.f', 'lib.UTF8Decoder',
  * This interpreter is intended to be compatible with xterm, though it
  * ignores some of the more esoteric escape sequences.
  *
- * Some sequences are marked "Will not implement", meaning that they aren't
- * considered relevant to hterm and will probably never be implemented.
- *
- * Others are marked "Not currently implemented", meaning that they are lower
- * priority items that may be useful to implement at some point.
- *
- * See also:
- *   [VT100] VT100 User Guide
- *           http://vt100.net/docs/vt100-ug/chapter3.html
- *   [VT510] VT510 Video Terminal Programmer Information
- *           http://vt100.net/docs/vt510-rm/contents
- *   [XTERM] Xterm Control Sequences
- *           http://invisible-island.net/xterm/ctlseqs/ctlseqs.html
- *   [CTRL]  Wikipedia: C0 and C1 Control Codes
- *           http://en.wikipedia.org/wiki/C0_and_C1_control_codes
- *   [CSI]   Wikipedia: ANSI Escape Code
- *           http://en.wikipedia.org/wiki/Control_Sequence_Introducer
- *   man 5 terminfo, man infocmp, infocmp -L xterm-new
+ * Control sequences are documented in hterm/doc/ControlSequences.md.
  *
  * @param {hterm.Terminal} terminal Terminal to use with the interpreter.
  */
@@ -14256,15 +14938,6 @@ hterm.VT = function(terminal) {
 
   // The amount of time we're willing to wait for the end of an OSC sequence.
   this.oscTimeLimit_ = 20000;
-
-  // Construct a regular expression to match the known one-byte control chars.
-  // This is used in parseUnknown_ to quickly scan a string for the next
-  // control character.
-  var cc1 = Object.keys(hterm.VT.CC1).map(
-      function(e) {
-        return '\\x' + lib.f.zpad(e.charCodeAt().toString(16), 2)
-      }).join('');
-  this.cc1Pattern_ = new RegExp('[' + cc1 + ']');
 
   // Decoder to maintain UTF-8 decode state.
   this.utf8Decoder_ = new lib.UTF8Decoder();
@@ -14314,12 +14987,20 @@ hterm.VT = function(terminal) {
   this.warnUnimplemented = true;
 
   /**
-   * The default G0...G3 character maps.
+   * The set of available character maps (used by G0...G3 below).
    */
-  this.G0 = hterm.VT.CharacterMap.maps['B'];
-  this.G1 = hterm.VT.CharacterMap.maps['0'];
-  this.G2 = hterm.VT.CharacterMap.maps['B'];
-  this.G3 = hterm.VT.CharacterMap.maps['B'];
+  this.characterMaps = new hterm.VT.CharacterMaps();
+
+  /**
+   * The default G0...G3 character maps.
+   * We default to the US/ASCII map everywhere as that aligns with other
+   * terminals, and it makes it harder to accidentally switch to the graphics
+   * character map (Ctrl-N).  Any program that wants to use the graphics map
+   * will usually select it anyways since there's no guarantee what state any
+   * of the maps are in at any particular time.
+   */
+  this.G0 = this.G1 = this.G2 = this.G3 =
+      this.characterMaps.getMap('B');
 
   /**
    * The 7-bit visible character set.
@@ -14338,6 +15019,21 @@ hterm.VT = function(terminal) {
    * contains the 94 bytes from 0xa1 to 0xfe.
    */
   this.GR = 'G0';
+
+  /**
+   * The current encoding of the terminal.
+   *
+   * We only support ECMA-35 and UTF-8, so go with a boolean here.
+   * The encoding can be locked too.
+   */
+  this.codingSystemUtf8_ = false;
+  this.codingSystemLocked_ = false;
+
+  // Construct a regular expression to match the known one-byte control chars.
+  // This is used in parseUnknown_ to quickly scan a string for the next
+  // control character.
+  this.cc1Pattern_ = null;
+  this.updateEncodingState_();
 
   // Saved state used in DECSC.
   //
@@ -14515,10 +15211,10 @@ hterm.VT.CursorState.prototype.restore = function() {
 };
 
 hterm.VT.prototype.reset = function() {
-  this.G0 = hterm.VT.CharacterMap.maps['B'];
-  this.G1 = hterm.VT.CharacterMap.maps['0'];
-  this.G2 = hterm.VT.CharacterMap.maps['B'];
-  this.G3 = hterm.VT.CharacterMap.maps['B'];
+  this.G0 = this.characterMaps.getMap('B');
+  this.G1 = this.characterMaps.getMap('0');
+  this.G2 = this.characterMaps.getMap('B');
+  this.G3 = this.characterMaps.getMap('B');
 
   this.GL = 'G0';
   this.GR = 'G0';
@@ -14556,9 +15252,9 @@ hterm.VT.prototype.onTerminalMouse_ = function(e) {
   var y = String.fromCharCode(lib.f.clamp(e.terminalRow + 32, 32, 255));
 
   switch (e.type) {
-    case 'mousewheel':
+    case 'wheel':
       // Mouse wheel is treated as button 1 or 2 plus an additional 64.
-      b = ((e.wheelDeltaY > 0) ? 0 : 1) + 96;
+      b = (((e.deltaY * -1) > 0) ? 0 : 1) + 96;
       b |= mod;
       response = '\x1b[M' + String.fromCharCode(b) + x + y;
 
@@ -14568,7 +15264,7 @@ hterm.VT.prototype.onTerminalMouse_ = function(e) {
 
     case 'mousedown':
       // Buttons are encoded as button number plus 32.
-      var b = Math.min(e.which - 1, 2) + 32;
+      var b = Math.min(e.button, 2) + 32;
 
       // And mix in the modifier keys.
       b |= mod;
@@ -14582,9 +15278,27 @@ hterm.VT.prototype.onTerminalMouse_ = function(e) {
       break;
 
     case 'mousemove':
-      if (this.mouseReport == this.MOUSE_REPORT_DRAG && e.which) {
-        // Standard button bits.
-        b = 32 + Math.min(e.which - 1, 2);
+      if (this.mouseReport == this.MOUSE_REPORT_DRAG && e.buttons) {
+        // Standard button bits.  The XTerm protocol only reports the first
+        // button press (e.g. if left & right are pressed, right is ignored),
+        // and it only supports the first three buttons.  If none of them are
+        // pressed, then XTerm flags it as a release.  We'll do the same.
+        b = 32;
+
+        // Priority here matches XTerm: left, middle, right.
+        if (e.buttons & 0x1) {
+          // Report left button.
+          b += 0;
+        } else if (e.buttons & 0x4) {
+          // Report middle button.
+          b += 1;
+        } else if (e.buttons & 0x2) {
+          // Report right button.
+          b += 2;
+        } else {
+          // Release higher buttons.
+          b += 3;
+        }
 
         // Add 32 to indicate mouse motion.
         b += 32;
@@ -14646,7 +15360,7 @@ hterm.VT.prototype.decode = function(str) {
 /**
  * Encode a UTF-16 string as UTF-8.
  *
- * See also: http://en.wikipedia.org/wiki/UTF-16
+ * See also: https://en.wikipedia.org/wiki/UTF-16
  */
 hterm.VT.prototype.encodeUTF8 = function(str) {
   return lib.encodeUTF8(str);
@@ -14660,6 +15374,46 @@ hterm.VT.prototype.decodeUTF8 = function(str) {
 };
 
 /**
+ * Set the encoding of the terminal.
+ *
+ * @param {string} encoding The name of the encoding to set.
+ */
+hterm.VT.prototype.setEncoding = function(encoding) {
+  switch (encoding) {
+    default:
+      console.warn('Invalid value for "terminal-encoding": ' + encoding);
+      // Fall through.
+    case 'iso-2022':
+      this.codingSystemUtf8_ = false;
+      this.codingSystemLocked_ = false;
+      break;
+    case 'utf-8-locked':
+      this.codingSystemUtf8_ = true;
+      this.codingSystemLocked_ = true;
+      break;
+    case 'utf-8':
+      this.codingSystemUtf8_ = true;
+      this.codingSystemLocked_ = false;
+      break;
+  }
+
+  this.updateEncodingState_();
+};
+
+/**
+ * Refresh internal state when the encoding changes.
+ */
+hterm.VT.prototype.updateEncodingState_ = function() {
+  // If we're in UTF8 mode, don't suport 8-bit escape sequences as we'll never
+  // see those -- everything should be UTF8!
+  var cc1 = Object.keys(hterm.VT.CC1)
+      .filter((e) => !this.codingSystemUtf8_ || e.charCodeAt() < 0x80)
+      .map((e) => '\\x' + lib.f.zpad(e.charCodeAt().toString(16), 2))
+      .join('');
+  this.cc1Pattern_ = new RegExp(`[${cc1}]`);
+};
+
+/**
  * The default parse function.
  *
  * This will scan the string for the first 1-byte control character (C0/C1
@@ -14670,11 +15424,8 @@ hterm.VT.prototype.parseUnknown_ = function(parseState) {
   var self = this;
 
   function print(str) {
-    if (self[self.GL].GL)
+    if (!self.codingSystemUtf8_ && self[self.GL].GL)
       str = self[self.GL].GL(str);
-
-    if (self[self.GR].GR)
-      str = self[self.GR].GR(str);
 
     self.terminal.print(str);
   };
@@ -14784,15 +15535,37 @@ hterm.VT.prototype.parseCSI_ = function(parseState) {
  */
 hterm.VT.prototype.parseUntilStringTerminator_ = function(parseState) {
   var buf = parseState.peekRemainingBuf();
-  var nextTerminator = buf.search(/(\x1b\\|\x07)/);
   var args = parseState.args;
+  // Since we might modify parse state buffer locally, if we want to advance
+  // the parse state buffer later on, we need to know how many chars we added.
+  let bufInserted = 0;
 
   if (!args.length) {
     args[0] = '';
     args[1] = new Date();
+  } else {
+    // If our saved buffer ends with an escape, it's because we were hoping
+    // it's an ST split across two buffers.  Move it from our saved buffer
+    // to the start of our current buffer for processing anew.
+    if (args[0].slice(-1) == '\x1b') {
+      args[0] = args[0].slice(0, -1);
+      buf = '\x1b' + buf;
+      bufInserted = 1;
+    }
   }
 
-  if (nextTerminator == -1) {
+  const nextTerminator = buf.search(/[\x1b\x07]/);
+  const terminator = buf[nextTerminator];
+  let foundTerminator;
+
+  // If the next escape we see is not a start of a ST, fall through.  This will
+  // either be invalid (embedded escape), or we'll queue it up (wait for \\).
+  if (terminator == '\x1b' && buf[nextTerminator + 1] != '\\')
+    foundTerminator = false;
+  else
+    foundTerminator = (nextTerminator != -1);
+
+  if (!foundTerminator) {
     // No terminator here, have to wait for the next string.
 
     args[0] += buf;
@@ -14802,20 +15575,24 @@ hterm.VT.prototype.parseUntilStringTerminator_ = function(parseState) {
     if (args[0].length > this.maxStringSequence)
       abortReason = 'too long: ' + args[0].length;
 
-    if (args[0].indexOf('\x1b') != -1)
-      abortReason = 'embedded escape: ' + args[0].indexOf('\x1b');
+    // Special case: If our buffering happens to split the ST (\e\\), we have to
+    // buffer the content temporarily.  So don't reject a trailing escape here,
+    // instead we let it timeout or be rejected in the next pass.
+    if (terminator == '\x1b' && nextTerminator != buf.length - 1)
+      abortReason = 'embedded escape: ' + nextTerminator;
 
     if (new Date() - args[1] > this.oscTimeLimit_)
-      abortReason = 'timeout expired: ' + new Date() - args[1];
+      abortReason = 'timeout expired: ' + (new Date() - args[1]);
 
     if (abortReason) {
-      console.log('parseUntilStringTerminator_: aborting: ' + abortReason,
-                  args[0]);
+      if (this.warnUnimplemented)
+        console.log('parseUntilStringTerminator_: aborting: ' + abortReason,
+                    args[0]);
       parseState.reset(args[0]);
       return false;
     }
 
-    parseState.advance(buf.length);
+    parseState.advance(buf.length - bufInserted);
     return true;
   }
 
@@ -14829,7 +15606,7 @@ hterm.VT.prototype.parseUntilStringTerminator_ = function(parseState) {
 
   parseState.resetParseFunction();
   parseState.advance(nextTerminator +
-                     (buf.substr(nextTerminator, 1) == '\x1b' ? 2 : 1));
+                     (terminator == '\x1b' ? 2 : 1) - bufInserted);
 
   return true;
 };
@@ -14873,18 +15650,12 @@ hterm.VT.prototype.dispatch = function(type, code, parseState) {
  *
  * Invoked in response to SM/RM.
  *
- * Expected values for code:
- *   2 - Keyboard Action Mode (AM).  Will not implement.
- *   4 - Insert Mode (IRM).
- *   12 - Send/receive (SRM).  Will not implement.
- *   20 - Automatic Newline (LNM).
- *
  * Unexpected and unimplemented values are silently ignored.
  */
 hterm.VT.prototype.setANSIMode = function(code, state) {
-  if (code == '4') {
+  if (code == 4) {  // Insert Mode (IRM)
     this.terminal.setInsertMode(state);
-  } else if (code == '20') {
+  } else if (code == 20) {  // Automatic Newline (LNM)
     this.terminal.setAutoCarriageReturn(state);
   } else if (this.warnUnimplemented) {
     console.warn('Unimplemented ANSI Mode: ' + code);
@@ -14895,76 +15666,14 @@ hterm.VT.prototype.setANSIMode = function(code, state) {
  * Set or reset one of the DEC Private modes.
  *
  * Invoked in response to DECSET/DECRST.
- *
- * Expected values for code:
- *      1 - Application Cursor Keys (DECCKM).
- *      2 - [!] Designate USASCII for character sets G0-G3 (DECANM), and set
- *          VT100 mode.
- *      3 - 132 Column Mode (DECCOLM).
- *      4 - [x] Smooth (Slow) Scroll (DECSCLM).
- *      5 - Reverse Video (DECSCNM).
- *      6 - Origin Mode (DECOM).
- *      7 - Wraparound Mode (DECAWM).
- *      8 - [x] Auto-repeat Keys (DECARM).
- *      9 - [!] Send Mouse X & Y on button press.
- *     10 - [x] Show toolbar (rxvt).
- *     12 - Start Blinking Cursor (att610).
- *     18 - [!] Print form feed (DECPFF).
- *     19 - [x] Set print extent to full screen (DECPEX).
- *     25 - Show Cursor (DECTCEM).
- *     30 - [!] Show scrollbar (rxvt).
- *     35 - [x] Enable font-shifting functions (rxvt).
- *     38 - [x] Enter Tektronix Mode (DECTEK).
- *     40 - Allow 80 - 132 Mode.
- *     41 - [!] more(1) fix (see curses resource).
- *     42 - [!] Enable Nation Replacement Character sets (DECNRCM).
- *     44 - [!] Turn On Margin Bell.
- *     45 - Reverse-wraparound Mode.
- *     46 - [x] Start Logging.
- *     47 - [!] Use Alternate Screen Buffer.
- *     66 - [!] Application keypad (DECNKM).
- *     67 - Backarrow key sends backspace (DECBKM).
- *   1000 - Send Mouse X & Y on button press and release.  (MOUSE_REPORT_CLICK)
- *   1001 - [!] Use Hilite Mouse Tracking.
- *   1002 - Use Cell Motion Mouse Tracking.  (MOUSE_REPORT_DRAG)
- *   1003 - [!] Use All Motion Mouse Tracking.
- *   1004 - [!] Send FocusIn/FocusOut events.
- *   1005 - [!] Enable Extended Mouse Mode.
- *   1010 - Scroll to bottom on tty output (rxvt).
- *   1011 - Scroll to bottom on key press (rxvt).
- *   1034 - [x] Interpret "meta" key, sets eighth bit.
- *   1035 - [x] Enable special modifiers for Alt and NumLock keys.
- *   1036 - Send ESC when Meta modifies a key.
- *   1037 - [!] Send DEL from the editing-keypad Delete key.
- *   1039 - Send ESC when Alt modifies a key.
- *   1040 - [x] Keep selection even if not highlighted.
- *   1041 - [x] Use the CLIPBOARD selection.
- *   1042 - [!] Enable Urgency window manager hint when Control-G is received.
- *   1043 - [!] Enable raising of the window when Control-G is received.
- *   1047 - [!] Use Alternate Screen Buffer.
- *   1048 - Save cursor as in DECSC.
- *   1049 - Save cursor as in DECSC and use Alternate Screen Buffer, clearing
- *          it first. (This may be disabled by the titeInhibit resource). This
- *          combines the effects of the 1047 and 1048 modes. Use this with
- *          terminfo-based applications rather than the 47 mode.
- *   1050 - [!] Set terminfo/termcap function-key mode.
- *   1051 - [x] Set Sun function-key mode.
- *   1052 - [x] Set HP function-key mode.
- *   1053 - [x] Set SCO function-key mode.
- *   1060 - [x] Set legacy keyboard emulation (X11R6).
- *   1061 - [!] Set VT220 keyboard emulation.
- *   2004 - Set bracketed paste mode.
- *
- * [!] - Not currently implemented, may be in the future.
- * [x] - Will not implement.
  */
 hterm.VT.prototype.setDECMode = function(code, state) {
-  switch (code) {
-    case '1':  // DECCKM
+  switch (parseInt(code, 10)) {
+    case 1:  // DECCKM
       this.terminal.keyboard.applicationCursor = state;
       break;
 
-    case '3':  // DECCOLM
+    case 3:  // DECCOLM
       if (this.allowColumnWidthChanges_) {
         this.terminal.setWidth(state ? 132 : 80);
 
@@ -14973,62 +15682,68 @@ hterm.VT.prototype.setDECMode = function(code, state) {
       }
       break;
 
-    case '5':  // DECSCNM
+    case 5:  // DECSCNM
       this.terminal.setReverseVideo(state);
       break;
 
-    case '6':  // DECOM
+    case 6:  // DECOM
       this.terminal.setOriginMode(state);
       break;
 
-    case '7':  // DECAWM
+    case 7:  // DECAWM
       this.terminal.setWraparound(state);
       break;
 
-    case '12':  // att610
+    case 12:  // Start blinking cursor
       if (this.enableDec12)
         this.terminal.setCursorBlink(state);
       break;
 
-    case '25':  // DECTCEM
+    case 25:  // DECTCEM
       this.terminal.setCursorVisible(state);
       break;
 
-    case '40':  // no-spec
+    case 30:  // Show scrollbar
+      this.terminal.setScrollbarVisible(state);
+      break;
+
+    case 40:  // Allow 80 - 132 (DECCOLM) Mode
       this.terminal.allowColumnWidthChanges_ = state;
       break;
 
-    case '45':  // no-spec
+    case 45:  // Reverse-wraparound Mode
       this.terminal.setReverseWraparound(state);
       break;
 
-    case '67':  // DECBKM
+    case 67:  // Backarrow key sends backspace (DECBKM)
       this.terminal.keyboard.backspaceSendsBackspace = state;
       break;
 
-    case '1000':  // Report on mouse clicks only.
+    case 1000:  // Report on mouse clicks only.
       this.mouseReport = (
           state ? this.MOUSE_REPORT_CLICK : this.MOUSE_REPORT_DISABLED);
+      this.terminal.syncMouseStyle();
       break;
 
-    case '1002':  // Report on mouse clicks and drags
+    case 1002:  // Report on mouse clicks and drags
       this.mouseReport = (
           state ? this.MOUSE_REPORT_DRAG : this.MOUSE_REPORT_DISABLED);
+      this.terminal.syncMouseStyle();
       break;
 
-    case '1010':  // rxvt
+    case 1010:  // Scroll to bottom on tty output
       this.terminal.scrollOnOutput = state;
       break;
 
-    case '1011':  // rxvt
+    case 1011:  // Scroll to bottom on key press
       this.terminal.scrollOnKeystroke = state;
       break;
 
-    case '1036':  // no-spec
+    case 1036:  // Send ESC when Meta modifies a key
       this.terminal.keyboard.metaSendsEscape = state;
       break;
 
-    case '1039':  // no-spec
+    case 1039:  // Send ESC when Alt modifies a key
       if (state) {
         if (!this.terminal.keyboard.previousAltSendsWhat_) {
           this.terminal.keyboard.previousAltSendsWhat_ =
@@ -15042,15 +15757,15 @@ hterm.VT.prototype.setDECMode = function(code, state) {
       }
       break;
 
-    case '47':
-    case '1047':  // no-spec
+    case 47:  // Use Alternate Screen Buffer
+    case 1047:
       this.terminal.setAlternateMode(state);
       break;
 
-    case '1048':  // Save cursor as in DECSC.
+    case 1048:  // Save cursor as in DECSC.
       this.savedState_.save();
 
-    case '1049':  // 1047 + 1048 + clear.
+    case 1049:  // 1047 + 1048 + clear.
       if (state) {
         this.savedState_.save();
         this.terminal.setAlternateMode(state);
@@ -15062,7 +15777,7 @@ hterm.VT.prototype.setDECMode = function(code, state) {
 
       break;
 
-    case '2004':  // Bracketed paste mode.
+    case 2004:  // Bracketed paste mode.
       this.terminal.setBracketedPaste(state);
       break;
 
@@ -15124,7 +15839,7 @@ hterm.VT.VT52 = {};
  *
  * Silently ignored.
  */
-hterm.VT.CC1['\x00'] = function () {};
+hterm.VT.CC1['\x00'] = hterm.VT.ignore;
 
 /**
  * Enquiry (ENQ).
@@ -15185,9 +15900,7 @@ hterm.VT.CC1['\x0b'] = hterm.VT.CC1['\x0a'];
  *
  * Interpreted as LF.
  */
-hterm.VT.CC1['\x0c'] = function() {
-  this.terminal.formFeed();
-};
+hterm.VT.CC1['\x0c'] = hterm.VT.CC1['\x0a'];
 
 /**
  * Carriage Return (CR).
@@ -15359,7 +16072,7 @@ hterm.VT.ESC['P'] = function(parseState) {
 };
 
 /**
- * Start of Protected Area (SPA).
+ * Start of Guarded Area (SPA).
  *
  * Will not implement.
  */
@@ -15367,7 +16080,7 @@ hterm.VT.CC1['\x96'] =
 hterm.VT.ESC['V'] = hterm.VT.ignore;
 
 /**
- * End of Protected Area (EPA).
+ * End of Guarded Area (EPA).
  *
  * Will not implement.
  */
@@ -15495,21 +16208,11 @@ hterm.VT.ESC['\x20'] = function(parseState) {
 
 /**
  * DEC 'ESC #' sequences.
- *
- * Handled:
- *   ESC # 8 - DEC Screen Alignment Test (DECALN).
- *             Fills the terminal with 'E's.  Used liberally by vttest.
- *
- * Ignored:
- *   ESC # 3 - DEC double-height line, top half (DECDHL).
- *   ESC # 4 - DEC double-height line, bottom half (DECDHL).
- *   ESC # 5 - DEC single-width line (DECSWL).
- *   ESC # 6 - DEC double-width line (DECDWL).
  */
 hterm.VT.ESC['#'] = function(parseState) {
   parseState.func = function(parseState) {
     var ch = parseState.consumeChar();
-    if (ch == '8')
+    if (ch == '8')  // DEC Screen Alignment Test (DECALN)
       this.terminal.fill('E');
 
     parseState.resetParseFunction();
@@ -15517,21 +16220,56 @@ hterm.VT.ESC['#'] = function(parseState) {
 };
 
 /**
- * 'ESC %' sequences, character set control.  Not currently implemented.
- *
- * To be implemented (currently ignored):
- *   ESC % @ - Set ISO 8859-1 character set.
- *   ESC % G - Set UTF-8 character set.
- *
- * All other ESC # sequences are echoed to the terminal.
- *
- * TODO(rginda): Implement.
+ * Designate Other Coding System (DOCS).
  */
 hterm.VT.ESC['%'] = function(parseState) {
   parseState.func = function(parseState) {
     var ch = parseState.consumeChar();
-    if (ch != '@' && ch != 'G' && this.warnUnimplemented)
-      console.warn('Unknown ESC % argument: ' + JSON.stringify(ch));
+
+    // If we've locked the encoding, then just eat the bytes and return.
+    if (this.codingSystemLocked_) {
+      if (ch == '/')
+        parseState.consumeChar();
+      parseState.resetParseFunction();
+      return;
+    }
+
+    // Process the encoding requests.
+    switch (ch) {
+      case '@':
+        // Switch to ECMA 35.
+        this.setEncoding('iso-2022');
+        break;
+
+      case 'G':
+        // Switch to UTF-8.
+        this.setEncoding('utf-8');
+        break;
+
+      case '/':
+        // One way transition to something else.
+        ch = parseState.consumeChar();
+        switch (ch) {
+          case 'G':  // UTF-8 Level 1.
+          case 'H':  // UTF-8 Level 2.
+          case 'I':  // UTF-8 Level 3.
+            // We treat all UTF-8 levels the same.
+            this.setEncoding('utf-8-locked');
+            break;
+
+          default:
+            if (this.warnUnimplemented)
+              console.warn('Unknown ESC % / argument: ' + JSON.stringify(ch));
+            break;
+        }
+        break;
+
+      default:
+        if (this.warnUnimplemented)
+          console.warn('Unknown ESC % argument: ' + JSON.stringify(ch));
+        break;
+    }
+
     parseState.resetParseFunction();
   };
 };
@@ -15547,24 +16285,7 @@ hterm.VT.ESC['%'] = function(parseState) {
  *   ESC . Ps - Set G2 character set (VT300).
  *   ESC / Ps - Set G3 character set (VT300).
  *
- * Values for Ps are:
- *   0 - DEC Special Character and Line Drawing Set.
- *   A - United Kingdom (UK).
- *   B - United States (USASCII).
- *   4 - Dutch.
- *   C or 5 - Finnish.
- *   R - French.
- *   Q - French Canadian.
- *   K - German.
- *   Y - Italian.
- *   E or 6 - Norwegian/Danish.
- *   Z - Spanish.
- *   H or 7 - Swedish.
- *   = - Swiss.
- *
  * All other sequences are echoed to the terminal.
- *
- * TODO(rginda): Implement.
  */
 hterm.VT.ESC['('] =
 hterm.VT.ESC[')'] =
@@ -15581,15 +16302,16 @@ hterm.VT.ESC['/'] = function(parseState, code) {
       return;
     }
 
-    if (ch in hterm.VT.CharacterMap.maps) {
+    var map = this.characterMaps.getMap(ch);
+    if (map !== undefined) {
       if (code == '(') {
-        this.G0 = hterm.VT.CharacterMap.maps[ch];
+        this.G0 = map;
       } else if (code == ')' || code == '-') {
-        this.G1 = hterm.VT.CharacterMap.maps[ch];
+        this.G1 = map;
       } else if (code == '*' || code == '.') {
-        this.G2 = hterm.VT.CharacterMap.maps[ch];
+        this.G2 = map;
       } else if (code == '+' || code == '/') {
-        this.G3 = hterm.VT.CharacterMap.maps[ch];
+        this.G3 = map;
       }
     } else if (this.warnUnimplemented) {
       console.log('Invalid character set for "' + code + '": ' + ch);
@@ -15614,7 +16336,7 @@ hterm.VT.ESC['7'] = function() {
 };
 
 /**
- * Restore Cursor (DECSC).
+ * Restore Cursor (DECRC).
  */
 hterm.VT.ESC['8'] = function() {
   this.savedState_.restore();
@@ -15628,14 +16350,14 @@ hterm.VT.ESC['8'] = function() {
 hterm.VT.ESC['9'] = hterm.VT.ignore;
 
 /**
- * Application keypad (DECPAM).
+ * Application keypad (DECKPAM).
  */
 hterm.VT.ESC['='] = function() {
   this.terminal.keyboard.applicationKeypad = true;
 };
 
 /**
- * Normal keypad (DECPNM).
+ * Normal keypad (DECKPNM).
  */
 hterm.VT.ESC['>'] = function() {
   this.terminal.keyboard.applicationKeypad = false;
@@ -15764,6 +16486,58 @@ hterm.VT.OSC['4'] = function(parseState) {
 };
 
 /**
+ * iTerm2 growl notifications.
+ */
+hterm.VT.OSC['9'] = function(parseState) {
+  // This just dumps the entire string as the message.
+  hterm.notify({'body': parseState.args[0]});
+};
+
+/**
+ * Change VT100 text foreground color.
+ */
+hterm.VT.OSC['10'] = function(parseState) {
+  // Args come in as a single string, but extra args will chain to the following
+  // OSC sequences.
+  var args = parseState.args[0].split(';');
+  if (!args)
+    return;
+
+  var colorArg;
+  var colorX11 = lib.colors.x11ToCSS(args.shift());
+  if (colorX11)
+    this.terminal.setForegroundColor(colorX11);
+
+  if (args.length > 0) {
+    parseState.args[0] = args.join(';');
+    hterm.VT.OSC['11'].apply(this, [parseState]);
+  }
+};
+
+/**
+ * Change VT100 text background color.
+ */
+hterm.VT.OSC['11'] = function(parseState) {
+  // Args come in as a single string, but extra args will chain to the following
+  // OSC sequences.
+  var args = parseState.args[0].split(';');
+  if (!args)
+    return;
+
+  var colorArg;
+  var colorX11 = lib.colors.x11ToCSS(args.shift());
+  if (colorX11)
+    this.terminal.setBackgroundColor(colorX11);
+
+  /* Note: If we support OSC 12+, we'd chain it here.
+  if (args.length > 0) {
+    parseState.args[0] = args.join(';');
+    hterm.VT.OSC['12'].apply(this, [parseState]);
+  }
+  */
+};
+
+/**
  * Set the cursor shape.
  *
  * Parameter is expected to be in the form "CursorShape=number", where number is
@@ -15786,15 +16560,15 @@ hterm.VT.OSC['50'] = function(parseState) {
   }
 
   switch (args[1]) {
-    case '1':
+    case '1':  // CursorShape=1: I-Beam.
       this.terminal.setCursorShape(hterm.Terminal.cursorShape.BEAM);
       break;
 
-    case '2':
+    case '2':  // CursorShape=2: Underline.
       this.terminal.setCursorShape(hterm.Terminal.cursorShape.UNDERLINE);
       break;
 
-    default:
+    default:  // CursorShape=0: Block.
       this.terminal.setCursorShape(hterm.Terminal.cursorShape.BLOCK);
   }
 };
@@ -15820,6 +16594,39 @@ hterm.VT.OSC['52'] = function(parseState) {
   var data = window.atob(args[1]);
   if (data)
     this.terminal.copyStringToClipboard(this.decode(data));
+};
+
+/**
+ * URxvt perl modules.
+ *
+ * This is the escape system used by rxvt-unicode and its perl modules.
+ * Obviously we don't support perl or custom modules, so we list a few common
+ * ones that we find useful.
+ *
+ * Technically there is no format here, but most modules obey:
+ * <module name>;<module args, usually ; delimited>
+ */
+hterm.VT.OSC['777'] = function(parseState) {
+  var ary;
+  var urxvtMod = parseState.args[0].split(';', 1)[0];
+
+  switch (urxvtMod) {
+    case 'notify':
+      // Format:
+      // notify;title;message
+      var title, message;
+      ary = parseState.args[0].match(/^[^;]+;([^;]*)(;([\s\S]*))?$/);
+      if (ary) {
+        title = ary[1];
+        message = ary[3];
+      }
+      hterm.notify({'title': title, 'body': message});
+      break;
+
+    default:
+      console.warn('Unknown urxvt module: ' + parseState.args[0]);
+      break;
+  }
 };
 
 /**
@@ -15912,13 +16719,13 @@ hterm.VT.CSI['J'] =
 hterm.VT.CSI['?J'] = function(parseState, code) {
   var arg = parseState.args[0];
 
-  if (!arg || arg == '0') {
-      this.terminal.eraseBelow();
-  } else if (arg == '1') {
+  if (!arg || arg == 0) {
+    this.terminal.eraseBelow();
+  } else if (arg == 1) {
     this.terminal.eraseAbove();
-  } else if (arg == '2') {
+  } else if (arg == 2) {
     this.terminal.clear();
-  } else if (arg == '3') {
+  } else if (arg == 3) {
     // The xterm docs say this means "Erase saved lines", but we'll just clear
     // the display since killing the scrollback seems rude.
     this.terminal.clear();
@@ -15932,11 +16739,11 @@ hterm.VT.CSI['K'] =
 hterm.VT.CSI['?K'] = function(parseState, code) {
   var arg = parseState.args[0];
 
-  if (!arg || arg == '0') {
+  if (!arg || arg == 0) {
     this.terminal.eraseToRight();
-  } else if (arg == '1'){
+  } else if (arg == 1) {
     this.terminal.eraseToLeft();
-  } else if (arg == '2') {
+  } else if (arg == 2) {
     this.terminal.eraseLine();
   }
 };
@@ -16019,9 +16826,17 @@ hterm.VT.CSI['Z'] = function(parseState) {
 
 /**
  * Character Position Absolute (HPA).
+ *
+ * Same as Cursor Character Absolute (CHA).
  */
-hterm.VT.CSI['`'] = function(parseState) {
-  this.terminal.setCursorColumn(parseState.iarg(0, 1) - 1);
+hterm.VT.CSI['`'] = hterm.VT.CSI['G'];
+
+/**
+ * Character Position Relative (HPR).
+ */
+hterm.VT.CSI['a'] = function(parseState) {
+  this.terminal.setCursorColumn(this.terminal.getCursorColumn() +
+                                parseState.iarg(0, 1));
 };
 
 /**
@@ -16039,7 +16854,7 @@ hterm.VT.CSI['b'] = hterm.VT.ignore;
  * we fill out the 'Not currently implemented' parts.
  */
 hterm.VT.CSI['c'] = function(parseState) {
-  if (!parseState.args[0] || parseState.args[0] == '0') {
+  if (!parseState.args[0] || parseState.args[0] == 0) {
     this.terminal.io.sendString('\x1b[?1;2c');
   }
 };
@@ -16073,10 +16888,10 @@ hterm.VT.CSI['f'] = hterm.VT.CSI['H'];
  * Tab Clear (TBC).
  */
 hterm.VT.CSI['g'] = function(parseState) {
-  if (!parseState.args[0] || parseState.args[0] == '0') {
+  if (!parseState.args[0] || parseState.args[0] == 0) {
     // Clear tab stop at cursor.
     this.terminal.clearTabStopAtCursor(false);
-  } else if (parseState.args[0] == '3') {
+  } else if (parseState.args[0] == 3) {
     // Clear all tab stops.
     this.terminal.clearAllTabStops();
   }
@@ -16130,90 +16945,19 @@ hterm.VT.CSI['?l'] = function(parseState) {
 /**
  * Character Attributes (SGR).
  *
- * Iterate through the list of arguments, applying the following attribute
- * changes based on the argument value...
- *
- *    0 Normal (default).
- *    1 Bold.
- *    2 Faint.
- *    3 Italic (non-xterm).
- *    4 Underlined.
- *    5 Blink (appears as Bold).
- *    7 Inverse.
- *    8 Invisible, i.e., hidden (VT300).
- *    9 Crossed out (ECMA-48).
- *   22 Normal (neither bold nor faint).
- *   23 Not italic (non-xterm).
- *   24 Not underlined.
- *   25 Steady (not blinking).
- *   27 Positive (not inverse).
- *   28 Visible, i.e., not hidden (VT300).
- *   29 Not crossed out (ECMA-48).
- *   30 Set foreground color to Black.
- *   31 Set foreground color to Red.
- *   32 Set foreground color to Green.
- *   33 Set foreground color to Yellow.
- *   34 Set foreground color to Blue.
- *   35 Set foreground color to Magenta.
- *   36 Set foreground color to Cyan.
- *   37 Set foreground color to White.
- *   39 Set foreground color to default (original).
- *   40 Set background color to Black.
- *   41 Set background color to Red.
- *   42 Set background color to Green.
- *   43 Set background color to Yellow.
- *   44 Set background color to Blue.
- *   45 Set background color to Magenta.
- *   46 Set background color to Cyan.
- *   47 Set background color to White.
- *   49 Set background color to default (original)
- *
- * Non-xterm (italic) codes have mixed support, but are supported by both
- * gnome-terminal and rxvt and are recognized as CSI codes on Wikipedia
- * (http://en.wikipedia.org/wiki/ANSI_escape_code).
- *
- * For 16-color support, the following apply.
- *
- *   90 Set foreground color to Bright Black.
- *   91 Set foreground color to Bright Red.
- *   92 Set foreground color to Bright Green.
- *   93 Set foreground color to Bright Yellow.
- *   94 Set foreground color to Bright Blue.
- *   95 Set foreground color to Bright Magenta.
- *   96 Set foreground color to Bright Cyan.
- *   97 Set foreground color to Bright White.
- *  100 Set background color to Bright Black.
- *  101 Set background color to Bright Red.
- *  102 Set background color to Bright Green.
- *  103 Set background color to Bright Yellow.
- *  104 Set background color to Bright Blue.
- *  105 Set background color to Bright Magenta.
- *  106 Set background color to Bright Cyan.
- *  107 Set background color to Bright White.
- *
- * For 88- or 256-color support, the following apply.
- *  38 ; 5 ; P Set foreground color to P.
- *  48 ; 5 ; P Set background color to P.
- *
- *  For true color (24-bit) support, the following apply.
- *  38 ; 2 ; R ; G ; B Set foreground color to rgb(R, G, B)
- *  48 ; 2 ; R ; G ; B Set background color to rgb(R, G, B)
- *
- * Note that most terminals consider "bold" to be "bold and bright".  In
- * some documents the bold state is even referred to as bright.  We interpret
- * bold as bold-bright here too, but only when the "bold" setting comes before
- * the color selection.
+ * Iterate through the list of arguments, applying the attribute changes based
+ * on the argument value...
  */
 hterm.VT.CSI['m'] = function(parseState) {
   function get256(i) {
-    if (parseState.args.length < i + 2 || parseState.args[i + 1] != '5')
+    if (parseState.args.length < i + 2 || parseState.args[i + 1] != 5)
       return null;
 
     return parseState.iarg(i + 2, 0);
   }
 
   function getTrueColor(i) {
-    if (parseState.args.length < i + 5 || parseState.args[i + 1] != '2')
+    if (parseState.args.length < i + 5 || parseState.args[i + 1] != 2)
       return null;
     var r = parseState.iarg(i + 2, 0);
     var g = parseState.iarg(i + 3, 0);
@@ -16233,38 +16977,38 @@ hterm.VT.CSI['m'] = function(parseState) {
     var arg = parseState.iarg(i, 0);
 
     if (arg < 30) {
-      if (arg == 0) {
+      if (arg == 0) {  // Normal (default).
         attrs.reset();
-      } else if (arg == 1) {
+      } else if (arg == 1) {  // Bold.
         attrs.bold = true;
-      } else if (arg == 2) {
+      } else if (arg == 2) {  // Faint.
         attrs.faint = true;
-      } else if (arg == 3) {
+      } else if (arg == 3) {  // Italic.
         attrs.italic = true;
-      } else if (arg == 4) {
+      } else if (arg == 4) {  // Underline.
         attrs.underline = true;
-      } else if (arg == 5) {
+      } else if (arg == 5) {  // Blink.
         attrs.blink = true;
       } else if (arg == 7) {  // Inverse.
         attrs.inverse = true;
       } else if (arg == 8) {  // Invisible.
         attrs.invisible = true;
-      } else if (arg == 9) {
+      } else if (arg == 9) {  // Crossed out.
         attrs.strikethrough = true;
-      } else if (arg == 22) {
+      } else if (arg == 22) {  // Not bold & not faint.
         attrs.bold = false;
         attrs.faint = false;
-      } else if (arg == 23) {
+      } else if (arg == 23) {  // Not italic.
         attrs.italic = false;
-      } else if (arg == 24) {
+      } else if (arg == 24) {  // Not underlined.
         attrs.underline = false;
-      } else if (arg == 25) {
+      } else if (arg == 25) {  // Not blink.
         attrs.blink = false;
-      } else if (arg == 27) {
+      } else if (arg == 27) {  // Steady.
         attrs.inverse = false;
-      } else if (arg == 28) {
+      } else if (arg == 28) {  // Visible.
         attrs.invisible = false;
-      } else if (arg == 29) {
+      } else if (arg == 29) {  // Not crossed out.
         attrs.strikethrough = false;
       }
 
@@ -16354,9 +17098,9 @@ hterm.VT.CSI['>m'] = hterm.VT.ignore;
  * 6 - Report Cursor Position (CPR) [row;column]. Result is CSI r ; c R
  */
 hterm.VT.CSI['n'] = function(parseState) {
-  if (parseState.args[0] == '5') {
+  if (parseState.args[0] == 5) {
     this.terminal.io.sendString('\x1b0n');
-  } else if (parseState.args[0] == '6') {
+  } else if (parseState.args[0] == 6) {
     var row = this.terminal.getCursorRow() + 1;
     var col = this.terminal.getCursorColumn() + 1;
     this.terminal.io.sendString('\x1b[' + row + ';' + col + 'R');
@@ -16384,17 +17128,17 @@ hterm.VT.CSI['>n'] = hterm.VT.ignore;
  *      or CSI ? 5 0 n No Locator, if not.
  */
 hterm.VT.CSI['?n'] = function(parseState) {
-  if (parseState.args[0] == '6') {
+  if (parseState.args[0] == 6) {
     var row = this.terminal.getCursorRow() + 1;
     var col = this.terminal.getCursorColumn() + 1;
     this.terminal.io.sendString('\x1b[' + row + ';' + col + 'R');
-  } else if (parseState.args[0] == '15') {
+  } else if (parseState.args[0] == 15) {
     this.terminal.io.sendString('\x1b[?11n');
-  } else if (parseState.args[0] == '25') {
+  } else if (parseState.args[0] == 25) {
     this.terminal.io.sendString('\x1b[?21n');
-  } else if (parseState.args[0] == '26') {
+  } else if (parseState.args[0] == 26) {
     this.terminal.io.sendString('\x1b[?12;1;0;0n');
-  } else if (parseState.args[0] == '53') {
+  } else if (parseState.args[0] == 53) {
     this.terminal.io.sendString('\x1b[?50n');
   }
 };
@@ -16447,27 +17191,27 @@ hterm.VT.CSI['q'] = hterm.VT.ignore;
 
 /**
  * Set cursor style (DECSCUSR, VT520).
- *
- *   0 - Blinking block.
- *   1 - Blinking block (default).
- *   2 - Steady block.
- *   3 - Blinking underline.
- *   4 - Steady underline.
  */
 hterm.VT.CSI[' q'] = function(parseState) {
   var arg = parseState.args[0];
 
-  if (arg == '0' || arg == '1') {
+  if (arg == 0 || arg == 1) {
     this.terminal.setCursorShape(hterm.Terminal.cursorShape.BLOCK);
     this.terminal.setCursorBlink(true);
-  } else if (arg == '2') {
+  } else if (arg == 2) {
     this.terminal.setCursorShape(hterm.Terminal.cursorShape.BLOCK);
     this.terminal.setCursorBlink(false);
-  } else if (arg == '3') {
+  } else if (arg == 3) {
     this.terminal.setCursorShape(hterm.Terminal.cursorShape.UNDERLINE);
     this.terminal.setCursorBlink(true);
-  } else if (arg == '4') {
+  } else if (arg == 4) {
     this.terminal.setCursorShape(hterm.Terminal.cursorShape.UNDERLINE);
+    this.terminal.setCursorBlink(false);
+  } else if (arg == 5) {
+    this.terminal.setCursorShape(hterm.Terminal.cursorShape.BEAM);
+    this.terminal.setCursorBlink(true);
+  } else if (arg == 6) {
+    this.terminal.setCursorShape(hterm.Terminal.cursorShape.BEAM);
     this.terminal.setCursorBlink(false);
   } else {
     console.warn('Unknown cursor style: ' + arg);
@@ -16599,7 +17343,7 @@ hterm.VT.CSI['$x'] = hterm.VT.ignore;
 
 /**
  * vt_tiledata (as used by NAOhack and UnNetHack)
- * (see http://nethackwiki.com/wiki/Vt_tiledata for more info)
+ * (see https://nethackwiki.com/wiki/Vt_tiledata for more info)
  *
  * Implemented as far as we care (start a glyph and end a glyph).
  */
@@ -16607,12 +17351,12 @@ hterm.VT.CSI['z'] = function(parseState) {
   if (parseState.args.length < 1)
     return;
   var arg = parseState.args[0];
-  if (arg == '0') {
+  if (arg == 0) {
     // Start a glyph (one parameter, the glyph number).
     if (parseState.args.length < 2)
       return;
     this.terminal.getTextAttributes().tileData = parseState.args[1];
-  } else if (arg == '1') {
+  } else if (arg == 1) {
     // End a glyph.
     this.terminal.getTextAttributes().tileData = null;
   }
@@ -16651,14 +17395,14 @@ hterm.VT.CSI['\'|'] = hterm.VT.ignore;
  *
  * Will not implement.
  */
-hterm.VT.CSI[' }'] = hterm.VT.ignore;
+hterm.VT.CSI['\'}'] = hterm.VT.ignore;
 
 /**
  * Delete P s Columns (DECDC), VT420 and up.
  *
  * Will not implement.
  */
-hterm.VT.CSI[' ~'] = hterm.VT.ignore;
+hterm.VT.CSI['\'~'] = hterm.VT.ignore;
 // SOURCE FILE: hterm/js/hterm_vt_character_map.js
 // Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
@@ -16671,80 +17415,175 @@ lib.rtdep('lib.f');
 /**
  * Character map object.
  *
- * @param {object} The GL mapping from input characters to output characters.
- *     The GR mapping will be automatically created.
+ * Mapping from received to display character, used depending on the active
+ * VT character set.
+ *
+ * GR maps are not currently supported.
+ *
+ * @param {string} description A human readable description of this map.
+ * @param {Object} glmap The GL mapping from input to output characters.
  */
-hterm.VT.CharacterMap = function(name, glmap) {
+hterm.VT.CharacterMap = function(description, glmap) {
   /**
-   * Short name for this character set, useful for debugging.
+   * Short description for this character set, useful for debugging.
    */
-  this.name = name;
+  this.description = description;
 
   /**
    * The function to call to when this map is installed in GL.
    */
   this.GL = null;
 
-  /**
-   * The function to call to when this map is installed in GR.
-   */
-  this.GR = null;
+  // Always keep an unmodified reference to the map.
+  // This allows us to sanely reset back to the original state.
+  this.glmapBase_ = glmap;
 
-  if (glmap)
-    this.reset(glmap);
+  // Now sync the internal state as needed.
+  this.sync_();
 };
 
 /**
- * @param {object} The GL mapping from input characters to output characters.
- *     The GR mapping will be automatically created.
+ * Internal helper for resyncing internal state.
+ *
+ * Used when the mappings change.
+ *
+ * @param {Object?} opt_glmap Additional mappings to overlay on top of the
+ *     base mapping.
  */
-hterm.VT.CharacterMap.prototype.reset = function(glmap) {
-  // Set the the GL mapping.
-  this.glmap = glmap;
+hterm.VT.CharacterMap.prototype.sync_ = function(opt_glmap) {
+  // If there are no maps, then reset the state back.
+  if (!this.glmapBase_ && !opt_glmap) {
+    this.GL = null;
+    delete this.glmap_;
+    delete this.glre_;
+    return;
+  }
 
-  var glkeys = Object.keys(this.glmap).map(function(key) {
-      return '\\x' + lib.f.zpad(key.charCodeAt(0).toString(16));
-    });
+  // Set the the GL mapping.  If we're given a custom mapping, then create a
+  // new object to hold the merged map.  This way we can cleanly reset back.
+  if (opt_glmap)
+    this.glmap_ = Object.assign({}, this.glmapBase_, opt_glmap);
+  else
+    this.glmap_ = this.glmapBase_;
 
-  this.glre = new RegExp('[' + glkeys.join('') + ']', 'g');
+  var glchars = Object.keys(this.glmap_).map((key) =>
+      '\\x' + lib.f.zpad(key.charCodeAt(0).toString(16)));
+  this.glre_ = new RegExp('[' + glchars.join('') + ']', 'g');
 
-  // Compute the GR mapping.
-  // This is the same as GL except all keys have their MSB set.
-  this.grmap = {};
-
-  glkeys.forEach(function(glkey) {
-      var grkey = String.fromCharCode(glkey.charCodeAt(0) & 0x80);
-      this.grmap[grkey] = this.glmap[glkey];
-    }.bind(this));
-
-  var grkeys = Object.keys(this.grmap).map(function(key) {
-      return '\\x' + lib.f.zpad(key.charCodeAt(0).toString(16), 2);
-    });
-
-  this.grre = new RegExp('[' + grkeys.join('') + ']', 'g');
-
-  this.GL = function(str) {
-    return str.replace(this.glre,
-                       function(ch) { return this.glmap[ch] }.bind(this));
-  }.bind(this);
-
-  this.GR = function(str) {
-    return str.replace(this.grre,
-                       function(ch) { return this.grmap[ch] }.bind(this));
-  }.bind(this);
+  this.GL = (str) => str.replace(this.glre_, (ch) => this.glmap_[ch]);
 };
 
 /**
- * Mapping from received to display character, used depending on the active
- * VT character set.
+ * Reset map back to original mappings (discarding runtime updates).
+ *
+ * Specifically, any calls to setOverrides will be discarded.
  */
-hterm.VT.CharacterMap.maps = {};
+hterm.VT.CharacterMap.prototype.reset = function() {
+  // If we haven't been given a custom mapping, then there's nothing to reset.
+  if (this.glmap_ !== this.glmapBase_)
+    this.sync_();
+};
+
+/**
+ * Merge custom changes to this map.
+ *
+ * The input map need not duplicate the existing mappings as it is merged with
+ * the existing base map (what was created with).  Subsequent calls to this
+ * will throw away previous override settings.
+ *
+ * @param {Object} glmap The custom map to override existing mappings.
+ */
+hterm.VT.CharacterMap.prototype.setOverrides = function(glmap) {
+  this.sync_(glmap);
+};
+
+/**
+ * Return a copy of this mapping.
+ *
+ * @return {hterm.VT.CharacterMap} A new hterm.VT.CharacterMap instance.
+ */
+hterm.VT.CharacterMap.prototype.clone = function() {
+  var map = new hterm.VT.CharacterMap(this.description, this.glmapBase_);
+  if (this.glmap_ !== this.glmapBase_)
+    map.setOverrides(this.glmap_);
+  return map;
+};
+
+/**
+ * Table of character maps.
+ */
+hterm.VT.CharacterMaps = function() {
+  this.maps_ = hterm.VT.CharacterMaps.DefaultMaps;
+
+  // Always keep an unmodified reference to the map.
+  // This allows us to sanely reset back to the original state.
+  this.mapsBase_ = this.maps_;
+};
+
+/**
+ * Look up a previously registered map.
+ *
+ * @param {String} name The name of the map to lookup.
+ * @return {hterm.VT.CharacterMap} The map, if it's been registered.
+ */
+hterm.VT.CharacterMaps.prototype.getMap = function(name) {
+  if (this.maps_.hasOwnProperty(name))
+    return this.maps_[name];
+  else
+    return undefined;
+};
+
+/**
+ * Register a new map.
+ *
+ * Any previously registered maps by this name will be discarded.
+ *
+ * @param {String} name The name of the map.
+ * @param {hterm.VT.CharacterMap} map The map to register.
+ */
+hterm.VT.CharacterMaps.prototype.addMap = function(name, map) {
+  if (this.maps_ === this.mapsBase_)
+    this.maps_ = Object.assign({}, this.mapsBase_);
+  this.maps_[name] = map;
+};
+
+/**
+ * Reset the table and all its maps back to original state.
+ */
+hterm.VT.CharacterMaps.prototype.reset = function() {
+  if (this.maps_ !== hterm.VT.CharacterMaps.DefaultMaps)
+    this.maps_ = hterm.VT.CharacterMaps.DefaultMaps;
+};
+
+/**
+ * Merge custom changes to this table.
+ *
+ * @param {Object} maps A set of hterm.VT.CharacterMap objects.
+ */
+hterm.VT.CharacterMaps.prototype.setOverrides = function(maps) {
+  if (this.maps_ === this.mapsBase_)
+    this.maps_ = Object.assign({}, this.mapsBase_);
+
+  for (var name in maps) {
+    var map = this.getMap(name);
+    if (map !== undefined) {
+      this.maps_[name] = map.clone();
+      this.maps_[name].setOverrides(maps[name]);
+    } else
+      this.addMap(name, new hterm.VT.CharacterMap('user ' + name, maps[name]));
+  }
+};
+
+/**
+ * The default set of supported character maps.
+ */
+hterm.VT.CharacterMaps.DefaultMaps = {};
 
 /**
  * VT100 Graphic character map.
  * http://vt100.net/docs/vt220-rm/table2-4.html
  */
-hterm.VT.CharacterMap.maps['0'] = new hterm.VT.CharacterMap(
+hterm.VT.CharacterMaps.DefaultMaps['0'] = new hterm.VT.CharacterMap(
     'graphic', {
       '\x60':'\u25c6',  // ` -> diamond
       '\x61':'\u2592',  // a -> grey-box
@@ -16783,7 +17622,7 @@ hterm.VT.CharacterMap.maps['0'] = new hterm.VT.CharacterMap(
  * British character map.
  * http://vt100.net/docs/vt220-rm/table2-5.html
  */
-hterm.VT.CharacterMap.maps['A'] = new hterm.VT.CharacterMap(
+hterm.VT.CharacterMaps.DefaultMaps['A'] = new hterm.VT.CharacterMap(
     'british', {
       '\x23': '\u00a3',  // # -> british-pound
     });
@@ -16791,14 +17630,14 @@ hterm.VT.CharacterMap.maps['A'] = new hterm.VT.CharacterMap(
 /**
  * US ASCII map, no changes.
  */
-hterm.VT.CharacterMap.maps['B'] = new hterm.VT.CharacterMap(
+hterm.VT.CharacterMaps.DefaultMaps['B'] = new hterm.VT.CharacterMap(
     'us', null);
 
 /**
  * Dutch character map.
  * http://vt100.net/docs/vt220-rm/table2-6.html
  */
-hterm.VT.CharacterMap.maps['4'] = new hterm.VT.CharacterMap(
+hterm.VT.CharacterMaps.DefaultMaps['4'] = new hterm.VT.CharacterMap(
     'dutch', {
       '\x23': '\u00a3',  // # -> british-pound
 
@@ -16818,8 +17657,8 @@ hterm.VT.CharacterMap.maps['4'] = new hterm.VT.CharacterMap(
  * Finnish character map.
  * http://vt100.net/docs/vt220-rm/table2-7.html
  */
-hterm.VT.CharacterMap.maps['C'] =
-hterm.VT.CharacterMap.maps['5'] = new hterm.VT.CharacterMap(
+hterm.VT.CharacterMaps.DefaultMaps['C'] =
+hterm.VT.CharacterMaps.DefaultMaps['5'] = new hterm.VT.CharacterMap(
     'finnish', {
       '\x5b': '\u00c4',  // [ -> 'A' umlaut
       '\x5c': '\u00d6',  // \ -> 'O' umlaut
@@ -16838,7 +17677,7 @@ hterm.VT.CharacterMap.maps['5'] = new hterm.VT.CharacterMap(
  * French character map.
  * http://vt100.net/docs/vt220-rm/table2-8.html
  */
-hterm.VT.CharacterMap.maps['R'] = new hterm.VT.CharacterMap(
+hterm.VT.CharacterMaps.DefaultMaps['R'] = new hterm.VT.CharacterMap(
     'french', {
       '\x23': '\u00a3',  // # -> british-pound
 
@@ -16858,7 +17697,7 @@ hterm.VT.CharacterMap.maps['R'] = new hterm.VT.CharacterMap(
  * French Canadian character map.
  * http://vt100.net/docs/vt220-rm/table2-9.html
  */
-hterm.VT.CharacterMap.maps['Q'] = new hterm.VT.CharacterMap(
+hterm.VT.CharacterMaps.DefaultMaps['Q'] = new hterm.VT.CharacterMap(
     'french canadian', {
       '\x40': '\u00e0',  // @ -> 'a' grave
 
@@ -16879,7 +17718,7 @@ hterm.VT.CharacterMap.maps['Q'] = new hterm.VT.CharacterMap(
  * German character map.
  * http://vt100.net/docs/vt220-rm/table2-10.html
  */
-hterm.VT.CharacterMap.maps['K'] = new hterm.VT.CharacterMap(
+hterm.VT.CharacterMaps.DefaultMaps['K'] = new hterm.VT.CharacterMap(
     'german', {
       '\x40': '\u00a7',  // @ -> section symbol (double s)
 
@@ -16897,7 +17736,7 @@ hterm.VT.CharacterMap.maps['K'] = new hterm.VT.CharacterMap(
  * Italian character map.
  * http://vt100.net/docs/vt220-rm/table2-11.html
  */
-hterm.VT.CharacterMap.maps['Y'] = new hterm.VT.CharacterMap(
+hterm.VT.CharacterMaps.DefaultMaps['Y'] = new hterm.VT.CharacterMap(
     'italian', {
       '\x23': '\u00a3',  // # -> british-pound
 
@@ -16919,8 +17758,8 @@ hterm.VT.CharacterMap.maps['Y'] = new hterm.VT.CharacterMap(
  * Norwegian/Danish character map.
  * http://vt100.net/docs/vt220-rm/table2-12.html
  */
-hterm.VT.CharacterMap.maps['E'] =
-hterm.VT.CharacterMap.maps['6'] = new hterm.VT.CharacterMap(
+hterm.VT.CharacterMaps.DefaultMaps['E'] =
+hterm.VT.CharacterMaps.DefaultMaps['6'] = new hterm.VT.CharacterMap(
     'norwegian/danish', {
       '\x40': '\u00c4',  // @ -> 'A' umlaut
 
@@ -16941,7 +17780,7 @@ hterm.VT.CharacterMap.maps['6'] = new hterm.VT.CharacterMap(
  * Spanish character map.
  * http://vt100.net/docs/vt220-rm/table2-13.html
  */
-hterm.VT.CharacterMap.maps['Z'] = new hterm.VT.CharacterMap(
+hterm.VT.CharacterMaps.DefaultMaps['Z'] = new hterm.VT.CharacterMap(
     'spanish', {
       '\x23': '\u00a3',  // # -> british-pound
 
@@ -16960,8 +17799,8 @@ hterm.VT.CharacterMap.maps['Z'] = new hterm.VT.CharacterMap(
  * Swedish character map.
  * http://vt100.net/docs/vt220-rm/table2-14.html
  */
-hterm.VT.CharacterMap.maps['7'] =
-hterm.VT.CharacterMap.maps['H'] = new hterm.VT.CharacterMap(
+hterm.VT.CharacterMaps.DefaultMaps['7'] =
+hterm.VT.CharacterMaps.DefaultMaps['H'] = new hterm.VT.CharacterMap(
     'swedish', {
       '\x40': '\u00c9',  // @ -> 'E' acute
 
@@ -16982,7 +17821,7 @@ hterm.VT.CharacterMap.maps['H'] = new hterm.VT.CharacterMap(
  * Swiss character map.
  * http://vt100.net/docs/vt220-rm/table2-15.html
  */
-hterm.VT.CharacterMap.maps['='] = new hterm.VT.CharacterMap(
+hterm.VT.CharacterMaps.DefaultMaps['='] = new hterm.VT.CharacterMap(
     'swiss', {
       '\x23': '\u00f9',  // # -> 'u' grave
 
@@ -17131,18 +17970,120 @@ lib.resource.add('hterm/audio/bell', 'audio/ogg;base64',
 ''
 );
 
+lib.resource.add('hterm/images/icon-96', 'image/png;base64',
+'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' +
+'ODoyNC0wNDowMNba8BsAAAAASUVORK5CYII=' +
+''
+);
+
 lib.resource.add('hterm/concat/date', 'text/plain',
-'Fri, 24 Mar 2017 03:39:52 +0000' +
+'Fri, 25 Aug 2017 06:08:27 +0000' +
 ''
 );
 
 lib.resource.add('hterm/changelog/version', 'text/plain',
-'1.61' +
+'1.70' +
 ''
 );
 
 lib.resource.add('hterm/changelog/date', 'text/plain',
-'2017-01-31' +
+'2017-08-16' +
 ''
 );
 
