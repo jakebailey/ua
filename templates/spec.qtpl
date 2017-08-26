@@ -1,4 +1,4 @@
-{% func Spec(url string) %}
+{% func Spec(specID, url string) %}
 <!doctype html>
 <html>
 
@@ -9,12 +9,12 @@
 <body>
     <form action="" method="post" id="form">
         <div>
-            <label for="name">Assignment name:</label>
-            <input type="text" id="name" name="assignment_name" value="test"/>
+            <label for="spec_id">Spec ID:</label>
+            <input type="text" id="spec_id" name="spec_id" value="{%s specID %}" />
         </div>
         <div>
-            <label for="seed">Seed:</label>
-            <input type="text" id="seed" name="seed" value="1234"/>
+            <label for="name">Assignment name:</label>
+            <input type="text" id="name" name="assignment_name" value="test"/>
         </div>
         <div>
             <label for="data">Message:</label>
@@ -32,8 +32,8 @@
             event.preventDefault();
 
             var postData = {
+                specID: $("#spec_id").val(),
                 assignmentName: $("#name").val(),
-                seed: $("#seed").val(),
                 data: JSON.parse($("#data").val())
             };
 
@@ -44,7 +44,8 @@
                 data: JSON.stringify(postData),
                 dataType: 'json',
                 success: function(data) {
-                    $("#result").append('<br><a href="/term/' + data.id + '" target="_blank">' + data.id + '</a>');
+                    var id = data.instanceID;
+                    $("#result").append('<br><a href="/instance/' + id + '" target="_blank">' + id + '</a>');
                 }
             });
         });

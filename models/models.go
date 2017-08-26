@@ -15,7 +15,6 @@ type Spec struct {
 	kallax.Timestamps
 	ID             kallax.ULID `pk:""`
 	AssignmentName string
-	Seed           string
 	Data           interface{}
 	Instances      []*Instance
 }

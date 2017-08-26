@@ -116,14 +116,6 @@
           "Unique": false
         },
         {
-          "Name": "seed",
-          "Type": "text",
-          "PrimaryKey": false,
-          "Reference": null,
-          "NotNull": true,
-          "Unique": false
-        },
-        {
           "Name": "data",
           "Type": "jsonb",
           "PrimaryKey": false,

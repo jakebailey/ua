@@ -25,14 +25,8 @@ func (a *App) route() {
 	routeStatic(r, "/static", a.staticPath)
 	r.Handle("/favicon.ico", http.RedirectHandler("/static/favicon.ico", http.StatusFound))
 
-	r.Group(func(r chi.Router) {
-		if !a.debug {
-			r.Use(uamid.APIKeyProtect)
-		}
-		r.Route("/specs", a.routeSpecs)
-	})
-
-	r.Route("/term", a.routeTerm)
+	r.Route("/spec", a.routeSpec)
+	r.Route("/instance", a.routeInstance)
 
 	if a.debug {
 		r.Route("/debug", a.routeDebug)

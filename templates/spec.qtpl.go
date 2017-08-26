@@ -18,7 +18,7 @@ var (
 )
 
 //line spec.qtpl:1
-func StreamSpec(qw422016 *qt422016.Writer, url string) {
+func StreamSpec(qw422016 *qt422016.Writer, specID, url string) {
 	//line spec.qtpl:1
 	qw422016.N().S(`
 <!doctype html>
@@ -31,12 +31,16 @@ func StreamSpec(qw422016 *qt422016.Writer, url string) {
 <body>
     <form action="" method="post" id="form">
         <div>
-            <label for="name">Assignment name:</label>
-            <input type="text" id="name" name="assignment_name" value="test"/>
+            <label for="spec_id">Spec ID:</label>
+            <input type="text" id="spec_id" name="spec_id" value="`)
+	//line spec.qtpl:13
+	qw422016.E().S(specID)
+	//line spec.qtpl:13
+	qw422016.N().S(`" />
         </div>
         <div>
-            <label for="seed">Seed:</label>
-            <input type="text" id="seed" name="seed" value="1234"/>
+            <label for="name">Assignment name:</label>
+            <input type="text" id="name" name="assignment_name" value="test"/>
         </div>
         <div>
             <label for="data">Message:</label>
@@ -54,8 +58,8 @@ func StreamSpec(qw422016 *qt422016.Writer, url string) {
             event.preventDefault();
 
             var postData = {
+                specID: $("#spec_id").val(),
                 assignmentName: $("#name").val(),
-                seed: $("#seed").val(),
                 data: JSON.parse($("#data").val())
             };
 
@@ -70,7 +74,8 @@ func StreamSpec(qw422016 *qt422016.Writer, url string) {
                 data: JSON.stringify(postData),
                 dataType: 'json',
                 success: function(data) {
-                    $("#result").append('<br><a href="/term/' + data.id + '" target="_blank">' + data.id + '</a>');
+                    var id = data.instanceID;
+                    $("#result").append('<br><a href="/instance/' + id + '" target="_blank">' + id + '</a>');
                 }
             });
         });
@@ -79,31 +84,31 @@ func StreamSpec(qw422016 *qt422016.Writer, url string) {
 
 </html>
 `)
-//line spec.qtpl:55
+//line spec.qtpl:56
 }
 
-//line spec.qtpl:55
-func WriteSpec(qq422016 qtio422016.Writer, url string) {
-	//line spec.qtpl:55
+//line spec.qtpl:56
+func WriteSpec(qq422016 qtio422016.Writer, specID, url string) {
+	//line spec.qtpl:56
 	qw422016 := qt422016.AcquireWriter(qq422016)
-	//line spec.qtpl:55
-	StreamSpec(qw422016, url)
-	//line spec.qtpl:55
+	//line spec.qtpl:56
+	StreamSpec(qw422016, specID, url)
+	//line spec.qtpl:56
 	qt422016.ReleaseWriter(qw422016)
-//line spec.qtpl:55
+//line spec.qtpl:56
 }
 
-//line spec.qtpl:55
-func Spec(url string) string {
-	//line spec.qtpl:55
+//line spec.qtpl:56
+func Spec(specID, url string) string {
+	//line spec.qtpl:56
 	qb422016 := qt422016.AcquireByteBuffer()
-	//line spec.qtpl:55
-	WriteSpec(qb422016, url)
-	//line spec.qtpl:55
+	//line spec.qtpl:56
+	WriteSpec(qb422016, specID, url)
+	//line spec.qtpl:56
 	qs422016 := string(qb422016.B)
-	//line spec.qtpl:55
+	//line spec.qtpl:56
 	qt422016.ReleaseByteBuffer(qb422016)
-	//line spec.qtpl:55
+	//line spec.qtpl:56
 	return qs422016
-//line spec.qtpl:55
+//line spec.qtpl:56
 }

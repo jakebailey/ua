@@ -628,8 +628,6 @@ func (r *Spec) ColumnAddress(col string) (interface{}, error) {
 		return &r.Timestamps.UpdatedAt, nil
 	case "assignment_name":
 		return &r.AssignmentName, nil
-	case "seed":
-		return &r.Seed, nil
 	case "data":
 		return types.JSON(&r.Data), nil
 
@@ -649,8 +647,6 @@ func (r *Spec) Value(col string) (interface{}, error) {
 		return r.Timestamps.UpdatedAt, nil
 	case "assignment_name":
 		return r.AssignmentName, nil
-	case "seed":
-		return r.Seed, nil
 	case "data":
 		return types.JSON(r.Data), nil
 
@@ -1133,12 +1129,6 @@ func (q *SpecQuery) FindByAssignmentName(v string) *SpecQuery {
 	return q.Where(kallax.Eq(Schema.Spec.AssignmentName, v))
 }
 
-// FindBySeed adds a new filter to the query that will require that
-// the Seed property is equal to the passed value.
-func (q *SpecQuery) FindBySeed(v string) *SpecQuery {
-	return q.Where(kallax.Eq(Schema.Spec.Seed, v))
-}
-
 // SpecResultSet is the set of results returned by a query to the
 // database.
 type SpecResultSet struct {
@@ -1271,7 +1261,6 @@ type schemaSpec struct {
 	CreatedAt      kallax.SchemaField
 	UpdatedAt      kallax.SchemaField
 	AssignmentName kallax.SchemaField
-	Seed           kallax.SchemaField
 	Data           kallax.SchemaField
 }
 
@@ -1324,14 +1313,12 @@ var Schema = &schema{
 			kallax.NewSchemaField("created_at"),
 			kallax.NewSchemaField("updated_at"),
 			kallax.NewSchemaField("assignment_name"),
-			kallax.NewSchemaField("seed"),
 			kallax.NewSchemaField("data"),
 		),
 		ID:             kallax.NewSchemaField("id"),
 		CreatedAt:      kallax.NewSchemaField("created_at"),
 		UpdatedAt:      kallax.NewSchemaField("updated_at"),
 		AssignmentName: kallax.NewSchemaField("assignment_name"),
-		Seed:           kallax.NewSchemaField("seed"),
 		Data:           kallax.NewSchemaField("data"),
 	},
 }

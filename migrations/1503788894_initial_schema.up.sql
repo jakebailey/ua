@@ -5,7 +5,6 @@ CREATE TABLE specs (
 	created_at timestamptz NOT NULL,
 	updated_at timestamptz NOT NULL,
 	assignment_name text NOT NULL,
-	seed text NOT NULL,
 	data jsonb NOT NULL
 );
 

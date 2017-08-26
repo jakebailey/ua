@@ -2,143 +2,122 @@ package app
 
 import (
 	"context"
-	"net"
 	"net/http"
 	"path/filepath"
 	"sort"
-	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/go-chi/chi"
-	"github.com/gobwas/ws"
+	"github.com/go-chi/chi/middleware"
+	"github.com/go-chi/render"
 	"github.com/jakebailey/ua/ctxlog"
-	"github.com/jakebailey/ua/expire"
 	"github.com/jakebailey/ua/image"
 	"github.com/jakebailey/ua/models"
-	"github.com/jakebailey/ua/proxy"
 	"github.com/jakebailey/ua/templates"
 	"go.uber.org/zap"
-	kallax "gopkg.in/src-d/go-kallax.v1"
+	"gopkg.in/src-d/go-kallax.v1"
 )
 
-var termIDKey = &contextKey{"termID"}
+func (a *App) routeSpec(r chi.Router) {
+	r.Use(middleware.NoCache)
 
-func (a *App) routeTerm(r chi.Router) {
-	r.Route("/{id}", func(r chi.Router) {
-		if a.debug {
-			r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-				wsURL := r.Host + r.RequestURI + "/ws"
-				templates.WriteContainer(w, wsURL)
-			})
-		}
+	if a.debug {
+		r.Get("/", a.specGet)
+	}
 
-		r.Get("/ws", a.termWS)
-	})
+	r.Post("/", a.specPost)
 }
 
-func (a *App) termWS(w http.ResponseWriter, r *http.Request) {
+func (a *App) specGet(w http.ResponseWriter, r *http.Request) {
+	specID := kallax.NewULID().String()
+	templates.WriteSpec(w, specID, r.URL.String())
+}
+
+type specPostRequest struct {
+	SpecID         string      `json:"specID"`
+	AssignmentName string      `json:"assignmentName"`
+	Data           interface{} `json:"data"`
+}
+
+type specPostResponse struct {
+	InstanceID string `json:"instanceID"`
+}
+
+func (a *App) specPost(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := ctxlog.FromContext(ctx)
 
-	idStr := chi.URLParam(r, "id")
-	specID, err := kallax.NewULIDFromText(idStr)
-	if err != nil {
-		logger.Warn("error parsing specID",
+	var req specPostRequest
+
+	if err := render.Decode(r, &req); err != nil {
+		logger.Warn("error decoding specPostRequest",
 			zap.Error(err),
 		)
 		a.httpError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
+	if req.SpecID == "" {
+		http.Error(w, "spec ID cannot be blank", http.StatusBadRequest)
+		return
+	}
+
+	if req.AssignmentName == "" {
+		http.Error(w, "assignment name cannot be blank", http.StatusBadRequest)
+		return
+	}
+
+	specID, err := kallax.NewULIDFromText(req.SpecID)
+	if err != nil {
+		a.httpError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	specQuery := models.NewSpecQuery().FindByID(specID)
-	n, err := a.specStore.Count(specQuery)
+
+	spec, err := a.specStore.FindOne(specQuery)
 	if err != nil {
-		logger.Error("error querying spec",
-			zap.Error(err),
-		)
-		a.httpError(w, err.Error(), http.StatusInternalServerError)
-		return
+		if err != kallax.ErrNotFound {
+			logger.Error("error querying for spec",
+				zap.Error(err),
+				zap.Any("spec_id", specID.String()),
+			)
+			a.httpError(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		spec = &models.Spec{
+			ID:             specID,
+			AssignmentName: req.AssignmentName,
+			Data:           req.Data,
+		}
+
+		if err := a.specStore.Insert(spec); err != nil {
+			logger.Error("error inserting spec",
+				zap.Error(err),
+				zap.Any("spec_id", specID.String()),
+			)
+			a.httpError(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
-
-	if n == 0 {
-		http.NotFound(w, r)
-		return
-	}
-
-	conn, _, _, err := ws.UpgradeHTTP(r, w, nil)
-	if err != nil {
-		// No need to write an error, UpgradeHTTP does this itself.
-		logger.Error("error upgrading websocket",
-			zap.Error(err),
-		)
-		return
-	}
-
-	ctx = context.Background()
-	ctx = ctxlog.WithLogger(ctx, logger)
-
-	a.wsWG.Add(1)
-	go a.handleTerm(ctx, conn, specID)
-}
-
-func (a *App) handleTerm(ctx context.Context, conn net.Conn, specID kallax.ULID) {
-	defer a.wsWG.Done()
-
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	ctx, logger := ctxlog.FromContextWith(ctx,
-		zap.String("spec_id", specID.String()),
-	)
 
 	instance, err := a.getActiveInstance(ctx, specID)
 	if err != nil {
 		logger.Error("error getting active instance",
 			zap.Error(err),
+			zap.Any("spec_id", specID.String()),
 		)
+		a.httpError(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	ctx, logger = ctxlog.FromContextWith(ctx,
-		zap.String("instance_id", instance.ID.String()),
-		zap.String("container_id", instance.ContainerID),
-	)
-
-	var proxyConn proxy.Conn = proxy.NewWSConn(conn)
-
-	token := a.wsManager.Acquire(
-		instance.ID.String(),
-		func() {
-			logger.Debug("websocket expired")
-			if err := proxyConn.Close(); err != nil {
-				logger.Error("error closing connection on expiry",
-					zap.Error(err),
-				)
-			}
-		},
-	)
-	defer a.wsManager.Return(token)
-
-	proxyConn = tokenProxyConn{
-		Conn:  proxyConn,
-		token: token,
+	resp := &specPostResponse{
+		InstanceID: instance.ID.String(),
 	}
 
-	if err := proxy.Proxy(ctx, instance.ContainerID, proxyConn, a.cli); err != nil {
-		logger.Error("error proxying container",
-			zap.Error(err),
-		)
-	}
-
-	expiresAt := time.Now().Add(4 * time.Hour)
-	instance.ExpiresAt = &expiresAt
-
-	if _, err := a.instanceStore.Update(instance, models.Schema.Instance.ExpiresAt); err != nil {
-		logger.Error("error adding ExpiresAt to instance",
-			zap.Error(err),
-		)
-	}
+	render.Respond(w, r, resp)
 }
 
 func (a *App) getActiveInstance(ctx context.Context, specID kallax.ULID) (*models.Instance, error) {
@@ -190,7 +169,6 @@ func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.I
 
 	specQuery := models.NewSpecQuery().FindByID(specID).Select(
 		models.Schema.Spec.AssignmentName,
-		models.Schema.Spec.Seed,
 		models.Schema.Spec.Data,
 	)
 	spec, err := a.specStore.FindOne(specQuery)
@@ -262,21 +240,4 @@ func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.I
 	}
 
 	return instance, nil
-}
-
-type tokenProxyConn struct {
-	proxy.Conn
-	token *expire.Token
-}
-
-var _ proxy.Conn = tokenProxyConn{}
-
-func (t tokenProxyConn) ReadJSON(v interface{}) error {
-	t.token.Update()
-	return t.Conn.ReadJSON(v)
-}
-
-func (t tokenProxyConn) WriteJSON(v interface{}) error {
-	t.token.Update()
-	return t.Conn.WriteJSON(v)
 }
