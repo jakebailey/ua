@@ -73,16 +73,18 @@ type Eq map[string]interface{}
 
 func (eq Eq) toSql(useNotOpr bool) (sql string, args []interface{}, err error) {
 	var (
-		exprs    []string
-		equalOpr = "="
-		inOpr    = "IN"
-		nullOpr  = "IS"
+		exprs      []string
+		equalOpr   = "="
+		inOpr      = "IN"
+		nullOpr    = "IS"
+		inEmptyExpr = "(1=0)" // Portable FALSE
 	)
 
 	if useNotOpr {
 		equalOpr = "<>"
 		inOpr = "NOT IN"
 		nullOpr = "IS NOT"
+		inEmptyExpr = "(1=1)" // Portable TRUE
 	}
 
 	for key, val := range eq {
@@ -101,13 +103,7 @@ func (eq Eq) toSql(useNotOpr bool) (sql string, args []interface{}, err error) {
 			if isListType(val) {
 				valVal := reflect.ValueOf(val)
 				if valVal.Len() == 0 {
-					// There is no portable representation of an empty list, so
-					// we just evaluate to a simple boolean true/false:
-					if useNotOpr {
-						expr = "(1)" // `NOT IN ()` is always true
-					} else {
-						expr = "(0)" // `IN ()` is always false
-					}
+					expr = inEmptyExpr
 					if args == nil {
 						args = []interface{}{}
 					}
