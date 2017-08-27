@@ -18,7 +18,7 @@ function algoFromKey(key) {
  * Encrypts a payload with AES CFB.
  * @param {Buffer} key The AES key used for encryption.
  * @param {Buffer} payload The payload to be encrypted.
- * @return {string} Base64 encoded ciphertext.
+ * @return {Buffer} Ciphertext (IV + encrypted payload).
  */
 function encrypt(key, payload) {
     const algo = algoFromKey(key);
@@ -29,20 +29,18 @@ function encrypt(key, payload) {
     let encrypted = cipher.update(payload);
     encrypted = Buffer.concat([encrypted, cipher.final()]);
 
-    return Buffer.concat([iv, encrypted]).toString('base64');
+    return Buffer.concat([iv, encrypted]);
 }
 
 /**
  * Decrypts a payload with AES CFB.
  * @param {Buffer} key The AES key used for decryption.
- * @param {string} ciphertext Base64 encoded ciphertext.
+ * @param {Buffer} ciphertext Ciphertext (IV + encrypted payload).
  * @return {Buffer} The original payload. 
  */
 function decrypt(key, ciphertext) {
     const algo = algoFromKey(key);
     
-    ciphertext = Buffer.from(ciphertext, 'base64');
-
     const iv = ciphertext.slice(0, 16);
     ciphertext = ciphertext.slice(16);
 
