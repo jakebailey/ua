@@ -85,7 +85,7 @@ func (m *Manager) Acquire(name string, onExpire func()) *Token {
 	return token
 }
 
-// Return retuns a token to the manager, deregistering it. This will not
+// Return returns a token to the manager, deregistering it. This will not
 // run the associated onExpire function. If the given token is not being
 // tracked, Return does nothing.
 //
