@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -26,7 +27,7 @@ func (a *App) cleanInstance(ctx context.Context, instance *models.Instance) erro
 
 	// Send KILL, since we don't care about the state of the container anyway and it's faster
 	if err := a.cli.ContainerKill(ctx, instance.ContainerID, "KILL"); err != nil {
-		if !client.IsErrNotFound(err) {
+		if !client.IsErrNotFound(err) && !strings.Contains(err.Error(), "not running") {
 			logger.Warn("error killing container, will attempt to continue cleaning anyway",
 				zap.Error(err),
 				zap.String("container_id", instance.ContainerID),

@@ -138,6 +138,13 @@ func (a *App) handleInstance(ctx context.Context, conn net.Conn, instance *model
 			zap.Error(err),
 		)
 	}
+
+	second := time.Second
+	if err := a.cli.ContainerStop(ctx, instance.ContainerID, &second); err != nil {
+		logger.Error("error stopping container",
+			zap.Error(err),
+		)
+	}
 }
 
 type tokenProxyConn struct {
