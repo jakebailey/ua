@@ -74,7 +74,7 @@ func Decrypt(key, ciphertext []byte) (payload []byte, err error) {
 
 // HMAC calculates the HMAC of the message using the given key using the
 // SHA256 has function.
-func HMAC(message, key []byte) []byte {
+func HMAC(key, message []byte) []byte {
 	mac := hmac.New(sha256.New, key)
 	mac.Write(message)
 	return mac.Sum(nil)
@@ -83,7 +83,7 @@ func HMAC(message, key []byte) []byte {
 // CheckMAC reports whether messageMAC is a valid HMAC tag for message.
 //
 // This implementation is given in the documentation for crypto/hmac.
-func CheckMAC(message, messageMAC, key []byte) bool {
-	expectedMAC := HMAC(message, key)
+func CheckMAC(key, message, messageMAC []byte) bool {
+	expectedMAC := HMAC(key, message)
 	return hmac.Equal(messageMAC, expectedMAC)
 }
