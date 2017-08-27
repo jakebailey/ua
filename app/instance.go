@@ -8,6 +8,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/middleware"
 	"github.com/gobwas/ws"
 	"github.com/jakebailey/ua/ctxlog"
 	"github.com/jakebailey/ua/expire"
@@ -19,6 +20,8 @@ import (
 )
 
 func (a *App) routeInstance(r chi.Router) {
+	r.Use(middleware.NoCache)
+
 	r.Route("/{instanceID}", func(r chi.Router) {
 		if a.debug {
 			r.Get("/", func(w http.ResponseWriter, r *http.Request) {

@@ -1,7 +1,6 @@
 package app
 
 import (
-	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -34,8 +33,8 @@ func (a *App) triggerCheckExpired(w http.ResponseWriter, r *http.Request) {
 }
 
 type debugEncryptMessage struct {
-	Ciphertext string `json:"ciphertext"`
-	HMAC       string `json:"hmac"`
+	Ciphertext []byte `json:"ciphertext"`
+	HMAC       []byte `json:"hmac"`
 }
 
 func (a *App) debugEncrypt(w http.ResponseWriter, r *http.Request) {
@@ -53,11 +52,9 @@ func (a *App) debugEncrypt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hmac := simplecrypto.HMAC(a.aesKey, ciphertext)
-
 	resp := debugEncryptMessage{
-		Ciphertext: base64.StdEncoding.EncodeToString(ciphertext),
-		HMAC:       base64.StdEncoding.EncodeToString(hmac),
+		Ciphertext: ciphertext,
+		HMAC:       simplecrypto.HMAC(a.aesKey, ciphertext),
 	}
 
 	render.Respond(w, r, resp)
@@ -71,24 +68,12 @@ func (a *App) debugDecrypt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ciphertext, err := base64.StdEncoding.DecodeString(m.Ciphertext)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	hmac, err := base64.StdEncoding.DecodeString(m.HMAC)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	if !simplecrypto.CheckMAC(a.aesKey, ciphertext, hmac) {
+	if !simplecrypto.CheckMAC(a.aesKey, m.Ciphertext, m.HMAC) {
 		http.Error(w, "provided hmac did not match ciphertext", http.StatusBadRequest)
 		return
 	}
 
-	payload, err := simplecrypto.Decrypt(a.aesKey, ciphertext)
+	payload, err := simplecrypto.Decrypt(a.aesKey, m.Ciphertext)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
