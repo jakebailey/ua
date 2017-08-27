@@ -18,9 +18,10 @@ type Manager struct {
 	checkEvery  time.Duration
 	expireLimit time.Duration
 
-	mu      sync.RWMutex
-	entries map[string]*entry
-	tokens  map[*Token]string
+	mu       sync.RWMutex
+	entries  map[string]*entry
+	tokens   map[*Token]string
+	blockers map[*Token]chan struct{}
 
 	done chan struct{}
 }
@@ -33,6 +34,7 @@ func NewManager(checkEvery time.Duration, expireLimit time.Duration) *Manager {
 		expireLimit: expireLimit,
 		entries:     make(map[string]*entry),
 		tokens:      make(map[*Token]string),
+		blockers:    make(map[*Token]chan struct{}),
 		done:        make(chan struct{}),
 	}
 }
@@ -60,9 +62,14 @@ func (m *Manager) Acquire(name string, onExpire func()) *Token {
 		onExpire: onExpire,
 	}
 
+	var blocker chan struct{}
+
 	m.mu.Lock()
 
 	if old := m.entries[name]; old != nil {
+		blocker = make(chan struct{})
+		m.blockers[old.token] = blocker
+
 		delete(m.tokens, old.token)
 		go old.onExpire()
 	}
@@ -70,6 +77,10 @@ func (m *Manager) Acquire(name string, onExpire func()) *Token {
 	m.tokens[token] = name
 
 	m.mu.Unlock()
+
+	if blocker != nil {
+		<-blocker
+	}
 
 	return token
 }
@@ -85,6 +96,11 @@ func (m *Manager) Return(token *Token) {
 	if name, ok := m.tokens[token]; ok {
 		delete(m.entries, name)
 		delete(m.tokens, token)
+	}
+
+	if blocker, ok := m.blockers[token]; ok {
+		close(blocker)
+		delete(m.blockers, token)
 	}
 
 	m.mu.Unlock()
