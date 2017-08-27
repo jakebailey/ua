@@ -18,8 +18,8 @@ func (a *App) routeDebug(r chi.Router) {
 	})
 
 	r.Route("/crypto", func(r chi.Router) {
-		r.Get("/encrypt", a.debugEncrypt)
-		r.Get("/decrypt", a.debugDecrypt)
+		r.Post("/encrypt", a.debugEncrypt)
+		r.Post("/decrypt", a.debugDecrypt)
 	})
 }
 
