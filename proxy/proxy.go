@@ -127,11 +127,6 @@ func proxyInputFunc(ctx context.Context, id string, conn Conn, cli client.Common
 				}
 				width := uint(wFloat)
 
-				logger.Debug("resizing container",
-					zap.Uint("height", height),
-					zap.Uint("width", width),
-				)
-
 				if err := cli.ContainerExecResize(ctx, id, types.ResizeOptions{
 					Height: height,
 					Width:  width,
