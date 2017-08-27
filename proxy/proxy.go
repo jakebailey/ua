@@ -111,7 +111,7 @@ func proxyInputFunc(ctx context.Context, id string, conn Conn, cli client.Common
 			case "set_size":
 				hFloat, hOk := buf[1].(float64)
 				if !hOk {
-					logger.Error("invalid height",
+					logger.Warn("invalid height",
 						zap.Any("bad_height", buf[1]),
 					)
 					continue
@@ -120,7 +120,7 @@ func proxyInputFunc(ctx context.Context, id string, conn Conn, cli client.Common
 
 				wFloat, wOk := buf[2].(float64)
 				if !wOk {
-					logger.Error("invalid width",
+					logger.Warn("invalid width",
 						zap.Any("bad_width", buf[2]),
 					)
 					continue
