@@ -15,7 +15,7 @@ function algoFromKey(key) {
 }
 
 /**
- * Encrypts a payload with AES 128 CFB.
+ * Encrypts a payload with AES CFB.
  * @param {Buffer} key The AES key used for encryption.
  * @param {Buffer} payload The payload to be encrypted.
  * @return {string} Base64 encoded ciphertext.
@@ -33,7 +33,7 @@ function encrypt(key, payload) {
 }
 
 /**
- * Decrypts a payload with AES 128 CFB.
+ * Decrypts a payload with AES CFB.
  * @param {Buffer} key The AES key used for decryption.
  * @param {string} ciphertext Base64 encoded ciphertext.
  * @return {Buffer} The original payload. 
