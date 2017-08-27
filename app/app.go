@@ -58,7 +58,6 @@ type App struct {
 	addr           string
 	assignmentPath string
 	staticPath     string
-	apiKeyNames    map[string]string
 
 	tls                     bool
 	tlsCertFile, tlsKeyFile string
@@ -167,14 +166,7 @@ func DockerClient(cli client.CommonAPIClient, closeFunc func() error) Option {
 	}
 }
 
-// APIKeys sets up the API keys for the specs route, given a map from API key
-// strings to human-readable names.
-func APIKeys(apiKeyNames map[string]string) Option {
-	return func(a *App) {
-		a.apiKeyNames = apiKeyNames
-	}
-}
-
+// TLS enables TLS for the app's HTTP server.
 func TLS(certFile, certKey string) Option {
 	return func(a *App) {
 		a.tls = true

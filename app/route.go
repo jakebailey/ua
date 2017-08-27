@@ -5,19 +5,15 @@ import (
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
+	"github.com/jakebailey/ua/ctxlog"
 	"github.com/jakebailey/ua/uamid"
 )
 
 func (a *App) route() {
 	r := chi.NewRouter()
 
-	r.Use(uamid.Logger(a.logger))
+	r.Use(ctxlog.Logger(a.logger))
 	r.Use(uamid.RequestID("request_id"))
-
-	if len(a.apiKeyNames) != 0 {
-		r.Use(uamid.APIKey(a.apiKeyNames))
-	}
-
 	r.Use(uamid.RequestLogger)
 	r.Use(uamid.Recoverer)
 	r.Use(middleware.Heartbeat("/ping"))
