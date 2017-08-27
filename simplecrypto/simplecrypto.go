@@ -14,9 +14,14 @@ import (
 	"io"
 )
 
-// ErrCiphertextTooShort is returned by the Decrypt function when the provided
-// ciphertext is too short to contain a valid IV.
-var ErrCiphertextTooShort = errors.New("simplecrypto: ciphertext too short")
+var (
+	// ErrCiphertextTooShort is returned when the provided ciphertext is too
+	// short to contain a valid IV.
+	ErrCiphertextTooShort = errors.New("simplecrypto: ciphertext too short")
+
+	// ErrHMACDoesNotMatch is returned when the provided HMAC does not match.
+	ErrHMACDoesNotMatch = errors.New("simplecrypto: HMAC does not match ciphertext")
+)
 
 // Encrypt encrypts a payload using the given key. It returns a byte
 // slice with the IV as the first aes.BlockSize bytes, followed by
@@ -86,4 +91,25 @@ func HMAC(key, message []byte) []byte {
 func CheckMAC(key, message, messageMAC []byte) bool {
 	expectedMAC := HMAC(key, message)
 	return hmac.Equal(messageMAC, expectedMAC)
+}
+
+// EncryptAndHMAC encrypts the payload using Encrypt, then calculates the
+// ciphertext's HMAC.
+func EncryptAndHMAC(key, payload []byte) (ciphertext, hmac []byte, err error) {
+	ciphertext, err = Encrypt(key, payload)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return ciphertext, HMAC(key, ciphertext), nil
+}
+
+// CheckAndDecrypt checks the HMAC of the chiphertext, and decrypts it if tje
+// HMAC matches.
+func CheckAndDecrypt(key, ciphertext, hmac []byte) (payload []byte, err error) {
+	if !CheckMAC(key, ciphertext, hmac) {
+		return nil, ErrHMACDoesNotMatch
+	}
+
+	return Decrypt(key, ciphertext)
 }

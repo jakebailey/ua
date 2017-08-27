@@ -40,25 +40,16 @@ func (a *App) debugEncrypt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, err := simplecrypto.EncodeJSON(a.aesKey, payload)
-	if err != nil {
+	if err := simplecrypto.EncodeJSONWriter(a.aesKey, payload, w); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
 	}
 
-	w.Write(data)
 }
 
 func (a *App) debugDecrypt(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
-	data, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	payload, err := simplecrypto.DecodeJSON(a.aesKey, data)
+	payload, err := simplecrypto.DecodeJSONReader(a.aesKey, r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
