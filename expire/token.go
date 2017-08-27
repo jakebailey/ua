@@ -8,7 +8,6 @@ import (
 // Token keep tracks of the last time it was used. The expiry manager uses
 // checks for tokens that haven't been updated, and expires them.
 type Token struct {
-	name string
 	unix int64
 }
 
