@@ -123,8 +123,6 @@ func (a *App) specPost(w http.ResponseWriter, r *http.Request) {
 func (a *App) getActiveInstance(ctx context.Context, specID kallax.ULID) (*models.Instance, error) {
 	logger := ctxlog.FromContext(ctx)
 
-	var instance *models.Instance
-
 	instanceQuery := models.NewInstanceQuery().FindBySpec(specID).FindByActive(true)
 	instances, err := a.instanceStore.FindAll(instanceQuery)
 	if err != nil {
@@ -150,10 +148,9 @@ func (a *App) getActiveInstance(ctx context.Context, specID kallax.ULID) (*model
 		})
 	}
 
-	instance = instances[0]
 	logger.Debug("reusing active instance")
 
-	return instance, nil
+	return instances[0], nil
 }
 
 func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.Instance, error) {
