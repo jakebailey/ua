@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/docker/docker/api/types"
 	"github.com/go-chi/chi"
 	"github.com/gobwas/ws"
 	"github.com/jakebailey/ua/ctxlog"
@@ -101,6 +102,19 @@ func (a *App) handleInstance(ctx context.Context, conn net.Conn, instance *model
 		},
 	)
 	defer a.wsManager.Return(token)
+
+	instance.ExpiresAt = nil
+	if _, err := a.instanceStore.Update(instance, models.Schema.Instance.ExpiresAt); err != nil {
+		logger.Error("error disabling expiry for instance",
+			zap.Error(err),
+		)
+	}
+
+	if err := a.cli.ContainerStart(ctx, instance.ContainerID, types.ContainerStartOptions{}); err != nil {
+		logger.Error("error starting container",
+			zap.Error(err),
+		)
+	}
 
 	proxyConn = tokenProxyConn{
 		Conn:  proxyConn,

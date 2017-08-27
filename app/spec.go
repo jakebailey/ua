@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"path/filepath"
 	"sort"
+	"time"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
@@ -153,14 +153,6 @@ func (a *App) getActiveInstance(ctx context.Context, specID kallax.ULID) (*model
 	instance = instances[0]
 	logger.Debug("reusing active instance")
 
-	instance.ExpiresAt = nil
-	if _, err := a.instanceStore.Update(instance, models.Schema.Instance.ExpiresAt); err != nil {
-		logger.Error("error disabling expiry for instance",
-			zap.Error(err),
-		)
-		return nil, err
-	}
-
 	return instance, nil
 }
 
@@ -209,16 +201,12 @@ func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.I
 		return nil, err
 	}
 
-	if err := a.cli.ContainerStart(ctx, c.ID, types.ContainerStartOptions{}); err != nil {
-		logger.Error("error starting container",
-			zap.Error(err),
-		)
-		return nil, err
-	}
+	expiresAt := time.Now().Add(4 * time.Hour)
 
 	instance := models.NewInstance()
 	instance.ImageID = imageID
 	instance.ContainerID = c.ID
+	instance.ExpiresAt = &expiresAt
 	instance.Active = true
 
 	if err := a.specStore.Transaction(func(specStore *models.SpecStore) error {
