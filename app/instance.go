@@ -45,7 +45,7 @@ func (a *App) instanceWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	instanceQuery := models.NewInstanceQuery().FindByID(instanceID)
+	instanceQuery := models.NewInstanceQuery().FindByID(instanceID).FindByActive(true)
 	instance, err := a.instanceStore.FindOne(instanceQuery)
 	if err != nil {
 		if err == kallax.ErrNotFound {
