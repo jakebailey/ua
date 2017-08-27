@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"os"
 	"os/signal"
 
@@ -16,6 +17,7 @@ var args = struct {
 	Database string `arg:"required,env,help:postgres database connection string"`
 	CertFile string `arg:"env,help:path to HTTPS certificate file"`
 	KeyFile  string `arg:"env,help:path to HTTPS key file"`
+	AESKey   string `arg:"required,env,help:base64 encoded AES key"`
 }{
 	Addr: ":8000",
 }
@@ -37,10 +39,18 @@ func main() {
 		panic(err)
 	}
 
+	key, err := base64.StdEncoding.DecodeString(args.AESKey)
+	if err != nil {
+		logger.Fatal("error decoding AES key",
+			zap.Error(err),
+		)
+	}
+
 	options := []app.Option{
 		app.Logger(logger),
 		app.Addr(args.Addr),
 		app.Debug(args.Debug),
+		app.AESKey(key),
 	}
 
 	if args.CertFile != "" || args.KeyFile != "" {

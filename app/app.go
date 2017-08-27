@@ -84,6 +84,8 @@ type App struct {
 	wsWG      sync.WaitGroup
 	wsTimeout time.Duration
 	wsManager *expire.Manager
+
+	aesKey []byte
 }
 
 // NewApp creates a new app, with an optional list of options.
@@ -172,6 +174,20 @@ func TLS(certFile, certKey string) Option {
 		a.tls = true
 		a.tlsCertFile = certFile
 		a.tlsKeyFile = certKey
+	}
+}
+
+// AESKey specifies the AES key used for encryption. AESKey will panic if the
+// key's length is not 12, 24, or 32.
+func AESKey(key []byte) Option {
+	switch len(key) {
+	case 16, 24, 32:
+	default:
+		panic("AES key must be of length 16, 24, or 32")
+	}
+
+	return func(a *App) {
+		a.aesKey = key
 	}
 }
 
