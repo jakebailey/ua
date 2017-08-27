@@ -1,4 +1,4 @@
-{% func Spec(specID, url string) %}
+{% func Spec(specID string) %}
 <!doctype html>
 <html>
 
@@ -38,14 +38,23 @@
             };
 
             $.ajax({
-                url: '{%s url %}',
+                url: '/debug/crypto/encrypt',
                 type: 'POST',
                 contentType: 'application/json',
                 data: JSON.stringify(postData),
                 dataType: 'json',
                 success: function(data) {
-                    var id = data.instanceID;
-                    $("#result").append('<br><a href="/instance/' + id + '" target="_blank">' + id + '</a>');
+                    $.ajax({
+                        url: '/spec',
+                        type: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify(data),
+                        dataType: 'json',
+                        success: function(data) {
+                            var id = data.instanceID;
+                            $("#result").append('<br><a href="/instance/' + id + '" target="_blank">' + id + '</a>');
+                        }
+                    });
                 }
             });
         });

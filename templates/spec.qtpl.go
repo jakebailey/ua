@@ -18,7 +18,7 @@ var (
 )
 
 //line spec.qtpl:1
-func StreamSpec(qw422016 *qt422016.Writer, specID, url string) {
+func StreamSpec(qw422016 *qt422016.Writer, specID string) {
 	//line spec.qtpl:1
 	qw422016.N().S(`
 <!doctype html>
@@ -64,18 +64,23 @@ func StreamSpec(qw422016 *qt422016.Writer, specID, url string) {
             };
 
             $.ajax({
-                url: '`)
-	//line spec.qtpl:41
-	qw422016.E().S(url)
-	//line spec.qtpl:41
-	qw422016.N().S(`',
+                url: '/debug/crypto/encrypt',
                 type: 'POST',
                 contentType: 'application/json',
                 data: JSON.stringify(postData),
                 dataType: 'json',
                 success: function(data) {
-                    var id = data.instanceID;
-                    $("#result").append('<br><a href="/instance/' + id + '" target="_blank">' + id + '</a>');
+                    $.ajax({
+                        url: '/spec',
+                        type: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify(data),
+                        dataType: 'json',
+                        success: function(data) {
+                            var id = data.instanceID;
+                            $("#result").append('<br><a href="/instance/' + id + '" target="_blank">' + id + '</a>');
+                        }
+                    });
                 }
             });
         });
@@ -84,31 +89,31 @@ func StreamSpec(qw422016 *qt422016.Writer, specID, url string) {
 
 </html>
 `)
-//line spec.qtpl:56
+//line spec.qtpl:65
 }
 
-//line spec.qtpl:56
-func WriteSpec(qq422016 qtio422016.Writer, specID, url string) {
-	//line spec.qtpl:56
+//line spec.qtpl:65
+func WriteSpec(qq422016 qtio422016.Writer, specID string) {
+	//line spec.qtpl:65
 	qw422016 := qt422016.AcquireWriter(qq422016)
-	//line spec.qtpl:56
-	StreamSpec(qw422016, specID, url)
-	//line spec.qtpl:56
+	//line spec.qtpl:65
+	StreamSpec(qw422016, specID)
+	//line spec.qtpl:65
 	qt422016.ReleaseWriter(qw422016)
-//line spec.qtpl:56
+//line spec.qtpl:65
 }
 
-//line spec.qtpl:56
-func Spec(specID, url string) string {
-	//line spec.qtpl:56
+//line spec.qtpl:65
+func Spec(specID string) string {
+	//line spec.qtpl:65
 	qb422016 := qt422016.AcquireByteBuffer()
-	//line spec.qtpl:56
-	WriteSpec(qb422016, specID, url)
-	//line spec.qtpl:56
+	//line spec.qtpl:65
+	WriteSpec(qb422016, specID)
+	//line spec.qtpl:65
 	qs422016 := string(qb422016.B)
-	//line spec.qtpl:56
+	//line spec.qtpl:65
 	qt422016.ReleaseByteBuffer(qb422016)
-	//line spec.qtpl:56
+	//line spec.qtpl:65
 	return qs422016
-//line spec.qtpl:56
+//line spec.qtpl:65
 }

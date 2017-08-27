@@ -4,10 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/jakebailey/ua/ctxlog"
-
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
+	"github.com/jakebailey/ua/ctxlog"
 	"github.com/jakebailey/ua/models"
 	"go.uber.org/zap"
 	kallax "gopkg.in/src-d/go-kallax.v1"

@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"path/filepath"
 	"sort"
@@ -14,6 +15,7 @@ import (
 	"github.com/jakebailey/ua/ctxlog"
 	"github.com/jakebailey/ua/image"
 	"github.com/jakebailey/ua/models"
+	"github.com/jakebailey/ua/simplecrypto"
 	"github.com/jakebailey/ua/templates"
 	"go.uber.org/zap"
 	"gopkg.in/src-d/go-kallax.v1"
@@ -31,7 +33,7 @@ func (a *App) routeSpec(r chi.Router) {
 
 func (a *App) specGet(w http.ResponseWriter, r *http.Request) {
 	specID := kallax.NewULID().String()
-	templates.WriteSpec(w, specID, r.URL.String())
+	templates.WriteSpec(w, specID)
 }
 
 type specPostRequest struct {
@@ -48,9 +50,19 @@ func (a *App) specPost(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := ctxlog.FromContext(ctx)
 
+	defer r.Body.Close()
+	payload, err := simplecrypto.DecodeJSONReader(a.aesKey, r.Body)
+	if err != nil {
+		logger.Warn("error decrypting payload",
+			zap.Error(err),
+		)
+		a.httpError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	var req specPostRequest
 
-	if err := render.Decode(r, &req); err != nil {
+	if err := json.Unmarshal(payload, &req); err != nil {
 		logger.Warn("error decoding specPostRequest",
 			zap.Error(err),
 		)
