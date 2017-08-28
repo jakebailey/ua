@@ -16,6 +16,7 @@ import (
 	"github.com/jakebailey/ua/models"
 	"github.com/jakebailey/ua/sched"
 	"go.uber.org/zap"
+	"golang.org/x/crypto/acme/autocert"
 )
 
 var (
@@ -63,6 +64,9 @@ type App struct {
 	assignmentPath string
 	staticPath     string
 	instanceExpire time.Duration
+
+	letsEncrypt       bool
+	letsEncryptDomain string
 
 	tls                     bool
 	tlsCertFile, tlsKeyFile string
@@ -163,20 +167,32 @@ func (a *App) Run() error {
 	a.wsManager = expire.NewManager(time.Minute, a.wsTimeout)
 	a.wsManager.Run()
 
-	a.srv = &http.Server{
-		Addr:    a.addr,
-		Handler: a.router,
-	}
-
-	a.logger.Info("starting http server", zap.String("addr", a.addr))
-
-	if a.tls {
-		err = a.srv.ListenAndServeTLS(a.tlsCertFile, a.tlsKeyFile)
-	} else {
-		if !a.debug {
-			a.logger.Warn("server running without https in production")
+	if a.letsEncrypt {
+		a.srv = &http.Server{
+			Handler: a.router,
 		}
-		err = a.srv.ListenAndServe()
+
+		l := autocert.NewListener(a.letsEncryptDomain)
+
+		a.logger.Info("starting http server", zap.String("domain", a.letsEncryptDomain))
+
+		err = a.srv.Serve(l)
+	} else {
+		a.srv = &http.Server{
+			Addr:    a.addr,
+			Handler: a.router,
+		}
+
+		a.logger.Info("starting http server", zap.String("addr", a.addr))
+
+		if a.tls {
+			err = a.srv.ListenAndServeTLS(a.tlsCertFile, a.tlsKeyFile)
+		} else {
+			if !a.debug {
+				a.logger.Warn("server running without https in production")
+			}
+			err = a.srv.ListenAndServe()
+		}
 	}
 
 	if err == http.ErrServerClosed {
@@ -190,7 +206,7 @@ func (a *App) Shutdown() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	a.logger.Info("shutting down http server", zap.String("addr", a.addr))
+	a.logger.Info("shutting down http server")
 	if err := a.srv.Shutdown(ctx); err != nil {
 		a.logger.Error("error shutting down http server",
 			zap.Error(err),

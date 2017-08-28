@@ -63,12 +63,29 @@ func DockerClient(cli client.CommonAPIClient, closeFunc func() error) Option {
 	}
 }
 
-// TLS enables TLS for the app's HTTP server.
+// TLS enables TLS for the app's HTTP server. Using this option disables
+// Let's encrypt.
 func TLS(certFile, certKey string) Option {
 	return func(a *App) {
 		a.tls = true
 		a.tlsCertFile = certFile
 		a.tlsKeyFile = certKey
+
+		a.letsEncrypt = false
+		a.letsEncryptDomain = ""
+	}
+}
+
+// LetsEncryptDomain set the domain used by Let's Encrypt. Using this option
+// disables TLS by certfile/keyfile.
+func LetsEncryptDomain(domain string) Option {
+	return func(a *App) {
+		a.letsEncrypt = true
+		a.letsEncryptDomain = domain
+
+		a.tls = false
+		a.tlsCertFile = ""
+		a.tlsKeyFile = ""
 	}
 }
 

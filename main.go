@@ -15,11 +15,12 @@ import (
 var args = struct {
 	Debug bool `arg:"env,help:enables pretty logging and extra debug routes"`
 
-	Addr     string `arg:"env,help:address to run the http server on"`
-	Database string `arg:"required,env,help:postgres database connection string"`
-	CertFile string `arg:"env,help:path to HTTPS certificate file"`
-	KeyFile  string `arg:"env,help:path to HTTPS key file"`
-	AESKey   string `arg:"required,env,help:base64 encoded AES key"`
+	Addr              string `arg:"env,help:address to run the http server on"`
+	Database          string `arg:"required,env,help:postgres database connection string"`
+	CertFile          string `arg:"env,help:path to HTTPS certificate file"`
+	KeyFile           string `arg:"env,help:path to HTTPS key file"`
+	AESKey            string `arg:"required,env,help:base64 encoded AES key"`
+	LetsEncryptDomain string `arg:"env,help:domain to run Let's Encrypt on"`
 
 	AssignmentPath     string        `arg:"--assignment-path,env,help:path to assignments directory"`
 	CleanInactiveEvery time.Duration `arg:"--clean-inactive-every,help:how often to clean up inactive instances"`
@@ -36,7 +37,7 @@ var args = struct {
 }
 
 func main() {
-	arg.MustParse(&args)
+	p := arg.MustParse(&args)
 
 	var logConfig zap.Config
 
@@ -69,6 +70,14 @@ func main() {
 		app.CheckExpiredEvery(args.CheckExpiredEvery),
 		app.WebsocketTimeout(args.WebsocketTimeout),
 		app.InstanceExpire(args.InstanceExpire),
+	}
+
+	if args.LetsEncryptDomain != "" {
+		if args.CertFile != "" || args.KeyFile != "" {
+			p.Fail("cannot use both Let's Encrypt and regular TLS certs at the same time")
+		}
+
+		options = append(options, app.LetsEncryptDomain(args.LetsEncryptDomain))
 	}
 
 	if args.CertFile != "" || args.KeyFile != "" {
