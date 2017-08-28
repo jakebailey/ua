@@ -180,10 +180,12 @@ func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.I
 	}
 
 	path := filepath.Join(a.assignmentPath, spec.AssignmentName)
-	imageTag := ""      // TODO: pick tag
-	containerName := "" // TODO: pick name
 
-	// TODO: define build data struct with rand/data
+	// Empty image and container names are easier to identify and cleanup if
+	// needed, so just leave them blank.
+	imageTag := ""
+	containerName := ""
+
 	imageID, err := image.Build(ctx, a.cli, path, imageTag, spec.Data)
 	if err != nil {
 		logger.Error("error building image",
@@ -207,7 +209,6 @@ func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.I
 		},
 	}
 
-	// TODO: Manage networking, cpu, memory
 	c, err := a.cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, containerName)
 	if err != nil {
 		logger.Error("error creating container",

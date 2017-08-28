@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
 	"github.com/jakebailey/ua/ctxlog"
 	"github.com/jakebailey/ua/models"
@@ -122,11 +123,11 @@ func (a *App) cleanInactiveInstances() {
 		)
 	}
 
+	a.pruneImages(ctx)
+
 	logger.Info("cleaned up instances",
 		zap.Int("count", count),
 	)
-
-	// TODO: call ImagesPrune?
 }
 
 func (a *App) checkExpiredInstances() {
@@ -208,6 +209,8 @@ func (a *App) cleanupLeftoverInstances() {
 		)
 	}
 
+	a.pruneImages(ctx)
+
 	logger.Info("cleaned up instances",
 		zap.Int("count", count),
 	)
@@ -255,5 +258,24 @@ func (a *App) markAllInstancesCleanedAndInactive() {
 
 	logger.Info("marked instances as cleaned and inactive",
 		zap.Int("count", count),
+	)
+}
+
+var pruneFilter = filters.NewArgs()
+
+func (a *App) pruneImages(ctx context.Context) {
+	logger := ctxlog.FromContext(ctx)
+
+	report, err := a.cli.ImagesPrune(ctx, pruneFilter)
+	if err != nil {
+		logger.Error("error pruning dangling images",
+			zap.Error(err),
+		)
+		return
+	}
+
+	logger.Info("pruned dangling instances",
+		zap.Int("count", len(report.ImagesDeleted)),
+		zap.Uint64("reclaimed", report.SpaceReclaimed),
 	)
 }
