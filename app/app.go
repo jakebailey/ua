@@ -49,6 +49,10 @@ var (
 	// DefaultWebsocketTimeout is the maximum duration a websocket can be
 	// inactive before expiring.
 	DefaultWebsocketTimeout = time.Hour
+
+	// DefaultInstanceExpire is the maximum duration an instance will be kept
+	// on the server until it expires and a new instance must be created.
+	DefaultInstanceExpire = 4 * time.Hour
 )
 
 // App is the main application for uAssign.
@@ -58,6 +62,7 @@ type App struct {
 	addr           string
 	assignmentPath string
 	staticPath     string
+	instanceExpire time.Duration
 
 	tls                     bool
 	tlsCertFile, tlsKeyFile string
@@ -95,6 +100,7 @@ func NewApp(dbString string, options ...Option) *App {
 	a := &App{
 		addr:               DefaultAddr,
 		assignmentPath:     DefaultAssignmentPath,
+		instanceExpire:     DefaultInstanceExpire,
 		logger:             DefaultLogger,
 		staticPath:         DefaultStaticPath,
 		spew:               DefaultSpew,
@@ -111,84 +117,6 @@ func NewApp(dbString string, options ...Option) *App {
 	a.route()
 
 	return a
-}
-
-// Option is a function that runs on an App to configure it.
-type Option func(*App)
-
-// Debug sets the debug mode. The default is false.
-func Debug(debug bool) Option {
-	return func(a *App) {
-		a.debug = debug
-	}
-}
-
-// Addr sets the address of the app's HTTP server. If not provided,
-// DefaultAddr is used.
-func Addr(addr string) Option {
-	return func(a *App) {
-		a.addr = addr
-	}
-}
-
-// AssignmentPath sets the path for the assignment directory. If not
-// provided, DefaultAssignmentPath is used.
-func AssignmentPath(path string) Option {
-	return func(a *App) {
-		a.assignmentPath = path
-	}
-}
-
-// Logger sets the logger used within the app. If not provided,
-// DefaultLogger is used.
-func Logger(logger *zap.Logger) Option {
-	return func(a *App) {
-		a.logger = logger
-	}
-}
-
-// SpewConfig sets the spew config state used for various debugging
-// endpoints in the app. If not provided, DefaultSpew is used.
-func SpewConfig(c *spew.ConfigState) Option {
-	if c == nil {
-		panic("app: spew ConfigState cannot be nil")
-	}
-
-	return func(a *App) {
-		a.spew = c
-	}
-}
-
-// DockerClient sets the docker client used in the app. If closeFunc is not
-// nil, then it will be called when the app closes.
-func DockerClient(cli client.CommonAPIClient, closeFunc func() error) Option {
-	return func(a *App) {
-		a.cli = cli
-		a.cliClose = closeFunc
-	}
-}
-
-// TLS enables TLS for the app's HTTP server.
-func TLS(certFile, certKey string) Option {
-	return func(a *App) {
-		a.tls = true
-		a.tlsCertFile = certFile
-		a.tlsKeyFile = certKey
-	}
-}
-
-// AESKey specifies the AES key used for encryption. AESKey will panic if the
-// key's length is not 12, 24, or 32.
-func AESKey(key []byte) Option {
-	switch len(key) {
-	case 16, 24, 32:
-	default:
-		panic("AES key must be of length 16, 24, or 32")
-	}
-
-	return func(a *App) {
-		a.aesKey = key
-	}
 }
 
 // Run runs the app, opening docker/db/etc connections. This function blocks
@@ -297,16 +225,5 @@ func (a *App) Shutdown() {
 	a.logger.Info("closing database connection")
 	if err := a.db.Close(); err != nil {
 		a.logger.Error("error closing database connection", zap.Error(err))
-	}
-}
-
-// httpError writes a message to the writer. If the app is in debug mode,
-// then the message will be written, otherwise the default message
-// for the provided status code will be used.
-func (a *App) httpError(w http.ResponseWriter, msg string, code int) {
-	if a.debug {
-		http.Error(w, msg, code)
-	} else {
-		http.Error(w, http.StatusText(code), code)
 	}
 }

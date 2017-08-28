@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"path/filepath"
 	"sort"
-	"time"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/go-chi/chi"
@@ -210,12 +209,10 @@ func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.I
 		return nil, err
 	}
 
-	expiresAt := time.Now().Add(4 * time.Hour)
-
 	instance := models.NewInstance()
 	instance.ImageID = imageID
 	instance.ContainerID = c.ID
-	instance.ExpiresAt = &expiresAt
+	instance.ExpiresAt = a.instanceExpireTime()
 	instance.Active = true
 
 	if err := a.specStore.Transaction(func(specStore *models.SpecStore) error {

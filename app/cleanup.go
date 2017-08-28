@@ -19,7 +19,7 @@ func (a *App) cleanInstance(ctx context.Context, instance *models.Instance) erro
 	)
 
 	cOpts := types.ContainerRemoveOptions{RemoveVolumes: true}
-	iOpts := types.ImageRemoveOptions{} //PruneChildren: true}
+	iOpts := types.ImageRemoveOptions{PruneChildren: true}
 
 	logger.Debug("killing container",
 		zap.String("container_id", instance.ContainerID),
@@ -58,7 +58,7 @@ func (a *App) cleanInstance(ctx context.Context, instance *models.Instance) erro
 	)
 
 	if _, err := a.cli.ImageRemove(ctx, instance.ImageID, iOpts); err != nil {
-		if !client.IsErrNotFound(err) {
+		if !client.IsErrNotFound(err) && !strings.Contains(err.Error(), "image is being used by stopped container") {
 			logger.Error("error removing image",
 				zap.Error(err),
 				zap.String("image_id", instance.ImageID),
@@ -90,7 +90,7 @@ func (a *App) cleanInactiveInstances() {
 
 	instanceQuery := models.NewInstanceQuery().
 		FindByActive(false).
-		FindByCleaned(true)
+		FindByCleaned(false)
 
 	logger.Info("cleaning up instances")
 

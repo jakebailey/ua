@@ -130,8 +130,7 @@ func (a *App) handleInstance(ctx context.Context, conn net.Conn, instance *model
 		)
 	}
 
-	expiresAt := time.Now().Add(4 * time.Hour)
-	instance.ExpiresAt = &expiresAt
+	instance.ExpiresAt = a.instanceExpireTime()
 
 	if _, err := a.instanceStore.Update(instance, models.Schema.Instance.ExpiresAt); err != nil {
 		logger.Error("error adding ExpiresAt to instance",
