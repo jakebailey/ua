@@ -6,6 +6,7 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/jakebailey/ua/ctxlog"
+	"github.com/jakebailey/ua/static"
 	"github.com/jakebailey/ua/uamid"
 )
 
@@ -18,7 +19,12 @@ func (a *App) route() {
 	r.Use(uamid.Recoverer)
 	r.Use(middleware.Heartbeat("/ping"))
 
-	routeStatic(r, "/static", a.staticPath)
+	if a.staticPath == "" {
+		r.Handle("/static/*", http.StripPrefix("/static", http.FileServer(static.FS(false))))
+	} else {
+		routeStatic(r, "/static", a.staticPath)
+	}
+
 	r.Handle("/favicon.ico", http.RedirectHandler("/static/favicon.ico", http.StatusFound))
 
 	r.Route("/spec", a.routeSpec)

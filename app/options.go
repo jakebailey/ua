@@ -126,3 +126,9 @@ func InstanceExpire(d time.Duration) Option {
 		a.instanceExpire = d
 	}
 }
+
+func StaticPath(path string) Option {
+	return func(a *App) {
+		a.staticPath = path
+	}
+}

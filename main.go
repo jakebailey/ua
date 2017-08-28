@@ -13,7 +13,8 @@ import (
 )
 
 var args = struct {
-	Debug bool `arg:"env,help:enables pretty logging and extra debug routes"`
+	Debug      bool   `arg:"env,help:enables pretty logging and extra debug routes"`
+	StaticPath string `arg:"--static-path,help:path to static directory; if not provided embedded assets are used"`
 
 	Addr              string `arg:"env,help:address to run the http server on"`
 	Database          string `arg:"required,env,help:postgres database connection string"`
@@ -64,6 +65,7 @@ func main() {
 		app.Logger(logger),
 		app.Addr(args.Addr),
 		app.Debug(args.Debug),
+		app.StaticPath(args.StaticPath),
 		app.AESKey(key),
 		app.AssignmentPath(args.AssignmentPath),
 		app.CleanInactiveEvery(args.CleanInactiveEvery),
