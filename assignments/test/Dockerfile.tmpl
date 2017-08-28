@@ -1,5 +1,10 @@
 FROM alpine
 MAINTAINER Jake Bailey <jbbaile2@illinois.edu>
 
+RUN apk --no-cache add htop
+
 COPY helloworld.txt /{{.NetID}}.txt
 RUN echo '{{.Now.Unix}}' >> /{{.NetID}}.txt
+
+RUN adduser -S student
+USER student

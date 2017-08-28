@@ -194,14 +194,21 @@ func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.I
 
 	truth := true
 
-	// TODO: Manage networking, cpu, memory
-	c, err := a.cli.ContainerCreate(ctx, &container.Config{
+	containerConfig := &container.Config{
 		Tty:       true,
 		OpenStdin: true,
 		Image:     imageID,
-	}, &container.HostConfig{
-		Init: &truth,
-	}, nil, containerName)
+	}
+	hostConfig := &container.HostConfig{
+		Init:        &truth,
+		NetworkMode: "none",
+		Resources: container.Resources{
+			CPUShares: 2,
+		},
+	}
+
+	// TODO: Manage networking, cpu, memory
+	c, err := a.cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, containerName)
 	if err != nil {
 		logger.Error("error creating container",
 			zap.Error(err),

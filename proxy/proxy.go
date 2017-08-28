@@ -30,7 +30,7 @@ func Proxy(ctx context.Context, id string, conn Conn, cli client.CommonAPIClient
 		return err
 	}
 
-	var cmd []string
+	cmd := []string{"/dev/init", "-s", "--"}
 	cmd = append(cmd, info.Config.Entrypoint...)
 	cmd = append(cmd, info.Config.Cmd...)
 
@@ -41,6 +41,11 @@ func Proxy(ctx context.Context, id string, conn Conn, cli client.CommonAPIClient
 		AttachStdout: true,
 		AttachStderr: true,
 		Cmd:          cmd,
+	}
+
+	switch execConfig.User {
+	case "", "root":
+		logger.Warn("instance user is root!")
 	}
 
 	logger.Debug("creating exec",
