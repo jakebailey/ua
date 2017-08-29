@@ -128,7 +128,7 @@ func (a *App) specPost(w http.ResponseWriter, r *http.Request) {
 		InstanceID: instance.ID.String(),
 	}
 
-	render.Respond(w, r, resp)
+	render.JSON(w, r, resp)
 }
 
 func (a *App) getActiveInstance(ctx context.Context, specID kallax.ULID) (*models.Instance, error) {
