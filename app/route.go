@@ -17,7 +17,8 @@ func (a *App) route() {
 	r.Use(uamid.RequestID("request_id"))
 	r.Use(uamid.RequestLogger)
 	r.Use(uamid.Recoverer)
-	r.Use(middleware.Heartbeat("/ping"))
+
+	r.Route("/health", a.routeHealth)
 
 	if a.staticPath == "" {
 		r.Handle("/static/*", http.StripPrefix("/static", http.FileServer(static.FS(false))))
