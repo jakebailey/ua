@@ -389,6 +389,12 @@
 			"revisionTime": "2017-08-26T07:16:30Z"
 		},
 		{
+			"checksumSHA1": "Zi5uRKslwVUdr2KUweC0F0h9q2A=",
+			"path": "github.com/joho/godotenv",
+			"revision": "c9360df4d16dc0e391ea2f28da2d31a9ede2e26f",
+			"revisionTime": "2017-08-22T04:21:26Z"
+		},
+		{
 			"checksumSHA1": "3dA3PsgYXZXzfsOOdDDvyp8zO0w=",
 			"path": "github.com/lann/builder",
 			"revision": "f22ce00fd9394014049dad11c244859432bd6820",

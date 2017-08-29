@@ -2,28 +2,30 @@ package main
 
 import (
 	"encoding/base64"
+	"fmt"
 	"os"
 	"os/signal"
 	"time"
 
 	"github.com/alexflint/go-arg"
 	"github.com/jakebailey/ua/app"
+	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
 var args = struct {
-	Debug      bool   `arg:"env,help:enables pretty logging and extra debug routes"`
+	Debug      bool   `arg:"env:UA_DEBUG,help:enables pretty logging and extra debug routes"`
 	StaticPath string `arg:"--static-path,help:path to static directory; if not provided embedded assets are used"`
 
-	Addr              string `arg:"env,help:address to run the http server on"`
-	Database          string `arg:"required,env,help:postgres database connection string"`
-	CertFile          string `arg:"env,help:path to HTTPS certificate file"`
-	KeyFile           string `arg:"env,help:path to HTTPS key file"`
-	AESKey            string `arg:"required,env,help:base64 encoded AES key"`
-	LetsEncryptDomain string `arg:"env,help:domain to run Let's Encrypt on"`
+	Addr              string `arg:"env:UA_ADDR,help:address to run the http server on"`
+	Database          string `arg:"required,env:UA_DATABASE,help:postgres database connection string"`
+	CertFile          string `arg:"--cert-file,env:UA_CERT_FILE,help:path to HTTPS certificate file"`
+	KeyFile           string `arg:"--key-file,env:UA_KEY_FILE,help:path to HTTPS key file"`
+	AESKey            string `arg:"--aes-key,required,env:UA_AES_KEY,help:base64 encoded AES key"`
+	LetsEncryptDomain string `arg:"--letsencrypt-domain,env:UA_LE_DOMAIN,help:domain to run Let's Encrypt on"`
+	AssignmentPath    string `arg:"--assignment-path,env:UA_ASSIGNMENT_PATH,help:path to assignments directory"`
 
-	AssignmentPath     string        `arg:"--assignment-path,env,help:path to assignments directory"`
 	CleanInactiveEvery time.Duration `arg:"--clean-inactive-every,help:how often to clean up inactive instances"`
 	CheckExpiredEvery  time.Duration `arg:"--check-expired-every,help:how often to check for expired instances"`
 	WebsocketTimeout   time.Duration `arg:"--websocket-timeout,help:maximum duration a websocket can be inactive"`
@@ -38,6 +40,11 @@ var args = struct {
 }
 
 func main() {
+	if err := godotenv.Load(); err != nil {
+		fmt.Fprintln(os.Stderr, "error loading .env file:", err)
+		os.Exit(1)
+	}
+
 	p := arg.MustParse(&args)
 
 	var logConfig zap.Config
