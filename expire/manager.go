@@ -56,15 +56,15 @@ func (m *Manager) Stop() {
 //
 // Acquire is safe for concurrent use.
 func (m *Manager) Acquire(name string, onExpire func()) *Token {
+	var blocker chan struct{}
+
+	m.mu.Lock()
+
 	token := newToken()
 	e := &entry{
 		token:    token,
 		onExpire: onExpire,
 	}
-
-	var blocker chan struct{}
-
-	m.mu.Lock()
 
 	if old := m.entries[name]; old != nil {
 		blocker = make(chan struct{})
@@ -85,12 +85,15 @@ func (m *Manager) Acquire(name string, onExpire func()) *Token {
 	return token
 }
 
-// Return returns a token to the manager, deregistering it. This will not
+// Release returns a token to the manager, deregistering it. This will not
 // run the associated onExpire function. If the given token is not being
 // tracked, Return does nothing.
 //
+// Once a token is released, it is no longer valid. Ensure no references
+// to the returned token exist.
+//
 // Return is safe for concurrent use.
-func (m *Manager) Return(token *Token) {
+func (m *Manager) Release(token *Token) {
 	m.mu.Lock()
 
 	if name, ok := m.tokens[token]; ok {

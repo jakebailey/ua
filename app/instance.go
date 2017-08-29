@@ -109,7 +109,7 @@ func (a *App) handleInstance(ctx context.Context, conn proxy.Conn, instance *mod
 			}
 		},
 	)
-	defer a.wsManager.Return(token)
+	defer a.wsManager.Release(token)
 
 	instance.ExpiresAt = nil
 	if _, err := a.instanceStore.Update(instance, models.Schema.Instance.ExpiresAt); err != nil {
