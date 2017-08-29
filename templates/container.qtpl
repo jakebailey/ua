@@ -18,7 +18,13 @@
     <div id="terminal"></div>
 
     <script>
-        var socket = new WebSocket("ws://{%s url %}");
+        var protocol = "ws:";
+
+        if (location.protocol == 'https:') {
+            protocol = "wss:";
+        }
+
+        var socket = new WebSocket(protocol + "//{%s url %}");
 
         socket.onopen = function() {
             hterm.defaultStorage = new lib.Storage.Memory();

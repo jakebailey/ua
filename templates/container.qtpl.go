@@ -40,10 +40,16 @@ func StreamContainer(qw422016 *qt422016.Writer, url string) {
     <div id="terminal"></div>
 
     <script>
-        var socket = new WebSocket("ws://`)
-	//line container.qtpl:21
+        var protocol = "ws:";
+
+        if (location.protocol == 'https:') {
+            protocol = "wss:";
+        }
+
+        var socket = new WebSocket(protocol + "//`)
+	//line container.qtpl:27
 	qw422016.E().S(url)
-	//line container.qtpl:21
+	//line container.qtpl:27
 	qw422016.N().S(`");
 
         socket.onopen = function() {
@@ -112,31 +118,31 @@ func StreamContainer(qw422016 *qt422016.Writer, url string) {
 
 </html>
 `)
-//line container.qtpl:88
+//line container.qtpl:94
 }
 
-//line container.qtpl:88
+//line container.qtpl:94
 func WriteContainer(qq422016 qtio422016.Writer, url string) {
-	//line container.qtpl:88
+	//line container.qtpl:94
 	qw422016 := qt422016.AcquireWriter(qq422016)
-	//line container.qtpl:88
+	//line container.qtpl:94
 	StreamContainer(qw422016, url)
-	//line container.qtpl:88
+	//line container.qtpl:94
 	qt422016.ReleaseWriter(qw422016)
-//line container.qtpl:88
+//line container.qtpl:94
 }
 
-//line container.qtpl:88
+//line container.qtpl:94
 func Container(url string) string {
-	//line container.qtpl:88
+	//line container.qtpl:94
 	qb422016 := qt422016.AcquireByteBuffer()
-	//line container.qtpl:88
+	//line container.qtpl:94
 	WriteContainer(qb422016, url)
-	//line container.qtpl:88
+	//line container.qtpl:94
 	qs422016 := string(qb422016.B)
-	//line container.qtpl:88
+	//line container.qtpl:94
 	qt422016.ReleaseByteBuffer(qb422016)
-	//line container.qtpl:88
+	//line container.qtpl:94
 	return qs422016
-//line container.qtpl:88
+//line container.qtpl:94
 }
