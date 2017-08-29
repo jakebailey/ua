@@ -137,7 +137,7 @@ func (a *App) Run() error {
 	}
 
 	// Sanity check Docker client
-	_, err := a.cli.Info(context.Background())
+	_, err := a.cli.Ping(context.Background())
 	if err != nil {
 		return err
 	}

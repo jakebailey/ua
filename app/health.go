@@ -20,7 +20,7 @@ func (a *App) routeHealth(r chi.Router) {
 }
 
 func (a *App) healthDocker(w http.ResponseWriter, r *http.Request) {
-	if _, err := a.cli.Info(r.Context()); err != nil {
+	if _, err := a.cli.Ping(r.Context()); err != nil {
 		logger := ctxlog.FromRequest(r)
 		logger.Error("error health checking docker",
 			zap.Error(err),
