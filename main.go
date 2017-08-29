@@ -16,7 +16,7 @@ import (
 
 var args = struct {
 	Debug      bool   `arg:"env:UA_DEBUG,help:enables pretty logging and extra debug routes"`
-	StaticPath string `arg:"--static-path,help:path to static directory; if not provided embedded assets are used"`
+	StaticPath string `arg:"--static-path,env:UA_STATIC_PATH,help:path to static directory; if not provided embedded assets are used"`
 
 	Addr              string `arg:"env:UA_ADDR,help:address to run the http server on"`
 	Database          string `arg:"required,env:UA_DATABASE,help:postgres database connection string"`
@@ -26,10 +26,10 @@ var args = struct {
 	LetsEncryptDomain string `arg:"--letsencrypt-domain,env:UA_LE_DOMAIN,help:domain to run Let's Encrypt on"`
 	AssignmentPath    string `arg:"--assignment-path,env:UA_ASSIGNMENT_PATH,help:path to assignments directory"`
 
-	CleanInactiveEvery time.Duration `arg:"--clean-inactive-every,help:how often to clean up inactive instances"`
-	CheckExpiredEvery  time.Duration `arg:"--check-expired-every,help:how often to check for expired instances"`
-	WebsocketTimeout   time.Duration `arg:"--websocket-timeout,help:maximum duration a websocket can be inactive"`
-	InstanceExpire     time.Duration `arg:"--instance-expire,help:duration to expire instances after"`
+	CleanInactiveEvery time.Duration `arg:"--clean-inactive-every,env:UA_CLEAN_INACTIVE_EVERY,help:how often to clean up inactive instances"`
+	CheckExpiredEvery  time.Duration `arg:"--check-expired-every,env:UA_CHECK_EXPIRED_EVERY,help:how often to check for expired instances"`
+	WebsocketTimeout   time.Duration `arg:"--websocket-timeout,env:UA_WS_TIMEOUT,help:maximum duration a websocket can be inactive"`
+	InstanceExpire     time.Duration `arg:"--instance-expire,env:UA_INSTANCE_EXPIRE,help:duration to expire instances after"`
 }{
 	Addr:               app.DefaultAddr,
 	AssignmentPath:     app.DefaultAssignmentPath,
