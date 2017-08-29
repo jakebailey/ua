@@ -84,10 +84,18 @@ func StreamContainer(qw422016 *qt422016.Writer, url string) {
 
             socket.addEventListener("message", function(ev) {
                 var data = JSON.parse(ev.data)
-                if (data[0] == "stdout") {
-                    t.io.print(data[1]);
+
+                if (data.length == 0) {
+                    return;
                 }
-                // console.log(data);
+
+                var command = data[0];
+
+                if (command == "stdout") {
+                    t.io.print(data[1]);
+                } else if (command == "wipe") {
+                    t.wipeContents();
+                }
             });
 
             var onclose = function() {
@@ -104,31 +112,31 @@ func StreamContainer(qw422016 *qt422016.Writer, url string) {
 
 </html>
 `)
-//line container.qtpl:80
+//line container.qtpl:88
 }
 
-//line container.qtpl:80
+//line container.qtpl:88
 func WriteContainer(qq422016 qtio422016.Writer, url string) {
-	//line container.qtpl:80
+	//line container.qtpl:88
 	qw422016 := qt422016.AcquireWriter(qq422016)
-	//line container.qtpl:80
+	//line container.qtpl:88
 	StreamContainer(qw422016, url)
-	//line container.qtpl:80
+	//line container.qtpl:88
 	qt422016.ReleaseWriter(qw422016)
-//line container.qtpl:80
+//line container.qtpl:88
 }
 
-//line container.qtpl:80
+//line container.qtpl:88
 func Container(url string) string {
-	//line container.qtpl:80
+	//line container.qtpl:88
 	qb422016 := qt422016.AcquireByteBuffer()
-	//line container.qtpl:80
+	//line container.qtpl:88
 	WriteContainer(qb422016, url)
-	//line container.qtpl:80
+	//line container.qtpl:88
 	qs422016 := string(qb422016.B)
-	//line container.qtpl:80
+	//line container.qtpl:88
 	qt422016.ReleaseByteBuffer(qb422016)
-	//line container.qtpl:80
+	//line container.qtpl:88
 	return qs422016
-//line container.qtpl:80
+//line container.qtpl:88
 }

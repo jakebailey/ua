@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"net"
 	"net/http"
 	"time"
 
@@ -73,14 +72,22 @@ func (a *App) instanceWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	proxyConn := proxy.NewWSConn(conn)
+
+	if err := proxyConn.WriteJSON([]string{"stdout", "Please wait..."}); err != nil {
+		logger.Warn("error writing please wait message",
+			zap.Error(err),
+		)
+	}
+
 	ctx = context.Background()
 	ctx = ctxlog.WithLogger(ctx, logger)
 
 	a.wsWG.Add(1)
-	go a.handleInstance(ctx, conn, instance)
+	go a.handleInstance(ctx, proxyConn, instance)
 }
 
-func (a *App) handleInstance(ctx context.Context, conn net.Conn, instance *models.Instance) {
+func (a *App) handleInstance(ctx context.Context, conn proxy.Conn, instance *models.Instance) {
 	defer a.wsWG.Done()
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -91,13 +98,11 @@ func (a *App) handleInstance(ctx context.Context, conn net.Conn, instance *model
 		zap.String("container_id", instance.ContainerID),
 	)
 
-	var proxyConn proxy.Conn = proxy.NewWSConn(conn)
-
 	token := a.wsManager.Acquire(
 		instance.ID.String(),
 		func() {
 			logger.Debug("websocket expired")
-			if err := proxyConn.Close(); err != nil {
+			if err := conn.Close(); err != nil {
 				logger.Error("error closing connection on expiry",
 					zap.Error(err),
 				)
@@ -119,12 +124,12 @@ func (a *App) handleInstance(ctx context.Context, conn net.Conn, instance *model
 		)
 	}
 
-	proxyConn = tokenProxyConn{
-		Conn:  proxyConn,
+	conn = tokenProxyConn{
+		Conn:  conn,
 		token: token,
 	}
 
-	if err := proxy.Proxy(ctx, instance.ContainerID, proxyConn, a.cli); err != nil {
+	if err := proxy.Proxy(ctx, instance.ContainerID, conn, a.cli); err != nil {
 		logger.Error("error proxying container",
 			zap.Error(err),
 		)

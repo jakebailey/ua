@@ -154,6 +154,10 @@ func proxyOutputFunc(ctx context.Context, id string, conn Conn, reader io.Reader
 		defer logger.Debug("proxy stopping")
 		logger.Debug("proxy starting")
 
+		if err := conn.WriteJSON([]string{"wipe"}); err != nil {
+			return err
+		}
+
 		s := bufio.NewScanner(reader)
 		s.Split(ScanRunesGreedy)
 
