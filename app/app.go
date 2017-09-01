@@ -142,13 +142,14 @@ func (a *App) Run() error {
 		a.cliClose = cli.Close
 	}
 
-	// Sanity check Docker client
-	_, err := a.cli.Ping(context.Background())
-	if err != nil {
-		a.logger.Error("error pinging docker daemon",
+	var err error
+
+	if dockerPing, err := a.cli.Ping(context.Background()); err != nil {
+		a.logger.Warn("error pinging docker daemon, continuing anyway",
 			zap.Error(err),
 		)
-		return err
+	} else {
+		a.cli.NegotiateAPIVersionPing(dockerPing)
 	}
 
 	if a.db, err = sql.Open("postgres", a.dbString); err != nil {
@@ -159,10 +160,9 @@ func (a *App) Run() error {
 	}
 
 	if err := a.db.Ping(); err != nil {
-		a.logger.Error("error pinging database",
+		a.logger.Warn("error pinging database, continuing anyway",
 			zap.Error(err),
 		)
-		return err
 	}
 
 	if a.migrateReset {
