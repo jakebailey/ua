@@ -13,6 +13,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/go-chi/chi"
 	"github.com/jakebailey/ua/expire"
+	"github.com/jakebailey/ua/migrations"
 	"github.com/jakebailey/ua/models"
 	"github.com/jakebailey/ua/sched"
 	"go.uber.org/zap"
@@ -84,6 +85,8 @@ type App struct {
 	db            *sql.DB
 	specStore     *models.SpecStore
 	instanceStore *models.InstanceStore
+	migrateUp     bool
+	migrateReset  bool
 
 	cleanInactiveRunner *sched.Runner
 	cleanInactiveEvery  time.Duration
@@ -148,6 +151,16 @@ func (a *App) Run() error {
 
 	if err := a.db.Ping(); err != nil {
 		return err
+	}
+
+	if a.migrateReset {
+		if err := migrations.Reset(a.db); err != nil {
+			return err
+		}
+	} else if a.migrateUp {
+		if err := migrations.Up(a.db); err != nil {
+			return err
+		}
 	}
 
 	a.specStore = models.NewSpecStore(a.db)

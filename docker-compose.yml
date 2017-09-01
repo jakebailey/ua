@@ -1,0 +1,22 @@
+version: "3"
+
+services:
+  app:
+    image: golang
+    volumes:
+      - .:/go/src/github.com/jakebailey/ua
+      - /var/run/docker.sock:/var/run/docker.sock
+    working_dir: /go/src/github.com/jakebailey/ua
+    command: go run main.go
+    ports:
+      - "8000:8000"
+    links:
+      - db
+    depends_on:
+      - db
+    environment:
+      - UA_DATABASE=postgres://postgres:mysecretpassword@db:5432/postgres?sslmode=disable
+      - UA_MIGRATE_UP=true
+
+  db:
+    image: postgres

@@ -19,12 +19,15 @@ var args = struct {
 	StaticPath string `arg:"--static-path,env:UA_STATIC_PATH,help:path to static directory; if not provided embedded assets are used"`
 
 	Addr              string `arg:"env:UA_ADDR,help:address to run the http server on"`
-	Database          string `arg:"required,env:UA_DATABASE,help:postgres database connection string"`
 	CertFile          string `arg:"--cert-file,env:UA_CERT_FILE,help:path to HTTPS certificate file"`
 	KeyFile           string `arg:"--key-file,env:UA_KEY_FILE,help:path to HTTPS key file"`
 	AESKey            string `arg:"--aes-key,required,env:UA_AES_KEY,help:base64 encoded AES key"`
 	LetsEncryptDomain string `arg:"--letsencrypt-domain,env:UA_LE_DOMAIN,help:domain to run Let's Encrypt on"`
 	AssignmentPath    string `arg:"--assignment-path,env:UA_ASSIGNMENT_PATH,help:path to assignments directory"`
+
+	Database     string `arg:"required,env:UA_DATABASE,help:postgres database connection string"`
+	MigrateUp    bool   `arg:"env:UA_MIGRATE_UP,help:run migrations up after database connection"`
+	MigrateReset bool   `arg:"env:UA_MIGRATE_RESET,help:reset database and run migrations up after database connection"`
 
 	CleanInactiveEvery time.Duration `arg:"--clean-inactive-every,env:UA_CLEAN_INACTIVE_EVERY,help:how often to clean up inactive instances"`
 	CheckExpiredEvery  time.Duration `arg:"--check-expired-every,env:UA_CHECK_EXPIRED_EVERY,help:how often to check for expired instances"`
@@ -68,6 +71,10 @@ func main() {
 		)
 	}
 
+	if args.MigrateUp && args.MigrateReset {
+		p.Fail("cannot both migrate up and migrate reset")
+	}
+
 	options := []app.Option{
 		app.Logger(logger),
 		app.Addr(args.Addr),
@@ -79,6 +86,8 @@ func main() {
 		app.CheckExpiredEvery(args.CheckExpiredEvery),
 		app.WebsocketTimeout(args.WebsocketTimeout),
 		app.InstanceExpire(args.InstanceExpire),
+		app.MigrateUp(args.MigrateUp),
+		app.MigrateReset(args.MigrateReset),
 	}
 
 	if args.LetsEncryptDomain != "" {

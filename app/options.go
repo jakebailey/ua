@@ -132,3 +132,15 @@ func StaticPath(path string) Option {
 		a.staticPath = path
 	}
 }
+
+func MigrateUp(migrateUp bool) Option {
+	return func(a *App) {
+		a.migrateUp = migrateUp
+	}
+}
+
+func MigrateReset(migrateReset bool) Option {
+	return func(a *App) {
+		a.migrateReset = migrateReset
+	}
+}
