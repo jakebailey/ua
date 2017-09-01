@@ -132,6 +132,9 @@ func (a *App) Run() error {
 	if a.cli == nil {
 		cli, err := client.NewEnvClient()
 		if err != nil {
+			a.logger.Error("error creating docker env client",
+				zap.Error(err),
+			)
 			return err
 		}
 
@@ -142,22 +145,37 @@ func (a *App) Run() error {
 	// Sanity check Docker client
 	_, err := a.cli.Ping(context.Background())
 	if err != nil {
+		a.logger.Error("error pinging docker daemon",
+			zap.Error(err),
+		)
 		return err
 	}
 
 	if a.db, err = sql.Open("postgres", a.dbString); err != nil {
+		a.logger.Error("error opening database",
+			zap.Error(err),
+		)
 		return err
 	}
 
 	if err := a.db.Ping(); err != nil {
+		a.logger.Error("error pinging database",
+			zap.Error(err),
+		)
 		return err
 	}
 
 	if a.migrateReset {
 		if err := migrations.Reset(a.db); err != nil {
+			a.logger.Error("error resetting database",
+				zap.Error(err),
+			)
 			return err
 		}
 	} else if a.migrateUp {
+		a.logger.Error("error migrating database up",
+			zap.Error(err),
+		)
 		if err := migrations.Up(a.db); err != nil {
 			return err
 		}
@@ -180,21 +198,18 @@ func (a *App) Run() error {
 	a.wsManager = expire.NewManager(time.Minute, a.wsTimeout)
 	a.wsManager.Run()
 
-	if a.letsEncrypt {
-		a.srv = &http.Server{
-			Handler: a.router,
-		}
+	a.srv = &http.Server{
+		Handler: a.router,
+	}
 
+	if a.letsEncrypt {
 		l := autocert.NewListener(a.letsEncryptDomain)
 
 		a.logger.Info("starting http server", zap.String("domain", a.letsEncryptDomain))
 
 		err = a.srv.Serve(l)
 	} else {
-		a.srv = &http.Server{
-			Addr:    a.addr,
-			Handler: a.router,
-		}
+		a.srv.Addr = a.addr
 
 		a.logger.Info("starting http server", zap.String("addr", a.addr))
 
