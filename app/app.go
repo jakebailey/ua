@@ -173,10 +173,10 @@ func (a *App) Run() error {
 			return err
 		}
 	} else if a.migrateUp {
-		a.logger.Error("error migrating database up",
-			zap.Error(err),
-		)
 		if err := migrations.Up(a.db); err != nil {
+			a.logger.Error("error migrating database up",
+				zap.Error(err),
+			)
 			return err
 		}
 	}
