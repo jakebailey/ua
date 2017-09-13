@@ -329,6 +329,12 @@
 			"revisionTime": "2017-09-07T16:24:55Z"
 		},
 		{
+			"checksumSHA1": "r/8uaoEFx3XAL2U2MJ3xmgJ78qo=",
+			"path": "github.com/go-chi/cors",
+			"revision": "dba6525398619dead495962a916728e7ee2ca322",
+			"revisionTime": "2017-08-02T15:05:10Z"
+		},
+		{
 			"checksumSHA1": "KlhjFlnkWjrgYdOiUCgD+uuiCRU=",
 			"path": "github.com/go-chi/render",
 			"revision": "9f855fadd4b8cde7773f9ef51f6b2705af239519",

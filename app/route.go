@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
+	"github.com/go-chi/cors"
 	"github.com/jakebailey/ua/ctxlog"
 	"github.com/jakebailey/ua/static"
 	"github.com/jakebailey/ua/uamid"
@@ -12,6 +13,16 @@ import (
 
 func (a *App) route() {
 	r := chi.NewRouter()
+
+	cors := cors.New(cors.Options{
+		AllowedOrigins:   []string{"*"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Request-ID", "Connection", "Upgrade"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: true,
+		MaxAge:           300,
+	})
+	r.Use(cors.Handler)
 
 	r.Use(ctxlog.Logger(a.logger))
 	r.Use(uamid.RequestID("request_id"))
