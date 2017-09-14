@@ -3,8 +3,9 @@ package image
 import (
 	"context"
 	"encoding/json"
-	"errors"
+	"fmt"
 	"io"
+	"strings"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
@@ -39,15 +40,12 @@ func Build(ctx context.Context, cli client.CommonAPIClient, path string, tag str
 	}
 	defer response.Body.Close()
 
-	id, err := getIDFromBody(response.Body)
-	if err != nil {
-		return "", err
-	}
-
-	return id, nil
+	return readBuildBody(response.Body)
 }
 
-func getIDFromBody(body io.Reader) (string, error) {
+func readBuildBody(body io.Reader) (string, error) {
+	var messages []string
+
 	dec := json.NewDecoder(body)
 	for {
 		var jm jsonmessage.JSONMessage
@@ -65,7 +63,10 @@ func getIDFromBody(body io.Reader) (string, error) {
 			}
 			return result.ID, nil
 		}
+
+		// TODO: make this smarter
+		messages = append(messages, fmt.Sprint(jm))
 	}
 
-	return "", errors.New("ID not found")
+	return "", fmt.Errorf("build did not complete:\n%s", strings.Join(messages, "\n"))
 }
