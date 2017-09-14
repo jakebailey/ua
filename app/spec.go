@@ -204,9 +204,13 @@ func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.I
 	hostConfig := &container.HostConfig{
 		Init:        &truth,
 		NetworkMode: "none",
-		Resources: container.Resources{
-			CPUShares: 2,
-		},
+	}
+
+	if !a.disableLimits {
+		hostConfig.Resources.CPUShares = 2
+		hostConfig.StorageOpt = map[string]string{
+			"size": "100M",
+		}
 	}
 
 	c, err := a.cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, containerName)

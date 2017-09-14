@@ -33,6 +33,7 @@ var args = struct {
 	CheckExpiredEvery  time.Duration `arg:"--check-expired-every,env:UA_CHECK_EXPIRED_EVERY,help:how often to check for expired instances"`
 	WebsocketTimeout   time.Duration `arg:"--websocket-timeout,env:UA_WS_TIMEOUT,help:maximum duration a websocket can be inactive"`
 	InstanceExpire     time.Duration `arg:"--instance-expire,env:UA_INSTANCE_EXPIRE,help:duration to expire instances after"`
+	DisableLimits      bool          `arg:"--disable-limits,env:UA_DISABLE_LIMITS,help:disable limits for containers"`
 }{
 	Addr:               app.DefaultAddr,
 	AssignmentPath:     app.DefaultAssignmentPath,

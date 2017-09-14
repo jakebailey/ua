@@ -78,8 +78,9 @@ type App struct {
 	logger *zap.Logger
 	spew   *spew.ConfigState
 
-	cli      client.CommonAPIClient
-	cliClose func() error
+	cli           client.CommonAPIClient
+	cliClose      func() error
+	disableLimits bool
 
 	dbString      string
 	db            *sql.DB

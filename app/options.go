@@ -144,3 +144,9 @@ func MigrateReset(migrateReset bool) Option {
 		a.migrateReset = migrateReset
 	}
 }
+
+func DisableLimits(disableLimits bool) Option {
+	return func(a *App) {
+		a.disableLimits = disableLimits
+	}
+}
