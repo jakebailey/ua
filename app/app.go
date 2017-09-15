@@ -200,7 +200,8 @@ func (a *App) Run() error {
 	a.wsManager.Run()
 
 	a.srv = &http.Server{
-		Handler: a.router,
+		Handler:  a.router,
+		ErrorLog: zap.NewStdLog(a.logger),
 	}
 
 	if a.letsEncrypt {
