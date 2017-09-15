@@ -93,7 +93,7 @@ func (a *App) cleanInactiveInstances() {
 		FindByActive(false).
 		FindByCleaned(false)
 
-	logger.Info("cleaning up instances")
+	logger.Debug("cleaning up instances")
 
 	instances, err := a.instanceStore.Find(instanceQuery)
 	if err != nil {
@@ -125,9 +125,13 @@ func (a *App) cleanInactiveInstances() {
 
 	a.pruneImages(ctx)
 
-	logger.Info("cleaned up instances",
-		zap.Int("count", count),
-	)
+	if count != 0 {
+		logger.Info("cleaned up instances",
+			zap.Int("count", count),
+		)
+	} else {
+		logger.Debug("no instances to clean up")
+	}
 }
 
 func (a *App) checkExpiredInstances() {
@@ -137,7 +141,7 @@ func (a *App) checkExpiredInstances() {
 		FindByActive(true).
 		FindByExpiresAt(kallax.Lt, time.Now())
 
-	logger.Info("looking for instances to expire")
+	logger.Debug("looking for instances to expire")
 
 	instances, err := a.instanceStore.Find(instanceQuery)
 	if err != nil {
@@ -167,9 +171,13 @@ func (a *App) checkExpiredInstances() {
 		)
 	}
 
-	logger.Info("expired instances",
-		zap.Int("count", count),
-	)
+	if count != 0 {
+		logger.Info("expired instances",
+			zap.Int("count", count),
+		)
+	} else {
+		logger.Debug("no instances to expire")
+	}
 }
 
 func (a *App) cleanupLeftoverInstances() {
@@ -179,7 +187,7 @@ func (a *App) cleanupLeftoverInstances() {
 	instanceQuery := models.NewInstanceQuery().
 		FindByActive(true)
 
-	logger.Info("looking for leftover instances")
+	logger.Debug("looking for leftover instances")
 
 	instances, err := a.instanceStore.Find(instanceQuery)
 	if err != nil {
@@ -211,9 +219,13 @@ func (a *App) cleanupLeftoverInstances() {
 
 	a.pruneImages(ctx)
 
-	logger.Info("cleaned up instances",
-		zap.Int("count", count),
-	)
+	if count != 0 {
+		logger.Info("cleaned up instances",
+			zap.Int("count", count),
+		)
+	} else {
+		logger.Debug("no instances to clean up")
+	}
 }
 
 func (a *App) markAllInstancesCleanedAndInactive() {
@@ -225,7 +237,7 @@ func (a *App) markAllInstancesCleanedAndInactive() {
 			kallax.Eq(models.Schema.Instance.Cleaned, false),
 		))
 
-	logger.Info("marking all instances as cleaned and inactive")
+	logger.Debug("marking all instances as cleaned and inactive")
 
 	instances, err := a.instanceStore.Find(instanceQuery)
 	if err != nil {
@@ -256,9 +268,13 @@ func (a *App) markAllInstancesCleanedAndInactive() {
 		)
 	}
 
-	logger.Info("marked instances as cleaned and inactive",
-		zap.Int("count", count),
-	)
+	if count != 0 {
+		logger.Info("marked instances as cleaned and inactive",
+			zap.Int("count", count),
+		)
+	} else {
+		logger.Debug("no instances to mark clean and inactive")
+	}
 }
 
 var pruneFilter = filters.NewArgs()
@@ -274,8 +290,14 @@ func (a *App) pruneImages(ctx context.Context) {
 		return
 	}
 
-	logger.Info("pruned dangling instances",
-		zap.Int("count", len(report.ImagesDeleted)),
-		zap.Uint64("reclaimed", report.SpaceReclaimed),
-	)
+	count := len(report.ImagesDeleted)
+
+	if count != 0 {
+		logger.Info("pruned dangling images",
+			zap.Int("count", count),
+			zap.Uint64("reclaimed", report.SpaceReclaimed),
+		)
+	} else {
+		logger.Debug("no dangling images to prune")
+	}
 }
