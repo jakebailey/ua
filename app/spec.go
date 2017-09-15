@@ -276,7 +276,7 @@ func (a *App) specClean(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	instanceQuery := models.NewInstanceQuery().FindBySpec(specID)
+	instanceQuery := models.NewInstanceQuery().FindBySpec(specID).FindByCleaned(false)
 	a.cleanupInstancesByQuery(r.Context(), instanceQuery)
 	w.Write([]byte("ok"))
 }
