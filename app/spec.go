@@ -33,6 +33,7 @@ func (a *App) routeSpec(r chi.Router) {
 	}
 
 	r.Post("/", a.specPost)
+	r.Post("/clean", a.specClean)
 }
 
 func (a *App) specGet(w http.ResponseWriter, r *http.Request) {
