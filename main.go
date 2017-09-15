@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/alexflint/go-arg"
@@ -115,7 +116,7 @@ func main() {
 	}()
 
 	stopChan := make(chan os.Signal, 1)
-	signal.Notify(stopChan, os.Interrupt)
+	signal.Notify(stopChan, os.Interrupt, syscall.SIGTERM)
 
 	<-stopChan
 	logger.Info("shutting down app")
