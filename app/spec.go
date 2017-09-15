@@ -16,8 +16,13 @@ import (
 	"github.com/jakebailey/ua/models"
 	"github.com/jakebailey/ua/simplecrypto"
 	"github.com/jakebailey/ua/templates"
+	uuid "github.com/satori/go.uuid"
 	"go.uber.org/zap"
 	"gopkg.in/src-d/go-kallax.v1"
+)
+
+var (
+	nilULID = kallax.ULID(uuid.Nil)
 )
 
 func (a *App) routeSpec(r chi.Router) {
@@ -45,7 +50,7 @@ type specPostResponse struct {
 	InstanceID string `json:"instanceID"`
 }
 
-func (a *App) specPost(w http.ResponseWriter, r *http.Request) {
+func (a *App) specProcessRequest(w http.ResponseWriter, r *http.Request) kallax.ULID {
 	ctx := r.Context()
 	logger := ctxlog.FromContext(ctx)
 
@@ -56,7 +61,7 @@ func (a *App) specPost(w http.ResponseWriter, r *http.Request) {
 			zap.Error(err),
 		)
 		a.httpError(w, err.Error(), http.StatusBadRequest)
-		return
+		return nilULID
 	}
 
 	var req specPostRequest
@@ -66,23 +71,28 @@ func (a *App) specPost(w http.ResponseWriter, r *http.Request) {
 			zap.Error(err),
 		)
 		a.httpError(w, err.Error(), http.StatusBadRequest)
-		return
+		return nilULID
 	}
 
 	if req.SpecID == "" {
 		http.Error(w, "spec ID cannot be blank", http.StatusBadRequest)
-		return
+		return nilULID
 	}
 
 	if req.AssignmentName == "" {
 		http.Error(w, "assignment name cannot be blank", http.StatusBadRequest)
-		return
+		return nilULID
 	}
 
 	specID, err := kallax.NewULIDFromText(req.SpecID)
 	if err != nil {
 		a.httpError(w, err.Error(), http.StatusBadRequest)
-		return
+		return nilULID
+	}
+
+	if specID.IsEmpty() {
+		http.Error(w, "spec ID cannot be all zero", http.StatusBadRequest)
+		return nilULID
 	}
 
 	specQuery := models.NewSpecQuery().FindByID(specID)
@@ -95,7 +105,7 @@ func (a *App) specPost(w http.ResponseWriter, r *http.Request) {
 				zap.Any("spec_id", specID.String()),
 			)
 			a.httpError(w, err.Error(), http.StatusInternalServerError)
-			return
+			return nilULID
 		}
 
 		spec = &models.Spec{
@@ -110,8 +120,20 @@ func (a *App) specPost(w http.ResponseWriter, r *http.Request) {
 				zap.Any("spec_id", specID.String()),
 			)
 			a.httpError(w, err.Error(), http.StatusInternalServerError)
-			return
+			return nilULID
 		}
+	}
+
+	return specID
+}
+
+func (a *App) specPost(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	logger := ctxlog.FromContext(ctx)
+
+	specID := a.specProcessRequest(w, r)
+	if specID.IsEmpty() {
+		return
 	}
 
 	instance, err := a.getActiveInstance(ctx, specID)
@@ -246,4 +268,15 @@ func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.I
 	}
 
 	return instance, nil
+}
+
+func (a *App) specClean(w http.ResponseWriter, r *http.Request) {
+	specID := a.specProcessRequest(w, r)
+	if specID.IsEmpty() {
+		return
+	}
+
+	instanceQuery := models.NewInstanceQuery().FindBySpec(specID)
+	a.cleanupInstancesByQuery(r.Context(), instanceQuery)
+	w.Write([]byte("ok"))
 }

@@ -181,11 +181,14 @@ func (a *App) checkExpiredInstances() {
 }
 
 func (a *App) cleanupLeftoverInstances() {
-	logger := a.logger
-	ctx := ctxlog.WithLogger(context.Background(), logger)
+	ctx := ctxlog.WithLogger(context.Background(), a.logger)
 
-	instanceQuery := models.NewInstanceQuery().
-		FindByActive(true)
+	instanceQuery := models.NewInstanceQuery().FindByActive(true)
+	a.cleanupInstancesByQuery(ctx, instanceQuery)
+}
+
+func (a *App) cleanupInstancesByQuery(ctx context.Context, instanceQuery *models.InstanceQuery) {
+	logger := ctxlog.FromContext(ctx)
 
 	logger.Debug("looking for leftover instances")
 
