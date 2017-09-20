@@ -277,7 +277,13 @@ func (a *App) specClean(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	instanceQuery := models.NewInstanceQuery().FindBySpec(specID).FindByCleaned(false)
-	a.cleanupInstancesByQuery(r.Context(), instanceQuery)
+	// Do this asynchronously, as we don't care if this fails or not.
+	go func() {
+		logger := ctxlog.FromRequest(r)
+		ctx := ctxlog.WithLogger(context.Background(), logger)
+		instanceQuery := models.NewInstanceQuery().FindBySpec(specID).FindByCleaned(false)
+		a.cleanupInstancesByQuery(ctx, instanceQuery)
+	}()
+
 	w.Write([]byte("ok"))
 }
