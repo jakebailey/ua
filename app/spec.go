@@ -8,6 +8,7 @@ import (
 	"sort"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/go-units"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/render"
@@ -231,6 +232,8 @@ func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.I
 
 	if !a.disableLimits {
 		hostConfig.Resources.CPUShares = 2
+		hostConfig.Resources.Memory = 16 * units.MiB
+		hostConfig.Resources.MemoryReservation = 4 * units.MiB
 		hostConfig.StorageOpt = map[string]string{
 			"size": "100M",
 		}
