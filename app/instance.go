@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -103,6 +104,10 @@ func (a *App) handleInstance(ctx context.Context, conn proxy.Conn, instance *mod
 		func() {
 			logger.Debug("websocket expired")
 			if err := conn.Close(); err != nil {
+				if strings.Contains(err.Error(), "use of closed connection") {
+					return
+				}
+
 				logger.Error("error closing connection on expiry",
 					zap.Error(err),
 				)
