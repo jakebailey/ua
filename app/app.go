@@ -199,9 +199,14 @@ func (a *App) Run() error {
 	a.wsManager = expire.NewManager(time.Minute, a.wsTimeout)
 	a.wsManager.Run()
 
+	errorLog, err := zap.NewStdLogAt(a.logger, zap.DebugLevel)
+	if err != nil {
+		return err
+	}
+
 	a.srv = &http.Server{
 		Handler:  a.router,
-		ErrorLog: zap.NewStdLog(a.logger),
+		ErrorLog: errorLog,
 	}
 
 	if a.letsEncrypt {
