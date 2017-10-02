@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"text/template"
 
@@ -23,6 +24,19 @@ const (
 func createBuildContext(root string, tmplData interface{}) (io.ReadCloser, string, error) {
 	tmplPath := filepath.Join(root, TemplateName)
 	contextPath := filepath.Join(root, ContextSubdir)
+
+	// If the context doesn't exist, make an empty tempdir to delete after creating the context.
+	if _, err := os.Stat(contextPath); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, "", err
+		}
+
+		contextPath, err = ioutil.TempDir("", "image-build-empty")
+		if err != nil {
+			return nil, "", err
+		}
+		defer os.RemoveAll(contextPath)
+	}
 
 	tmpl, err := template.ParseFiles(tmplPath)
 	if err != nil {
