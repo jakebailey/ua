@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/go-units"
@@ -203,7 +204,9 @@ func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.I
 		return nil, err
 	}
 
-	path := filepath.Join(a.assignmentPath, spec.AssignmentName)
+	pathSlice := []string{a.assignmentPath}
+	pathSlice = append(pathSlice, strings.Split(spec.AssignmentName, ".")...)
+	path := filepath.Join(pathSlice...)
 
 	// Empty image and container names are easier to identify and cleanup if
 	// needed, so just leave them blank.
