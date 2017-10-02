@@ -6,6 +6,7 @@ services:
     volumes:
       - .:/go/src/github.com/jakebailey/ua
       - /var/run/docker.sock:/var/run/docker.sock
+      - ${DC_ASSIGNMENT_PATH:-./assignments}:/assignments
     working_dir: /go/src/github.com/jakebailey/ua
     command: go run main.go
     ports:
@@ -17,6 +18,7 @@ services:
     environment:
       - UA_DATABASE=postgres://postgres:mysecretpassword@db:5432/postgres?sslmode=disable
       - UA_MIGRATE_UP=true
+      - UA_ASSIGNMENT_PATH=/assignments
 
   db:
     image: postgres
