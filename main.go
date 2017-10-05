@@ -90,6 +90,7 @@ func main() {
 		app.InstanceExpire(args.InstanceExpire),
 		app.MigrateUp(args.MigrateUp),
 		app.MigrateReset(args.MigrateReset),
+		app.DisableLimits(args.DisableLimits),
 	}
 
 	if args.LetsEncryptDomain != "" {
