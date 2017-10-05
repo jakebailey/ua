@@ -238,7 +238,7 @@ func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.I
 		hostConfig.Resources.Memory = 16 * units.MiB
 		hostConfig.Resources.MemoryReservation = 4 * units.MiB
 		hostConfig.StorageOpt = map[string]string{
-			"size": "100M",
+			"size": "300M",
 		}
 	}
 
