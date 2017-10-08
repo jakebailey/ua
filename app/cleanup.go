@@ -283,24 +283,24 @@ func (a *App) markAllInstancesCleanedAndInactive() {
 var pruneFilter = filters.NewArgs()
 
 func (a *App) pruneImages(ctx context.Context) {
-	logger := ctxlog.FromContext(ctx)
+	// logger := ctxlog.FromContext(ctx)
 
-	report, err := a.cli.ImagesPrune(ctx, pruneFilter)
-	if err != nil {
-		logger.Error("error pruning dangling images",
-			zap.Error(err),
-		)
-		return
-	}
+	// report, err := a.cli.ImagesPrune(ctx, pruneFilter)
+	// if err != nil {
+	// 	logger.Error("error pruning dangling images",
+	// 		zap.Error(err),
+	// 	)
+	// 	return
+	// }
 
-	count := len(report.ImagesDeleted)
+	// count := len(report.ImagesDeleted)
 
-	if count != 0 {
-		logger.Info("pruned dangling images",
-			zap.Int("count", count),
-			zap.Uint64("reclaimed", report.SpaceReclaimed),
-		)
-	} else {
-		logger.Debug("no dangling images to prune")
-	}
+	// if count != 0 {
+	// 	logger.Info("pruned dangling images",
+	// 		zap.Int("count", count),
+	// 		zap.Uint64("reclaimed", report.SpaceReclaimed),
+	// 	)
+	// } else {
+	// 	logger.Debug("no dangling images to prune")
+	// }
 }
