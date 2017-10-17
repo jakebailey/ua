@@ -64,7 +64,7 @@ func Proxy(ctx context.Context, id string, conn Conn, cli client.CommonAPIClient
 
 	logger.Debug("attaching to exec")
 
-	hj, err := cli.ContainerExecAttach(ctx, execID, execConfig)
+	hj, err := cli.ContainerExecAttach(ctx, execID, types.ExecStartCheck{Tty: true})
 	if err != nil {
 		return err
 	}

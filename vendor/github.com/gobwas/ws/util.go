@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"net/url"
 	"reflect"
 	"strings"
 	"unsafe"
@@ -55,18 +54,6 @@ func btsToString(bts []byte) string {
 	return *(*string)(unsafe.Pointer(s))
 }
 
-func strToNonce(str string) [nonceSize]byte {
-	s := *(*reflect.StringHeader)(unsafe.Pointer(&str))
-	n := *(*[nonceSize]byte)(unsafe.Pointer(s.Data))
-	return n
-}
-
-func btsToNonce(bts []byte) [nonceSize]byte {
-	b := *(*reflect.SliceHeader)(unsafe.Pointer(&bts))
-	n := *(*[nonceSize]byte)(unsafe.Pointer(b.Data))
-	return n
-}
-
 // asciiToInt converts bytes to int.
 func asciiToInt(bts []byte) (ret int, err error) {
 	// ASCII numbers all start with the high-order bits 0011.
@@ -97,17 +84,6 @@ func pow(a, b int) int {
 		a *= a
 	}
 	return p
-}
-
-func hostport(u *url.URL) string {
-	host, port := split2(u.Host, ':')
-	if port != "" {
-		return u.Host
-	}
-	if u.Scheme == "wss" {
-		return host + ":443"
-	}
-	return host + ":80"
 }
 
 func split2(s string, sep byte) (a, b string) {
@@ -312,6 +288,13 @@ func btsEqualFold(s, p []byte) bool {
 
 func min(a, b int) int {
 	if a < b {
+		return a
+	}
+	return b
+}
+
+func nonZero(a, b int) int {
+	if a != 0 {
 		return a
 	}
 	return b
