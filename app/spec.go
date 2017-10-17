@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"path/filepath"
 	"sort"
@@ -283,13 +284,26 @@ func (a *App) specClean(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Do this asynchronously, as we don't care if this fails or not.
-	go func() {
+	async := true
+	switch r.URL.Query().Get("async") {
+	case "false", "0":
+		async = false
+	}
+
+	log.Println("async =", async)
+
+	fn := func() {
 		logger := ctxlog.FromRequest(r)
 		ctx := ctxlog.WithLogger(context.Background(), logger)
 		instanceQuery := models.NewInstanceQuery().FindBySpec(specID).FindByCleaned(false)
 		a.cleanupInstancesByQuery(ctx, instanceQuery)
-	}()
+	}
+
+	if async {
+		go fn()
+	} else {
+		fn()
+	}
 
 	w.Write([]byte("ok"))
 }
