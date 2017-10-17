@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"net/http"
 	"path/filepath"
 	"sort"
@@ -289,8 +288,6 @@ func (a *App) specClean(w http.ResponseWriter, r *http.Request) {
 	case "false", "0":
 		async = false
 	}
-
-	log.Println("async =", async)
 
 	fn := func() {
 		logger := ctxlog.FromRequest(r)
