@@ -2,6 +2,8 @@ package image
 
 import (
 	"bytes"
+	"encoding/base64"
+	"encoding/json"
 	"io"
 	"io/ioutil"
 	"os"
@@ -21,6 +23,16 @@ const (
 	ContextSubdir = "context"
 )
 
+var funcs = template.FuncMap{
+	"jsonBase64": func(v interface{}) (string, error) {
+		buf, err := json.Marshal(v)
+		if err != nil {
+			return "", err
+		}
+		return base64.StdEncoding.EncodeToString(buf), nil
+	},
+}
+
 func createBuildContext(root string, tmplData interface{}) (io.ReadCloser, string, error) {
 	tmplPath := filepath.Join(root, TemplateName)
 	contextPath := filepath.Join(root, ContextSubdir)
@@ -38,7 +50,7 @@ func createBuildContext(root string, tmplData interface{}) (io.ReadCloser, strin
 		defer os.RemoveAll(contextPath)
 	}
 
-	tmpl, err := template.ParseFiles(tmplPath)
+	tmpl, err := template.New(TemplateName).Funcs(funcs).Option("missingkey=error").ParseFiles(tmplPath)
 	if err != nil {
 		return nil, "", err
 	}
