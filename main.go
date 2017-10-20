@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"sort"
 	"syscall"
 	"time"
 
 	"github.com/alexflint/go-arg"
+	"github.com/coreos/go-systemd/journal"
 	"github.com/jakebailey/ua/app"
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
@@ -35,6 +37,8 @@ var args = struct {
 	WebsocketTimeout   time.Duration `arg:"--websocket-timeout,env:UA_WS_TIMEOUT,help:maximum duration a websocket can be inactive"`
 	InstanceExpire     time.Duration `arg:"--instance-expire,env:UA_INSTANCE_EXPIRE,help:duration to expire instances after"`
 	DisableLimits      bool          `arg:"--disable-limits,env:UA_DISABLE_LIMITS,help:disable limits for containers"`
+
+	JournaldDirect bool `arg:"--journald-direct,env:UA_JOURNALD_DIRECT,help:log directory to journald instead of stdout"`
 }{
 	Addr:               app.DefaultAddr,
 	AssignmentPath:     app.DefaultAssignmentPath,
@@ -61,10 +65,20 @@ func main() {
 		logConfig = zap.NewProductionConfig()
 	}
 
-	logger, err := logConfig.Build()
-	if err != nil {
-		panic(err)
+	var logger *zap.Logger
+
+	if !args.JournaldDirect {
+		var err error
+		logger, err = logConfig.Build()
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		logger = buildJournaldLogger(logConfig)
 	}
+
+	undoStdlog := zap.RedirectStdLog(logger)
+	defer undoStdlog()
 
 	key, err := base64.StdEncoding.DecodeString(args.AESKey)
 	if err != nil {
@@ -122,4 +136,62 @@ func main() {
 	<-stopChan
 	logger.Info("shutting down app")
 	a.Shutdown()
+}
+
+type journaldLogger struct{}
+
+func (j journaldLogger) Write(p []byte) (n int, err error) {
+	if err := journal.Send(string(p), journal.PriInfo, nil); err != nil {
+		return 0, err
+	}
+	return len(p), nil
+}
+
+func buildJournaldLogger(cfg zap.Config) *zap.Logger {
+	enc := zapcore.NewJSONEncoder(cfg.EncoderConfig)
+	ws := zapcore.Lock(zapcore.AddSync(journaldLogger{}))
+
+	opts := []zap.Option{zap.ErrorOutput(ws)}
+
+	if cfg.Development {
+		opts = append(opts, zap.Development())
+	}
+
+	if !cfg.DisableCaller {
+		opts = append(opts, zap.AddCaller())
+	}
+
+	stackLevel := zap.ErrorLevel
+	if cfg.Development {
+		stackLevel = zap.WarnLevel
+	}
+	if !cfg.DisableStacktrace {
+		opts = append(opts, zap.AddStacktrace(stackLevel))
+	}
+
+	if cfg.Sampling != nil {
+		opts = append(opts, zap.WrapCore(func(core zapcore.Core) zapcore.Core {
+			return zapcore.NewSampler(core, time.Second, int(cfg.Sampling.Initial), int(cfg.Sampling.Thereafter))
+		}))
+	}
+
+	if len(cfg.InitialFields) > 0 {
+		fs := make([]zapcore.Field, 0, len(cfg.InitialFields))
+		keys := make([]string, 0, len(cfg.InitialFields))
+		for k := range cfg.InitialFields {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			fs = append(fs, zap.Any(k, cfg.InitialFields[k]))
+		}
+		opts = append(opts, zap.Fields(fs...))
+	}
+
+	logger := zap.New(
+		zapcore.NewCore(enc, ws, cfg.Level),
+		opts...,
+	)
+
+	return logger
 }
