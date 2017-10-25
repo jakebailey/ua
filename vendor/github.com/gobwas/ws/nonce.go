@@ -29,13 +29,11 @@ const (
 	acceptSize = 28 // base64.StdEncoding.EncodedLen(sha1.Size)
 )
 
-var ErrBadNonce = fmt.Errorf("nonce size is not %d", nonceSize)
-
-var WebSocketMagic = []byte("258EAFA5-E914-47DA-95CA-C5AB0DC85B11")
+var webSocketMagic = []byte("258EAFA5-E914-47DA-95CA-C5AB0DC85B11")
 
 var sha1Pool sync.Pool
 
-// nonce helps to put nonce bytes on the stack and then retreive stack-backed
+// nonce helps to put nonce bytes on the stack and then retrieve stack-backed
 // slice with unsafe.
 type nonce [nonceSize]byte
 
@@ -93,7 +91,7 @@ func initAcceptFromNonce(dst, nonce []byte) {
 	defer releaseSha1(sha)
 
 	sha.Write(nonce)
-	sha.Write(WebSocketMagic)
+	sha.Write(webSocketMagic)
 
 	var sb [sha1.Size]byte
 	sh := uintptr(unsafe.Pointer(&sb))
