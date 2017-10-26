@@ -24,6 +24,7 @@ const (
 )
 
 var funcs = template.FuncMap{
+	// Deprecated, use {{ json . | base64 }} or similar.
 	"jsonBase64": func(v interface{}) (string, error) {
 		buf, err := json.Marshal(v)
 		if err != nil {
@@ -31,6 +32,17 @@ var funcs = template.FuncMap{
 		}
 		return base64.StdEncoding.EncodeToString(buf), nil
 	},
+	"json": json.Marshal,
+	"xor": func(mask byte, buf []byte) []byte {
+		out := make([]byte, len(buf))
+
+		for i, b := range buf {
+			out[i] = b ^ mask
+		}
+
+		return out
+	},
+	"base64": base64.StdEncoding.EncodeToString,
 }
 
 func createBuildContext(root string, tmplData interface{}) (io.ReadCloser, string, error) {
