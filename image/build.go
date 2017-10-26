@@ -57,6 +57,7 @@ func Build(ctx context.Context, cli client.CommonAPIClient, path string, tag str
 
 func readBuildBody(body io.Reader) (imageID string, toRemove []string, err error) {
 	var messages []string
+	fromCount := 0
 
 	dec := json.NewDecoder(body)
 	for {
@@ -66,6 +67,10 @@ func readBuildBody(body io.Reader) (imageID string, toRemove []string, err error
 				break
 			}
 			return "", nil, err
+		}
+
+		if strings.Contains(jm.Stream, "FROM ") {
+			fromCount++
 		}
 
 		if jm.Aux != nil {
@@ -90,6 +95,10 @@ func readBuildBody(body io.Reader) (imageID string, toRemove []string, err error
 
 	if imageID == "" {
 		return "", nil, fmt.Errorf("build did not complete:\n%s", strings.Join(messages, "\n"))
+	}
+
+	if len(toRemove)+1 != fromCount {
+		return "", nil, fmt.Errorf("some build stage failed:\n%s", strings.Join(messages, "\n"))
 	}
 
 	return imageID, toRemove, nil
