@@ -2,6 +2,7 @@ package image
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/base64"
 	"encoding/json"
 	"io"
@@ -43,6 +44,20 @@ var funcs = template.FuncMap{
 		return out
 	},
 	"base64": base64.StdEncoding.EncodeToString,
+	"gzip": func(in []byte) ([]byte, error) {
+		var out bytes.Buffer
+		gz := gzip.NewWriter(&out)
+
+		if _, err := gz.Write(in); err != nil {
+			return nil, err
+		}
+
+		if err := gz.Close(); err != nil {
+			return nil, err
+		}
+
+		return out.Bytes(), nil
+	},
 }
 
 func createBuildContext(root string, tmplData interface{}) (io.ReadCloser, string, error) {
