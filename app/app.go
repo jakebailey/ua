@@ -98,7 +98,8 @@ type App struct {
 	wsTimeout time.Duration
 	wsManager *expire.Manager
 
-	aesKey []byte
+	aesKey     []byte
+	pprofToken string
 }
 
 // NewApp creates a new app, with an optional list of options.

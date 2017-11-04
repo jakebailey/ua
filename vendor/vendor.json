@@ -317,6 +317,12 @@
 			"revisionTime": "2017-01-27T09:51:30Z"
 		},
 		{
+			"checksumSHA1": "x7qdq9hGEvqZh20E/tsEMJMDe/I=",
+			"path": "github.com/e-dard/netbug",
+			"revision": "e64d308a0b205c901264e88a10e70d64acb1810d",
+			"revisionTime": "2015-10-29T17:28:37Z"
+		},
+		{
 			"checksumSHA1": "Dn0UWp/OvO6E4GvDQ+9GLlqgYBs=",
 			"path": "github.com/go-chi/chi",
 			"revision": "40c607ea5d9f34240e783bcdbb701e049fb666d6",

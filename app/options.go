@@ -150,3 +150,9 @@ func DisableLimits(disableLimits bool) Option {
 		a.disableLimits = disableLimits
 	}
 }
+
+func PProfToken(token string) Option {
+	return func(a *App) {
+		a.pprofToken = token
+	}
+}

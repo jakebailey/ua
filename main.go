@@ -38,7 +38,8 @@ var args = struct {
 	InstanceExpire     time.Duration `arg:"--instance-expire,env:UA_INSTANCE_EXPIRE,help:duration to expire instances after"`
 	DisableLimits      bool          `arg:"--disable-limits,env:UA_DISABLE_LIMITS,help:disable limits for containers"`
 
-	JournaldDirect bool `arg:"--journald-direct,env:UA_JOURNALD_DIRECT,help:log directory to journald instead of stdout"`
+	JournaldDirect bool   `arg:"--journald-direct,env:UA_JOURNALD_DIRECT,help:log directory to journald instead of stdout"`
+	PProfToken     string `arg:"--pprof-token,env:UA_PPROF_TOKEN,help:token/password for pprof debug endpoint (disabled if not set unless in debug mode)"`
 }{
 	Addr:               app.DefaultAddr,
 	AssignmentPath:     app.DefaultAssignmentPath,
@@ -105,6 +106,7 @@ func main() {
 		app.MigrateUp(args.MigrateUp),
 		app.MigrateReset(args.MigrateReset),
 		app.DisableLimits(args.DisableLimits),
+		app.PProfToken(args.PProfToken),
 	}
 
 	if args.LetsEncryptDomain != "" {

@@ -44,6 +44,8 @@ func (a *App) route() {
 
 	if a.debug {
 		r.Route("/debug", a.routeDebug)
+	} else {
+		r.Route("/debug", a.routeDebugProd)
 	}
 
 	a.router = r
