@@ -22,18 +22,6 @@ const (
 	DefaultClientWriteBufferSize = 4096
 )
 
-// ReaderPool describes object that manages reuse of bufio.Reader instances.
-type ReaderPool interface {
-	Get(io.Reader) *bufio.Reader
-	Put(*bufio.Reader)
-}
-
-// WriterPool describes object that manages reuse of bufio.Writer instances.
-type WriterPool interface {
-	Get(io.Writer) *bufio.Writer
-	Put(*bufio.Writer)
-}
-
 // Handshake represents handshake result.
 type Handshake struct {
 	// Protocol is the subprotocol selected during handshake.
@@ -67,13 +55,11 @@ type Dialer struct {
 	// If a size is zero then default value is used.
 	ReadBufferSize, WriteBufferSize int
 
-	// HandshakeTimeout allows to limit the time spent in i/o upgrade
-	// operations.
-	HandshakeTimeout time.Duration
-
-	// WriterPool is used to reuse bufio.Writers.
-	// If non-nil, then WriteBufferSize option is ignored.
-	WriterPool WriterPool
+	// Timeout is the maximum amount of time a Dial() will wait for a connect
+	// and an handshake to complete.
+	//
+	// The default is no timeout.
+	Timeout time.Duration
 
 	// Protocols is the list of subprotocols that the client wants to speak,
 	// ordered by preference.
@@ -113,8 +99,30 @@ type Dialer struct {
 	// If it is not nil, then it is used instead of net.Dialer.
 	NetDial func(ctx context.Context, network, addr string) (net.Conn, error)
 
-	// TLSConfig is passed to tls.DialWithDialer.
+	// TLSClient is the callback that will be called after succesful dial with
+	// received connection and its remote host name. If it is nil, then the
+	// default tls.Client() will be used.
+	// If it is not nil, then TLSConfig field is ignored.
+	TLSClient func(conn net.Conn, hostname string) net.Conn
+
+	// TLSConfig is passed to tls.Client() to start TLS over established
+	// connection. If TLSClient is not nil, then it is ignored. If TLSConfig is
+	// non-nil and its ServerName is empty, then for every Dial() it will be
+	// cloned and appropriate ServerName will be set.
 	TLSConfig *tls.Config
+
+	// WrapConn is the optional callback that will be called when connection is
+	// prepared for an i/o. That is, it will be called after successful dial
+	// and TLS initialization (for "wss" schemes). It could be helpful for
+	// different user land purposes such as encrypting, debugging or collecting
+	// statistics for an i/o streams of raw connection.
+	//
+	// Note that in cases of debugging or collecting stats only for an http
+	// stage of connection, it is better to use raw net.Conn after WebSocket
+	// handshake. It is better for those who using `net.Buffers` to reduce
+	// number of system write calls.
+	// See https://github.com/golang/go/issues/21756
+	WrapConn func(conn net.Conn) net.Conn
 }
 
 // Dial connects to the url host and handshakes connection to websocket.
@@ -137,13 +145,16 @@ func (d Dialer) Dial(ctx context.Context, urlstr string) (conn net.Conn, br *buf
 	if err != nil {
 		return
 	}
+	if t := d.Timeout; t != 0 {
+		deadline := time.Now().Add(t)
+		if d, ok := ctx.Deadline(); !ok || deadline.Before(d) {
+			subctx, cancel := context.WithDeadline(ctx, deadline)
+			defer cancel()
+			ctx = subctx
+		}
+	}
 	if conn, err = d.dial(ctx, u); err != nil {
 		return
-	}
-	if t := d.HandshakeTimeout; t != 0 {
-		d := time.Now().Add(t)
-		conn.SetDeadline(d)
-		defer conn.SetDeadline(noDeadline)
 	}
 	br, hs, err = d.request(ctx, conn, u)
 	if err != nil {
@@ -153,53 +164,65 @@ func (d Dialer) Dial(ctx context.Context, urlstr string) (conn net.Conn, br *buf
 }
 
 var (
-	// emptyDialer is a net.Dialer without options, used in Dialer.dial() if
+	// netEmptyDialer is a net.Dialer without options, used in Dialer.dial() if
 	// Dialer.NetDial is not provided.
-	emptyDialer net.Dialer
-	// emptyTLSConfig is an empty tls.Config used as default one.
-	emptyTLSConfig tls.Config
+	netEmptyDialer net.Dialer
+	// tlsEmptyConfig is an empty tls.Config used as default one.
+	tlsEmptyConfig tls.Config
 )
 
-func defaultTLSConfig() *tls.Config {
-	return &emptyTLSConfig
+func tlsDefaultConfig() *tls.Config {
+	return &tlsEmptyConfig
 }
 
 func (d Dialer) dial(ctx context.Context, u *url.URL) (conn net.Conn, err error) {
 	var addr string
 	// We use here fast split2 func instead of net.SplitHostPort() because we
 	// do not want to validate host value here.
-	host, port := split2(u.Host, ':')
+	hostname, port := split2(u.Host, ':')
 	switch {
 	case port != "":
 		// Port were forced, do nothing.
 		addr = u.Host
 	case u.Scheme == "wss":
-		addr = host + ":443"
+		addr = hostname + ":443"
 	default:
-		addr = host + ":80"
+		addr = hostname + ":80"
 	}
 	dial := d.NetDial
 	if dial == nil {
-		dial = emptyDialer.DialContext
+		dial = netEmptyDialer.DialContext
 	}
 	conn, err = dial(ctx, "tcp", addr)
 	if err != nil {
 		return
 	}
 	if u.Scheme == "wss" {
-		config := d.TLSConfig
-		if config == nil {
-			config = defaultTLSConfig()
+		tlsClient := d.TLSClient
+		if tlsClient == nil {
+			tlsClient = d.tlsClient
 		}
-		if config.ServerName == "" {
-			config = cloneTLSConfig(config)
-			config.ServerName = host
-		}
-		// Do not make conn.Handshake() here because downstairs we will prepare
-		// i/o on this conn with proper context's timeout handling.
-		conn = tls.Client(conn, config)
+		conn = tlsClient(conn, hostname)
 	}
+	if wrap := d.WrapConn; wrap != nil {
+		conn = wrap(conn)
+	}
+
 	return
+}
+
+func (d Dialer) tlsClient(conn net.Conn, hostname string) net.Conn {
+	config := d.TLSConfig
+	if config == nil {
+		config = tlsDefaultConfig()
+	}
+	if config.ServerName == "" {
+		config = tlsCloneConfig(config)
+		config.ServerName = hostname
+	}
+	// Do not make conn.Handshake() here because downstairs we will prepare
+	// i/o on this conn with proper context's timeout handling.
+	return tls.Client(conn, config)
 }
 
 var (
@@ -211,7 +234,7 @@ var (
 	aLongTimeAgo = time.Unix(42, 0)
 )
 
-// request sends request to the given connection and reads a request.
+// request sends request to the given connection and reads a response.
 // It returns response and some bytes which could be written by the peer right
 // after response and be caught by us during buffered read.
 func (d Dialer) request(ctx context.Context, conn net.Conn, u *url.URL) (br *bufio.Reader, hs Handshake, err error) {
