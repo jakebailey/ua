@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gobwas/httphead"
@@ -85,6 +86,15 @@ type Dialer struct {
 	// It used instead of http.Header mapping to avoid allocations in user land.
 	Header func(io.Writer)
 
+	// OnStatusError is the callback that will be called after receiving non
+	// "101 Continue" HTTP response status. It receives an io.Reader object
+	// representing server response bytes. That is, it gives ability to parse
+	// HTTP response somehow (probably with http.ReadResponse call) and make a
+	// decision of further logic.
+	//
+	// The arguments are only valid until the callback returns.
+	OnStatusError func(status int, reason []byte, resp io.Reader)
+
 	// OnHeader is the callback that will be called after successful parsing of
 	// header, that is not used during WebSocket handshake procedure. That is,
 	// it will be called with non-websocket headers, which could be relevant
@@ -112,34 +122,34 @@ type Dialer struct {
 	TLSConfig *tls.Config
 
 	// WrapConn is the optional callback that will be called when connection is
-	// prepared for an i/o. That is, it will be called after successful dial
-	// and TLS initialization (for "wss" schemes). It could be helpful for
-	// different user land purposes such as encrypting, debugging or collecting
-	// statistics for an i/o streams of raw connection.
+	// ready for an i/o. That is, it will be called after successful dial and
+	// TLS initialization (for "wss" schemes). It may be helpful for different
+	// user land purposes such as end to end encryption.
 	//
-	// Note that in cases of debugging or collecting stats only for an http
-	// stage of connection, it is better to use raw net.Conn after WebSocket
-	// handshake. It is better for those who using `net.Buffers` to reduce
-	// number of system write calls.
-	// See https://github.com/golang/go/issues/21756
+	// Note that for debugging purposes of an http handshake (e.g. sent request
+	// and received response), there is an wsutil.DebugDialer struct.
 	WrapConn func(conn net.Conn) net.Conn
 }
 
-// Dial connects to the url host and handshakes connection to websocket.
+// Dial connects to the url host and upgrades connection to WebSocket.
 //
-// It could return non-nil bufio.Reader which contains unprocessed data from
-// the server. If err is nil, it could be the frames sent by the server right
-// after successful handshake. If err type is StatusError, then buffer may
-// contain response data (with headers part) except the first so called
-// status-line (which was read to detect non-101 status error). In other cases
-// returned bufio.Reader is always nil. For better memory efficiency received
-// non-nil bufio.Reader must be returned to the inner pool via PutReader()
-// function.
+// If server has sent frames right after successful handshake then returned
+// buffer will be non-nil. In other cases buffer is always nil. For better
+// memory efficiency received non-nil bufio.Reader should be returned to the
+// inner pool with PutReader() function after use.
 //
 // Note that Dialer does not implement IDNA (RFC5895) logic as net/http does.
 // If you want to dial non-ascii host name, take care of its name serialization
 // avoiding bad request issues. For more info see net/http Request.Write()
 // implementation, especially cleanHost() function.
+//
+// If you do not want to dial with RFC compliant url starting with "ws:" or
+// "wss:" scheme (which is rare case, but possible), you can use url with
+// custom scheme to specify a network name, and host or path as an address.
+// That is, for "unix*" schemes address is an url's path, for other networks
+// address is an url's host. For example, to dial unix domain socket you could
+// pass urlstr as "unix:/var/run/app.sock". Note that it is not possible to use
+// TLS for such connections.
 func (d Dialer) Dial(ctx context.Context, urlstr string) (conn net.Conn, br *bufio.Reader, hs Handshake, err error) {
 	u, err := url.ParseRequestURI(urlstr)
 	if err != nil {
@@ -175,29 +185,36 @@ func tlsDefaultConfig() *tls.Config {
 	return &tlsEmptyConfig
 }
 
-func (d Dialer) dial(ctx context.Context, u *url.URL) (conn net.Conn, err error) {
-	var addr string
-	// We use here fast split2 func instead of net.SplitHostPort() because we
-	// do not want to validate host value here.
-	hostname, port := split2(u.Host, ':')
-	switch {
-	case port != "":
-		// Port were forced, do nothing.
-		addr = u.Host
-	case u.Scheme == "wss":
-		addr = hostname + ":443"
-	default:
-		addr = hostname + ":80"
+func hostport(host string, defaultPort string) (hostname, addr string) {
+	var (
+		colon   = strings.LastIndexByte(host, ':')
+		bracket = strings.IndexByte(host, ']')
+	)
+	if colon > bracket {
+		return host[:colon], host
 	}
+	return host, host + defaultPort
+}
+
+func (d Dialer) dial(ctx context.Context, u *url.URL) (conn net.Conn, err error) {
 	dial := d.NetDial
 	if dial == nil {
 		dial = netEmptyDialer.DialContext
 	}
-	conn, err = dial(ctx, "tcp", addr)
-	if err != nil {
-		return
-	}
-	if u.Scheme == "wss" {
+	switch u.Scheme {
+	case "ws":
+		_, addr := hostport(u.Host, ":80")
+		conn, err = dial(ctx, "tcp", addr)
+	case "unix", "unixgram", "unixpacket":
+		conn, err = dial(ctx, u.Scheme, u.Path)
+	default:
+		conn, err = dial(ctx, u.Scheme, u.Host)
+	case "wss":
+		hostname, addr := hostport(u.Host, ":443")
+		conn, err = dial(ctx, "tcp", addr)
+		if err != nil {
+			return
+		}
 		tlsClient := d.TLSClient
 		if tlsClient == nil {
 			tlsClient = d.tlsClient
@@ -207,7 +224,6 @@ func (d Dialer) dial(ctx context.Context, u *url.URL) (conn net.Conn, err error)
 	if wrap := d.WrapConn; wrap != nil {
 		conn = wrap(conn)
 	}
-
 	return
 }
 
@@ -309,7 +325,7 @@ func (d Dialer) request(ctx context.Context, conn net.Conn, u *url.URL) (br *buf
 		nonZero(d.ReadBufferSize, DefaultClientReadBufferSize),
 	)
 	defer func() {
-		if br.Buffered() == 0 || (err != nil && !IsStatusError(err)) {
+		if br.Buffered() == 0 || err != nil {
 			// Server does not wrote additional bytes to the connection or
 			// error occurred. That is, no reason to return buffer.
 			pbufio.PutReader(br)
@@ -335,7 +351,17 @@ func (d Dialer) request(ctx context.Context, conn net.Conn, u *url.URL) (br *buf
 		return
 	}
 	if resp.status != 101 {
-		err = StatusError{resp.status, string(resp.reason)}
+		err = StatusError(resp.status)
+		if onStatusError := d.OnStatusError; onStatusError != nil {
+			// Invoke callback with multireader of status-line bytes br.
+			onStatusError(resp.status, resp.reason,
+				io.MultiReader(
+					bytes.NewReader(sl),
+					strings.NewReader(crlf),
+					br,
+				),
+			)
+		}
 		return
 	}
 	// If response status is 101 then we expect all technical headers to be
@@ -448,23 +474,11 @@ func (timeoutError) Timeout() bool   { return true }
 func (timeoutError) Temporary() bool { return true }
 func (timeoutError) Error() string   { return "client timeout" }
 
-// StatusError represents an unsuccessful status-line parsed from handshake
-// response from the server.
-type StatusError struct {
-	// Status contains HTTP response status code.
-	Status int
-	// Reason contains associated with Status textual phrase.
-	Reason string
-}
+// StatusError contains an unexpected status-line code from the server.
+type StatusError int
 
 func (s StatusError) Error() string {
-	return "unexpected HTTP response status: " + strconv.Itoa(s.Status) + " " + s.Reason
-}
-
-// IsStatusError reports whether given error is an instance of StatusError.
-func IsStatusError(err error) bool {
-	_, ok := err.(StatusError)
-	return ok
+	return "unexpected HTTP response status: " + strconv.Itoa(int(s))
 }
 
 func isTimeoutError(err error) bool {
