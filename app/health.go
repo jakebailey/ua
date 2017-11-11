@@ -1,46 +1,24 @@
 package app
 
 import (
-	"net/http"
+	"context"
 
+	"github.com/etherlabsio/healthcheck"
 	"github.com/go-chi/chi"
-	"github.com/jakebailey/ua/ctxlog"
-	"go.uber.org/zap"
 )
 
-var healthOk = []byte("ok")
-
 func (a *App) routeHealth(r chi.Router) {
-	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write(healthOk)
-	})
-
-	r.Get("/docker", a.healthDocker)
-	r.Get("/database", a.healthDatabase)
-}
-
-func (a *App) healthDocker(w http.ResponseWriter, r *http.Request) {
-	if _, err := a.cli.Ping(r.Context()); err != nil {
-		logger := ctxlog.FromRequest(r)
-		logger.Error("error health checking docker",
-			zap.Error(err),
-		)
-		a.httpError(w, err.Error(), http.StatusInternalServerError)
-		return
+	dockerCheck := func(ctx context.Context) error {
+		_, err := a.cli.Ping(ctx)
+		return err
 	}
 
-	w.Write(healthOk)
-}
-
-func (a *App) healthDatabase(w http.ResponseWriter, r *http.Request) {
-	if err := a.db.Ping(); err != nil {
-		logger := ctxlog.FromRequest(r)
-		logger.Error("error health checking database",
-			zap.Error(err),
-		)
-		a.httpError(w, err.Error(), http.StatusInternalServerError)
-		return
+	databaseCheck := func(ctx context.Context) error {
+		return a.db.PingContext(ctx)
 	}
 
-	w.Write(healthOk)
+	r.Mount("/", healthcheck.Handler(
+		healthcheck.WithChecker("docker", healthcheck.CheckerFunc(dockerCheck)),
+		healthcheck.WithChecker("database", healthcheck.CheckerFunc(databaseCheck)),
+	))
 }

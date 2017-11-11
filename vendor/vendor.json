@@ -323,6 +323,12 @@
 			"revisionTime": "2015-10-29T17:28:37Z"
 		},
 		{
+			"checksumSHA1": "ACkvKU1NVm75pAgBSqzDr1uMgCE=",
+			"path": "github.com/etherlabsio/healthcheck",
+			"revision": "d6f8f3ca09655fa838bbbb9c329f6bec2bd4dfeb",
+			"revisionTime": "2017-11-04T19:01:44Z"
+		},
+		{
 			"checksumSHA1": "Dn0UWp/OvO6E4GvDQ+9GLlqgYBs=",
 			"path": "github.com/go-chi/chi",
 			"revision": "40c607ea5d9f34240e783bcdbb701e049fb666d6",
