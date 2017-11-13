@@ -67,8 +67,8 @@
 		{
 			"checksumSHA1": "2AroGRSa4TSDO+sjCMjGdz/Opfw=",
 			"path": "github.com/docker/cli/cli/command/image/build",
-			"revision": "70da09aac2a3d6aec1626d44e4ef936d6192d594",
-			"revisionTime": "2017-11-10T19:18:15Z"
+			"revision": "48f400359135fc9c9c7cc426384ffeeca2b5d085",
+			"revisionTime": "2017-11-11T14:45:39Z"
 		},
 		{
 			"checksumSHA1": "Gj+xR1VgFKKmFXYOJMnAczC3Znk=",
@@ -329,16 +329,16 @@
 			"revisionTime": "2017-11-04T19:01:44Z"
 		},
 		{
-			"checksumSHA1": "t9W6XhUm1WcC3lfcLdgCm849EmY=",
+			"checksumSHA1": "USf0/tBFClzW7CG8NOM+ZFAnNXE=",
 			"path": "github.com/go-chi/chi",
-			"revision": "f4d4455cd3e784058861867555171766afa08425",
-			"revisionTime": "2017-11-09T15:45:59Z"
+			"revision": "94e6bc0a0950a82cdeeff683aa6be0581abe8c15",
+			"revisionTime": "2017-11-11T13:35:51Z"
 		},
 		{
 			"checksumSHA1": "1DU0HcZDbau9j8ncSogClHxcvqE=",
 			"path": "github.com/go-chi/chi/middleware",
-			"revision": "f4d4455cd3e784058861867555171766afa08425",
-			"revisionTime": "2017-11-09T15:45:59Z"
+			"revision": "94e6bc0a0950a82cdeeff683aa6be0581abe8c15",
+			"revisionTime": "2017-11-11T13:35:51Z"
 		},
 		{
 			"checksumSHA1": "r/8uaoEFx3XAL2U2MJ3xmgJ78qo=",
@@ -377,16 +377,16 @@
 			"revisionTime": "2017-08-29T09:47:49Z"
 		},
 		{
-			"checksumSHA1": "83sz4WEotaESFU2v4iNsd5MD+rw=",
+			"checksumSHA1": "Ro9VLS8Cx9pKtlyxtA6HLdfEpko=",
 			"path": "github.com/gobwas/ws",
-			"revision": "74f819e26000474d95bf0794a67d56642a0ec30a",
-			"revisionTime": "2017-11-08T05:41:24Z"
+			"revision": "915eed3240022c5265584c55032ef1b8c8f84168",
+			"revisionTime": "2017-11-12T09:28:02Z"
 		},
 		{
-			"checksumSHA1": "dFBQILXFiXQ5t3LMyKQrJgtTxyE=",
+			"checksumSHA1": "++M73QiW+Gdz0S1HjHiTXjU3F9A=",
 			"path": "github.com/gobwas/ws/wsutil",
-			"revision": "74f819e26000474d95bf0794a67d56642a0ec30a",
-			"revisionTime": "2017-11-08T05:41:24Z"
+			"revision": "915eed3240022c5265584c55032ef1b8c8f84168",
+			"revisionTime": "2017-11-12T09:28:02Z"
 		},
 		{
 			"checksumSHA1": "wn2shNJMwRZpvuvkf1s7h0wvqHI=",
