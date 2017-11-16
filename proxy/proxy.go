@@ -30,17 +30,20 @@ func Proxy(ctx context.Context, id string, conn Conn, cli client.CommonAPIClient
 		return err
 	}
 
-	cmd := []string{"/dev/init", "-s", "--"}
-	cmd = append(cmd, info.Config.Entrypoint...)
-	cmd = append(cmd, info.Config.Cmd...)
-
 	execConfig := types.ExecConfig{
 		User:         info.Config.User,
 		Tty:          true,
 		AttachStdin:  true,
 		AttachStdout: true,
 		AttachStderr: true,
-		Cmd:          cmd,
+	}
+
+	if userCmd, ok := info.Config.Labels["ua.userCmd"]; ok {
+		execConfig.Cmd = []string{"/dev/init", "-s", "--", "/bin/sh", "-c", userCmd}
+	} else {
+		execConfig.Cmd = []string{"/dev/init", "-s", "--"}
+		execConfig.Cmd = append(execConfig.Cmd, info.Config.Entrypoint...)
+		execConfig.Cmd = append(execConfig.Cmd, info.Config.Cmd...)
 	}
 
 	switch execConfig.User {

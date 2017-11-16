@@ -65,10 +65,28 @@
 			"revisionTime": "2017-10-02T20:02:53Z"
 		},
 		{
+			"checksumSHA1": "87M06i48wa39u/ppeQTvrCTFidw=",
+			"path": "github.com/docker/cli/cli",
+			"revision": "9022ea549d6add53955882c8e0abaa16204fbf5b",
+			"revisionTime": "2017-11-15T19:39:53Z"
+		},
+		{
 			"checksumSHA1": "2AroGRSa4TSDO+sjCMjGdz/Opfw=",
 			"path": "github.com/docker/cli/cli/command/image/build",
 			"revision": "48f400359135fc9c9c7cc426384ffeeca2b5d085",
 			"revisionTime": "2017-11-11T14:45:39Z"
+		},
+		{
+			"checksumSHA1": "pH3qK3yngK0ODLa8du2IuHlb3go=",
+			"path": "github.com/docker/cli/cli/command/inspect",
+			"revision": "9022ea549d6add53955882c8e0abaa16204fbf5b",
+			"revisionTime": "2017-11-15T19:39:53Z"
+		},
+		{
+			"checksumSHA1": "S54g0riZA4s00h9UdjozP0OD+MM=",
+			"path": "github.com/docker/cli/templates",
+			"revision": "9022ea549d6add53955882c8e0abaa16204fbf5b",
+			"revisionTime": "2017-11-15T19:39:53Z"
 		},
 		{
 			"checksumSHA1": "Gj+xR1VgFKKmFXYOJMnAczC3Znk=",
@@ -395,6 +413,12 @@
 			"revisionTime": "2017-11-09T18:15:19Z"
 		},
 		{
+			"checksumSHA1": "40vJyUB4ezQSn/NSadsKEOrudMc=",
+			"path": "github.com/inconshreveable/mousetrap",
+			"revision": "76626ae9c91c4f2a10f34cad8ce83ea42c93bb75",
+			"revisionTime": "2014-10-17T20:07:13Z"
+		},
+		{
 			"checksumSHA1": "0cdNscA7+z4+lKF5usZYz3it/04=",
 			"path": "github.com/joho/godotenv",
 			"revision": "6d367c18edf6ca7fd004efd6863e4c5728fa858e",
@@ -507,6 +531,18 @@
 			"path": "github.com/sirupsen/logrus",
 			"revision": "89742aefa4b206dcf400792f3bd35b542998eb3b",
 			"revisionTime": "2017-08-22T13:27:46Z"
+		},
+		{
+			"checksumSHA1": "XX+smR57bB/ZccIMo+kdc+IFz/4=",
+			"path": "github.com/spf13/cobra",
+			"revision": "2da4a54c5ceefcee7ca5dd0eea1e18a3b6366489",
+			"revisionTime": "2017-11-02T15:22:38Z"
+		},
+		{
+			"checksumSHA1": "fKq6NiaqP3DFxnCRF5mmpJWTSUA=",
+			"path": "github.com/spf13/pflag",
+			"revision": "4c012f6dcd9546820e378d0bdda4d8fc772cdfea",
+			"revisionTime": "2017-11-06T14:28:49Z"
 		},
 		{
 			"checksumSHA1": "LTOa3BADhwvT0wFCknPueQALm8I=",

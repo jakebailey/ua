@@ -233,6 +233,10 @@ func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.I
 		NetworkMode: "none",
 	}
 
+	if initCmd, ok := image.GetLabel(ctx, a.cli, imageID, "ua.initCmd"); ok {
+		containerConfig.Cmd = []string{"/dev/init", "-s", "--", "/bin/sh", "-c", initCmd}
+	}
+
 	if !a.disableLimits {
 		hostConfig.Resources.CPUShares = 2
 		hostConfig.Resources.Memory = 16 * units.MiB
