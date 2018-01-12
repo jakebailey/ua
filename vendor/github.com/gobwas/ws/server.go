@@ -84,33 +84,33 @@ func (u HTTPUpgrader) Upgrade(r *http.Request, w http.ResponseWriter, h http.Hea
 	// The method of the request MUST be GET, and the HTTP version MUST be at least 1.1.
 	if r.Method != http.MethodGet {
 		err = ErrHandshakeBadMethod
-		http.Error(w, err.Error(), http.StatusMethodNotAllowed)
+		httpError(w, err.Error(), http.StatusMethodNotAllowed)
 		return
 	}
 	if r.ProtoMajor < 1 || (r.ProtoMajor == 1 && r.ProtoMinor < 1) {
 		err = ErrHandshakeBadProtocol
-		http.Error(w, err.Error(), http.StatusHTTPVersionNotSupported)
+		httpError(w, err.Error(), http.StatusHTTPVersionNotSupported)
 		return
 	}
 	if r.Host == "" {
 		err = ErrHandshakeBadHost
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		httpError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	if u := httpGetHeader(r.Header, headerUpgrade); u != "websocket" && !strEqualFold(u, "websocket") {
 		err = ErrHandshakeBadUpgrade
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		httpError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	if c := httpGetHeader(r.Header, headerConnection); c != "Upgrade" && !strHasToken(c, "upgrade") {
 		err = ErrHandshakeBadConnection
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		httpError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	nonce := httpGetHeader(r.Header, headerSecKey)
 	if len(nonce) != nonceSize {
 		err = ErrHandshakeBadSecKey
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		httpError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	if v := httpGetHeader(r.Header, headerSecVersion); v != "13" {
@@ -134,9 +134,9 @@ func (u HTTPUpgrader) Upgrade(r *http.Request, w http.ResponseWriter, h http.Hea
 		// not present or empty – it is 400.
 		if v != "" {
 			w.Header().Set(headerSecVersion, "13")
-			http.Error(w, err.Error(), http.StatusUpgradeRequired)
+			httpError(w, err.Error(), http.StatusUpgradeRequired)
 		} else {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			httpError(w, err.Error(), http.StatusBadRequest)
 		}
 		return
 	}
@@ -147,7 +147,7 @@ func (u HTTPUpgrader) Upgrade(r *http.Request, w http.ResponseWriter, h http.Hea
 			hs.Protocol, ok = strSelectProtocol(v, check)
 			if !ok {
 				err = ErrMalformedRequest
-				http.Error(w, err.Error(), http.StatusBadRequest)
+				httpError(w, err.Error(), http.StatusBadRequest)
 				return
 			}
 			if hs.Protocol != "" {
@@ -161,7 +161,7 @@ func (u HTTPUpgrader) Upgrade(r *http.Request, w http.ResponseWriter, h http.Hea
 			hs.Extensions, ok = strSelectExtensions(v, hs.Extensions, check)
 			if !ok {
 				err = ErrMalformedRequest
-				http.Error(w, err.Error(), http.StatusBadRequest)
+				httpError(w, err.Error(), http.StatusBadRequest)
 				return
 			}
 		}
@@ -170,12 +170,12 @@ func (u HTTPUpgrader) Upgrade(r *http.Request, w http.ResponseWriter, h http.Hea
 	hj, ok := w.(http.Hijacker)
 	if !ok {
 		err = ErrNotHijacker
-		w.WriteHeader(http.StatusInternalServerError)
+		httpError(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	conn, rw, err = hj.Hijack()
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		httpError(w, "", http.StatusInternalServerError)
 		return
 	}
 
@@ -203,13 +203,10 @@ type Upgrader struct {
 	// They used to read and write http data while upgrading to WebSocket.
 	// Allocated buffers are pooled with sync.Pool to avoid extra allocations.
 	//
-	// If *bufio.ReadWriter is given to Upgrade() no allocation will be made
-	// and this sizes will not be used.
-	//
 	// If a size is zero then default value is used.
 	//
 	// Usually it is useful to set read buffer size bigger than write buffer
-	// size because incoming request could contain long header values, such
+	// size because incoming request could contain long header values, such as
 	// Cookie. Response, in other way, could be big only if user write multiple
 	// custom headers. Usually response takes less than 256 bytes.
 	ReadBufferSize, WriteBufferSize int
@@ -322,7 +319,13 @@ func (w headerWriter) flush(to io.Writer) {
 
 // Upgrade zero-copy upgrades connection to WebSocket. It interprets given conn
 // as connection with incoming HTTP Upgrade request.
-// It is a caller responsibility to manage timeouts of upgrade.
+//
+// It is a caller responsibility to manage i/o timeouts on conn.
+//
+// Non-nil error means that request for the WebSocket upgrade is invalid or
+// malformed and usually connection should be closed.
+// Even when error is non-nil Upgrade will write appropriate response into
+// connection in compliance with RFC.
 func (u Upgrader) Upgrade(conn io.ReadWriter) (hs Handshake, err error) {
 	// headerSeen constants helps to report whether or not some header was seen
 	// during reading request bytes.
@@ -343,19 +346,18 @@ func (u Upgrader) Upgrade(conn io.ReadWriter) (hs Handshake, err error) {
 			headerSeenSecKey
 	)
 
-	var (
-		br *bufio.Reader
-		bw *bufio.Writer
+	// Prepare i/o buffers.
+	br := pbufio.GetReader(conn,
+		nonZero(u.ReadBufferSize, DefaultServerReadBufferSize),
 	)
-	if brw, ok := conn.(*bufio.ReadWriter); ok {
-		br = brw.Reader
-		bw = brw.Writer
-	} else {
-		br = pbufio.GetReader(conn,
-			nonZero(u.ReadBufferSize, DefaultServerReadBufferSize),
-		)
-		defer pbufio.PutReader(br)
-	}
+	bw := pbufio.GetWriter(conn,
+		nonZero(u.WriteBufferSize, DefaultServerWriteBufferSize),
+	)
+	defer func() {
+		pbufio.PutReader(br)
+		pbufio.PutWriter(bw)
+	}()
+
 	// Read HTTP request line like "GET /ws HTTP/1.1".
 	rl, err := readLine(br)
 	if err != nil {
@@ -367,12 +369,6 @@ func (u Upgrader) Upgrade(conn io.ReadWriter) (hs Handshake, err error) {
 		return
 	}
 
-	if bw == nil {
-		bw = pbufio.GetWriter(conn,
-			nonZero(u.WriteBufferSize, DefaultServerWriteBufferSize),
-		)
-		defer pbufio.PutWriter(bw)
-	}
 	// Use default http status code for errors.
 	code := http.StatusBadRequest
 

@@ -2,8 +2,12 @@ package app
 
 import (
 	"context"
+	"crypto/tls"
 	"database/sql"
+	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -211,11 +215,43 @@ func (a *App) Run() error {
 	}
 
 	if a.letsEncrypt {
-		l := autocert.NewListener(a.letsEncryptDomain)
+		// l := autocert.NewListener(a.letsEncryptDomain)
+
+		// Replacement for the above, since the tls-sni challenge has been disabled.
+		m := &autocert.Manager{
+			Prompt:     autocert.AcceptTOS,
+			HostPolicy: autocert.HostWhitelist(a.letsEncryptDomain),
+		}
+
+		cacheBase := "golang-autocert"
+		var cacheDir string
+
+		if xdg := os.Getenv("XDG_CACHE_HOME"); xdg != "" {
+			cacheDir = filepath.Join(xdg, cacheBase)
+		} else {
+			homeDir := os.Getenv("HOME")
+			if homeDir == "" {
+				homeDir = "/"
+			}
+			cacheDir = filepath.Join(homeDir, ".cache", cacheBase)
+		}
+
+		if err := os.MkdirAll(cacheDir, 0700); err != nil {
+			log.Printf("warning: autocert not using a cache: %v", err)
+		} else {
+			m.Cache = autocert.DirCache(cacheDir)
+		}
+
+		go http.ListenAndServe(":http", m.HTTPHandler(nil))
 
 		a.logger.Info("starting http server", zap.String("domain", a.letsEncryptDomain))
 
-		err = a.srv.Serve(l)
+		a.srv.Addr = ":https"
+		a.srv.TLSConfig = &tls.Config{GetCertificate: m.GetCertificate}
+
+		err = a.srv.ListenAndServeTLS("", "")
+
+		// err = a.srv.Serve(l)
 	} else {
 		a.srv.Addr = a.addr
 
