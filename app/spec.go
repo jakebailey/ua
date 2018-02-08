@@ -1,10 +1,10 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -308,8 +308,7 @@ var errNoJS = errors.New("no JS code found for assignment")
 func (a *App) specCreate(ctx context.Context, assignmentPath string, specData interface{}) (imageID, containerID string, err error) {
 	logger := ctxlog.FromContext(ctx)
 
-	program, err := ioutil.ReadFile(filepath.Join(assignmentPath, "index.js"))
-	if err != nil {
+	if _, err := os.Stat(filepath.Join(assignmentPath, "index.js")); err != nil {
 		if !os.IsNotExist(err) {
 			logger.Error("error trying to load index.js",
 				zap.Error(err),
@@ -322,7 +321,9 @@ func (a *App) specCreate(ctx context.Context, assignmentPath string, specData in
 
 	// contextPath := filepath.Join(assignmentPath, "context")
 
+	consoleOutput := &bytes.Buffer{}
 	runtime := js.NewRuntime(&js.Options{
+		Stdout:       consoleOutput,
 		ModuleLoader: js.PathsModuleLoader(assignmentPath),
 		FileReader:   js.PathsFileReader(assignmentPath),
 	})
@@ -353,7 +354,12 @@ func (a *App) specCreate(ctx context.Context, assignmentPath string, specData in
 		WorkingDir string
 	}{}
 
-	if err := runtime.Run(ctx, string(program), &out); err != nil {
+	runtime.Set("__specData__", specData)
+	if err := runtime.Run(ctx, "require('index.js').generate(__specData__);", &out); err != nil {
+		logger.Error("javascript error",
+			zap.Error(err),
+			zap.String("console", consoleOutput.String()),
+		)
 		return "", "", err
 	}
 

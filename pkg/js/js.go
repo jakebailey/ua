@@ -159,6 +159,11 @@ func (r *Runtime) exportViaJSON(val goja.Value, out interface{}) error {
 	return json.Unmarshal(buf, out)
 }
 
+// Set sets a variable to the specified value in the runtime.
+func (r *Runtime) Set(name string, value interface{}) {
+	r.vm.Set(name, value)
+}
+
 func (r *Runtime) btoa(call goja.FunctionCall) goja.Value {
 	input := call.Argument(0).String()
 	return r.vm.ToValue(base64.StdEncoding.EncodeToString([]byte(input)))
