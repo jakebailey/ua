@@ -116,8 +116,6 @@ func (r *Runtime) Run(ctx context.Context, program string, out interface{}) erro
 			// Interrupt the VM with the context's error, likely either
 			// context.Canceled or context.DeadlineExceeded.
 			r.vm.Interrupt(ctx.Err())
-			// Consume stop's value to prevent the channel from being leaked.
-			<-stop
 		}
 	}() // Exits when Run returns, or when the context is cancelled.
 
