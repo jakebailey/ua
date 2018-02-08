@@ -213,7 +213,7 @@ func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.I
 	imageTag := ""
 	containerName := ""
 
-	imageID, err := image.Build(ctx, a.cli, path, imageTag, spec.Data)
+	imageID, err := image.BuildLegacy(ctx, a.cli, path, imageTag, spec.Data)
 	if err != nil {
 		logger.Error("error building image",
 			zap.Error(err),

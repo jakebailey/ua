@@ -1,69 +1,16 @@
 package image
 
 import (
-	"bytes"
-	"compress/gzip"
-	"encoding/base64"
-	"encoding/json"
 	"io"
 	"io/ioutil"
 	"os"
-	"path/filepath"
-	"text/template"
+	"strings"
 
 	"github.com/docker/cli/cli/command/image/build"
 	"github.com/docker/docker/pkg/archive"
 )
 
-const (
-	// TemplateName is the name of the Dockerfile template in
-	// assignment directory.
-	TemplateName = "Dockerfile.tmpl"
-	// ContextSubdir is the name of the subdirectory in the assignment
-	// directory containing the docker build context.
-	ContextSubdir = "context"
-)
-
-var funcs = template.FuncMap{
-	// Deprecated, use {{ json . | base64 }} or similar.
-	"jsonBase64": func(v interface{}) (string, error) {
-		buf, err := json.Marshal(v)
-		if err != nil {
-			return "", err
-		}
-		return base64.StdEncoding.EncodeToString(buf), nil
-	},
-	"json": json.Marshal,
-	"xor": func(mask byte, buf []byte) []byte {
-		out := make([]byte, len(buf))
-
-		for i, b := range buf {
-			out[i] = b ^ mask
-		}
-
-		return out
-	},
-	"base64": base64.StdEncoding.EncodeToString,
-	"gzip": func(in []byte) ([]byte, error) {
-		var out bytes.Buffer
-		gz := gzip.NewWriter(&out)
-
-		if _, err := gz.Write(in); err != nil {
-			return nil, err
-		}
-
-		if err := gz.Close(); err != nil {
-			return nil, err
-		}
-
-		return out.Bytes(), nil
-	},
-}
-
-func createBuildContext(root string, tmplData interface{}) (io.ReadCloser, string, error) {
-	tmplPath := filepath.Join(root, TemplateName)
-	contextPath := filepath.Join(root, ContextSubdir)
-
+func createBuildContext(dockerfile string, contextPath string) (io.ReadCloser, string, error) {
 	// If the context doesn't exist, make an empty tempdir to delete after creating the context.
 	if _, err := os.Stat(contextPath); err != nil {
 		if !os.IsNotExist(err) {
@@ -77,16 +24,7 @@ func createBuildContext(root string, tmplData interface{}) (io.ReadCloser, strin
 		defer os.RemoveAll(contextPath)
 	}
 
-	tmpl, err := template.New(TemplateName).Funcs(funcs).Option("missingkey=error").ParseFiles(tmplPath)
-	if err != nil {
-		return nil, "", err
-	}
-
-	tmplBuf := &bytes.Buffer{}
-	if err := tmpl.Execute(tmplBuf, tmplData); err != nil {
-		return nil, "", err
-	}
-	dockerfileCtx := ioutil.NopCloser(tmplBuf)
+	dockerfileCtx := ioutil.NopCloser(strings.NewReader(dockerfile))
 
 	contextDir, relDockerfile, err := build.GetContextFromLocalDir(contextPath, "-")
 	if err != nil {

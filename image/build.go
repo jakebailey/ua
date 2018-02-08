@@ -12,17 +12,10 @@ import (
 	"github.com/docker/docker/pkg/jsonmessage"
 )
 
-// Build builds a docker image on the given docker client. The process used
-// differs from the "normal" docker build process in that the Dockerfile is
-// a template, and exists outside of the normal build directory. A typical
-// layout looks like:
-//
-//     test
-//     +-- context
-//     |   +-- helloworld.txt
-//     +-- Dockerfile.tmpl
-func Build(ctx context.Context, cli client.CommonAPIClient, path string, tag string, tmplData interface{}) (string, error) {
-	buildCtx, relDockerfile, err := createBuildContext(path, tmplData)
+// Build builds a docker image on the given docker client, given the Dockerfile
+// as a string and the path to the build context.
+func Build(ctx context.Context, cli client.CommonAPIClient, tag string, dockerfile string, contextPath string) (string, error) {
+	buildCtx, relDockerfile, err := createBuildContext(dockerfile, contextPath)
 	if err != nil {
 		return "", err
 	}
