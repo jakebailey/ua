@@ -3,14 +3,18 @@ package app
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/go-units"
 	"github.com/go-chi/chi"
@@ -18,6 +22,7 @@ import (
 	"github.com/go-chi/render"
 	"github.com/jakebailey/ua/models"
 	"github.com/jakebailey/ua/pkg/ctxlog"
+	"github.com/jakebailey/ua/pkg/docker/dexec"
 	"github.com/jakebailey/ua/pkg/docker/image"
 	"github.com/jakebailey/ua/pkg/js"
 	"github.com/jakebailey/ua/pkg/simplecrypto"
@@ -319,8 +324,6 @@ func (a *App) specCreate(ctx context.Context, assignmentPath string, specData in
 		return "", "", errNoJS
 	}
 
-	// contextPath := filepath.Join(assignmentPath, "context")
-
 	consoleOutput := &bytes.Buffer{}
 	runtime := js.NewRuntime(&js.Options{
 		Stdout:       consoleOutput,
@@ -363,7 +366,119 @@ func (a *App) specCreate(ctx context.Context, assignmentPath string, specData in
 		return "", "", err
 	}
 
-	return "", "", errors.New("not implemented")
+	// Empty image and container names are easier to identify and cleanup if
+	// needed, so just leave them blank.
+	imageTag := "TODO"
+	containerName := ""
+
+	switch {
+	case out.ImageName != "":
+		if err := a.cli.ImageTag(ctx, out.ImageName, imageTag); err != nil {
+			if !strings.Contains(err.Error(), "No such image:") {
+				return "", "", err
+			}
+
+			resp, err := a.cli.ImagePull(ctx, out.ImageName, types.ImagePullOptions{})
+			if err != nil {
+				return "", "", err
+			}
+			io.Copy(ioutil.Discard, resp)
+			resp.Close()
+
+			if err := a.cli.ImageTag(ctx, out.ImageName, imageTag); err != nil {
+				return "", "", err
+			}
+		}
+
+		imageID = imageTag
+
+	case out.Dockerfile != "":
+		contextPath := filepath.Join(assignmentPath, "context")
+
+		imageID, err = image.Build(ctx, a.cli, imageTag, out.Dockerfile, contextPath)
+		if err != nil {
+			return "", "", err
+		}
+
+	default:
+		logger.Error("not enough info to build image (image name, dockerfile, etc)")
+		return "", "", errors.New("TODO: no way to build image")
+	}
+
+	containerConfig := &container.Config{
+		Image:     imageID,
+		OpenStdin: true,
+		Cmd:       []string{"/bin/cat"},
+	}
+	hostConfig := &container.HostConfig{
+		Init: out.Init,
+	}
+
+	c, err := a.cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, containerName)
+	if err != nil {
+		return "", "", err
+	}
+	containerID = c.ID
+
+	if err := a.cli.ContainerStart(ctx, containerID, types.ContainerStartOptions{}); err != nil {
+		return "", "", err
+	}
+
+	// TODO: stop container on further errors
+
+	for _, ac := range out.PostBuild {
+		switch ac.Action {
+		case "exec":
+			ec := dexec.Config{
+				User:       ac.User,
+				Cmd:        ac.Cmd,
+				WorkingDir: ac.WorkingDir,
+				Stdout:     os.Stdout,
+				Stderr:     os.Stderr,
+			}
+
+			if err := dexec.Exec(ctx, a.cli, containerID, ec); err != nil {
+				return "", "", err
+			}
+
+		case "write":
+			var r io.Reader = strings.NewReader(ac.Contents)
+			if ac.ContentsBase64 {
+				r = base64.NewDecoder(base64.StdEncoding, r)
+			}
+
+			ec := dexec.Config{
+				User:       ac.User,
+				Cmd:        []string{"dd", "of=" + ac.Filename},
+				WorkingDir: ac.WorkingDir,
+				Stdin:      r,
+			}
+
+			if err := dexec.Exec(ctx, a.cli, containerID, ec); err != nil {
+				return "", "", err
+			}
+
+		default:
+			logger.Warn("unknown action",
+				zap.String("action", ac.Action),
+			)
+		}
+	}
+
+	if err := a.cli.NetworkDisconnect(ctx, "bridge", containerID, true); err != nil {
+		logger.Error("error disconnecting network",
+			zap.Error(err),
+		)
+	}
+
+	if err := a.cli.ContainerStop(ctx, containerID, nil); err != nil {
+		logger.Error("error disconnecting network",
+			zap.Error(err),
+		)
+		return "", "", err
+	}
+
+	return imageID, containerID, nil
 }
 
 func (a *App) specClean(w http.ResponseWriter, r *http.Request) {
