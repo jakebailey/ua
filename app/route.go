@@ -6,7 +6,7 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/cors"
-	"github.com/jakebailey/ua/ctxlog"
+	"github.com/jakebailey/ua/pkg/ctxlog"
 	"github.com/jakebailey/ua/static"
 	"github.com/jakebailey/ua/uamid"
 )

@@ -8,7 +8,7 @@ import (
 
 	"github.com/e-dard/netbug"
 	"github.com/go-chi/chi"
-	"github.com/jakebailey/ua/simplecrypto"
+	"github.com/jakebailey/ua/pkg/simplecrypto"
 )
 
 func (a *App) routeDebug(r chi.Router) {

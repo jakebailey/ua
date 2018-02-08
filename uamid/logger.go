@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/middleware"
-	"github.com/jakebailey/ua/ctxlog"
+	"github.com/jakebailey/ua/pkg/ctxlog"
 	"go.uber.org/zap"
 )
 

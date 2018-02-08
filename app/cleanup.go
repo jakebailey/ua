@@ -8,8 +8,8 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
-	"github.com/jakebailey/ua/ctxlog"
 	"github.com/jakebailey/ua/models"
+	"github.com/jakebailey/ua/pkg/ctxlog"
 	"go.uber.org/zap"
 	kallax "gopkg.in/src-d/go-kallax.v1"
 )

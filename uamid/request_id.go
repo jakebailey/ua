@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jakebailey/ua/ctxlog"
+	"github.com/jakebailey/ua/pkg/ctxlog"
 	"github.com/oklog/ulid"
 	"go.uber.org/zap"
 )

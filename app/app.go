@@ -16,10 +16,10 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/docker/docker/client"
 	"github.com/go-chi/chi"
-	"github.com/jakebailey/ua/expire"
 	"github.com/jakebailey/ua/migrations"
 	"github.com/jakebailey/ua/models"
-	"github.com/jakebailey/ua/sched"
+	"github.com/jakebailey/ua/pkg/expire"
+	"github.com/jakebailey/ua/pkg/sched"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/acme/autocert"
 )

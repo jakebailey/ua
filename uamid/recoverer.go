@@ -3,7 +3,7 @@ package uamid
 import (
 	"net/http"
 
-	"github.com/jakebailey/ua/ctxlog"
+	"github.com/jakebailey/ua/pkg/ctxlog"
 	"go.uber.org/zap"
 )
 

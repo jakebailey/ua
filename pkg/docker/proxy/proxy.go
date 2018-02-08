@@ -7,7 +7,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
-	"github.com/jakebailey/ua/ctxlog"
+	"github.com/jakebailey/ua/pkg/ctxlog"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
