@@ -3,7 +3,9 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"io/ioutil"
 	"net/http"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -213,28 +215,51 @@ func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.I
 	imageTag := ""
 	containerName := ""
 
-	imageID, err := image.BuildLegacy(ctx, a.cli, path, imageTag, spec.Data)
+	var imageID string
+	var cmd []string
+
+	var containerConfig container.Config
+	var hostConfig container.HostConfig
+
+	jsBuf, err := ioutil.ReadFile(filepath.Join(path, "index.js"))
 	if err != nil {
-		logger.Error("error building image",
-			zap.Error(err),
-		)
-		return nil, err
+		if !os.IsNotExist(err) {
+			logger.Error("error trying to load index.js",
+				zap.Error(err),
+			)
+			return nil, err
+		}
+
+		imageID, err = image.BuildLegacy(ctx, a.cli, path, imageTag, spec.Data)
+		if err != nil {
+			logger.Error("error building image",
+				zap.Error(err),
+			)
+			return nil, err
+		}
+
+		if initCmd, ok := image.GetLabel(ctx, a.cli, imageID, "ua.initCmd"); ok {
+			cmd = []string{"/dev/init", "-s", "--", "/bin/sh", "-c", initCmd}
+		}
+
+		truth := true
+
+		containerConfig = container.Config{
+			Tty:       true,
+			OpenStdin: true,
+			Image:     imageID,
+		}
+		hostConfig = container.HostConfig{
+			Init:        &truth,
+			NetworkMode: "none",
+		}
+	} else {
+		os.Stdout.Write(jsBuf)
+		panic("NOT IMPLEMENTED")
 	}
 
-	truth := true
-
-	containerConfig := &container.Config{
-		Tty:       true,
-		OpenStdin: true,
-		Image:     imageID,
-	}
-	hostConfig := &container.HostConfig{
-		Init:        &truth,
-		NetworkMode: "none",
-	}
-
-	if initCmd, ok := image.GetLabel(ctx, a.cli, imageID, "ua.initCmd"); ok {
-		containerConfig.Cmd = []string{"/dev/init", "-s", "--", "/bin/sh", "-c", initCmd}
+	if len(cmd) != 0 {
+		containerConfig.Cmd = cmd
 	}
 
 	if !a.disableLimits {
@@ -246,7 +271,7 @@ func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.I
 		}
 	}
 
-	c, err := a.cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, containerName)
+	c, err := a.cli.ContainerCreate(ctx, &containerConfig, &hostConfig, nil, containerName)
 	if err != nil {
 		logger.Error("error creating container",
 			zap.Error(err),
