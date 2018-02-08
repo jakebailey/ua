@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"database/sql"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -237,7 +236,9 @@ func (a *App) Run() error {
 		}
 
 		if err := os.MkdirAll(cacheDir, 0700); err != nil {
-			log.Printf("warning: autocert not using a cache: %v", err)
+			a.logger.Warn("warning: autocert not using a cache",
+				zap.Error(err),
+			)
 		} else {
 			m.Cache = autocert.DirCache(cacheDir)
 		}

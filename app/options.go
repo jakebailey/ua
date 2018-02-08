@@ -103,54 +103,66 @@ func AESKey(key []byte) Option {
 	}
 }
 
+// CleanInactiveEvery sets the interval at which inactive instances will be
+// cleaned.
 func CleanInactiveEvery(d time.Duration) Option {
 	return func(a *App) {
 		a.cleanInactiveEvery = d
 	}
 }
 
+// CheckExpiredEvery sets the interval at which instances will checked for
+// expiration.
 func CheckExpiredEvery(d time.Duration) Option {
 	return func(a *App) {
 		a.checkExpiredEvery = d
 	}
 }
 
+// WebsocketTimeout sets the timeout duration for websocket connections.
 func WebsocketTimeout(d time.Duration) Option {
 	return func(a *App) {
 		a.wsTimeout = d
 	}
 }
 
+// InstanceExpire sets the amount of time that instances are allowed to exist
+// without activity.
 func InstanceExpire(d time.Duration) Option {
 	return func(a *App) {
 		a.instanceExpire = d
 	}
 }
 
+// StaticPath sets the path to the HTTP server's static files.
 func StaticPath(path string) Option {
 	return func(a *App) {
 		a.staticPath = path
 	}
 }
 
+// MigrateUp enables upward migration of the database.
 func MigrateUp(migrateUp bool) Option {
 	return func(a *App) {
 		a.migrateUp = migrateUp
 	}
 }
 
+// MigrateReset enables database resettting on startup.
 func MigrateReset(migrateReset bool) Option {
 	return func(a *App) {
 		a.migrateReset = migrateReset
 	}
 }
 
+// DisableLimits sets whether or not container limits will be used.
 func DisableLimits(disableLimits bool) Option {
 	return func(a *App) {
 		a.disableLimits = disableLimits
 	}
 }
 
+// PProfToken sets the token/password used for HTTP pprof connections.
 func PProfToken(token string) Option {
 	return func(a *App) {
 		a.pprofToken = token
