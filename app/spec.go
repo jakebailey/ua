@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -211,81 +212,21 @@ func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.I
 	pathSlice = append(pathSlice, strings.Split(spec.AssignmentName, ".")...)
 	path := filepath.Join(pathSlice...)
 
-	// Empty image and container names are easier to identify and cleanup if
-	// needed, so just leave them blank.
-	imageTag := ""
-	containerName := ""
-
-	var imageID string
-	var cmd []string
-
-	var containerConfig container.Config
-	var hostConfig container.HostConfig
-
-	jsBuf, err := ioutil.ReadFile(filepath.Join(path, "index.js"))
+	imageID, containerID, err := a.specCreate(ctx, path, spec.Data)
 	if err != nil {
-		if !os.IsNotExist(err) {
-			logger.Error("error trying to load index.js",
-				zap.Error(err),
-			)
+		if err != errNoJS {
 			return nil, err
 		}
 
-		imageID, err = image.BuildLegacy(ctx, a.cli, path, imageTag, spec.Data)
+		imageID, containerID, err = a.specOldCreate(ctx, path, spec.Data)
 		if err != nil {
-			logger.Error("error building image",
-				zap.Error(err),
-			)
 			return nil, err
 		}
-
-		if initCmd, ok := image.GetLabel(ctx, a.cli, imageID, "ua.initCmd"); ok {
-			cmd = []string{"/dev/init", "-s", "--", "/bin/sh", "-c", initCmd}
-		}
-
-		truth := true
-
-		containerConfig = container.Config{
-			Tty:       true,
-			OpenStdin: true,
-			Image:     imageID,
-		}
-		hostConfig = container.HostConfig{
-			Init:        &truth,
-			NetworkMode: "none",
-		}
-	} else {
-		os.Stdout.Write(jsBuf)
-
-		_ = js.NewRuntime(nil)
-
-		panic("NOT IMPLEMENTED")
-	}
-
-	if len(cmd) != 0 {
-		containerConfig.Cmd = cmd
-	}
-
-	if !a.disableLimits {
-		hostConfig.Resources.CPUShares = 2
-		hostConfig.Resources.Memory = 16 * units.MiB
-		hostConfig.Resources.MemoryReservation = 4 * units.MiB
-		hostConfig.StorageOpt = map[string]string{
-			"size": "500M",
-		}
-	}
-
-	c, err := a.cli.ContainerCreate(ctx, &containerConfig, &hostConfig, nil, containerName)
-	if err != nil {
-		logger.Error("error creating container",
-			zap.Error(err),
-		)
-		return nil, err
 	}
 
 	instance := models.NewInstance()
 	instance.ImageID = imageID
-	instance.ContainerID = c.ID
+	instance.ContainerID = containerID
 	instance.ExpiresAt = a.instanceExpireTime()
 	instance.Active = true
 
@@ -308,6 +249,82 @@ func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.I
 	}
 
 	return instance, nil
+}
+
+func (a *App) specOldCreate(ctx context.Context, assignmentPath string, specData interface{}) (imageID, containerID string, err error) {
+	logger := ctxlog.FromContext(ctx)
+
+	// Empty image and container names are easier to identify and cleanup if
+	// needed, so just leave them blank.
+	imageTag := ""
+	containerName := ""
+
+	truth := true
+
+	containerConfig := container.Config{
+		Tty:       true,
+		OpenStdin: true,
+		Image:     imageID,
+	}
+	hostConfig := container.HostConfig{
+		Init:        &truth,
+		NetworkMode: "none",
+	}
+
+	imageID, err = image.BuildLegacy(ctx, a.cli, assignmentPath, imageTag, specData)
+	if err != nil {
+		logger.Error("error building image",
+			zap.Error(err),
+		)
+		return "", "", err
+	}
+
+	if initCmd, ok := image.GetLabel(ctx, a.cli, imageID, "ua.initCmd"); ok {
+		containerConfig.Cmd = []string{"/dev/init", "-s", "--", "/bin/sh", "-c", initCmd}
+	}
+
+	if !a.disableLimits {
+		hostConfig.Resources.CPUShares = 2
+		hostConfig.Resources.Memory = 16 * units.MiB
+		hostConfig.Resources.MemoryReservation = 4 * units.MiB
+		hostConfig.StorageOpt = map[string]string{
+			"size": "500M",
+		}
+	}
+
+	c, err := a.cli.ContainerCreate(ctx, &containerConfig, &hostConfig, nil, containerName)
+	if err != nil {
+		logger.Error("error creating container",
+			zap.Error(err),
+		)
+		return "", "", err
+	}
+
+	return imageID, c.ID, nil
+}
+
+var errNoJS = errors.New("no JS code found for assignment")
+
+func (a *App) specCreate(ctx context.Context, assignmentPath string, specData interface{}) (imageID, containerID string, err error) {
+	logger := ctxlog.FromContext(ctx)
+
+	jsBuf, err := ioutil.ReadFile(filepath.Join(assignmentPath, "index.js"))
+	if err != nil {
+		if !os.IsNotExist(err) {
+			logger.Error("error trying to load index.js",
+				zap.Error(err),
+			)
+			return "", "", err
+		}
+
+		return "", "", errNoJS
+	}
+
+	os.Stdout.Write(jsBuf)
+
+	_ = js.NewRuntime(nil)
+
+	return "", "", errors.New("not implemented")
 }
 
 func (a *App) specClean(w http.ResponseWriter, r *http.Request) {
