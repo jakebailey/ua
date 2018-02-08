@@ -308,7 +308,7 @@ var errNoJS = errors.New("no JS code found for assignment")
 func (a *App) specCreate(ctx context.Context, assignmentPath string, specData interface{}) (imageID, containerID string, err error) {
 	logger := ctxlog.FromContext(ctx)
 
-	jsBuf, err := ioutil.ReadFile(filepath.Join(assignmentPath, "index.js"))
+	program, err := ioutil.ReadFile(filepath.Join(assignmentPath, "index.js"))
 	if err != nil {
 		if !os.IsNotExist(err) {
 			logger.Error("error trying to load index.js",
@@ -320,9 +320,42 @@ func (a *App) specCreate(ctx context.Context, assignmentPath string, specData in
 		return "", "", errNoJS
 	}
 
-	os.Stdout.Write(jsBuf)
+	// contextPath := filepath.Join(assignmentPath, "context")
 
-	_ = js.NewRuntime(nil)
+	runtime := js.NewRuntime(&js.Options{
+		ModuleLoader: js.PathsModuleLoader(assignmentPath),
+		FileReader:   js.PathsFileReader(assignmentPath),
+	})
+	defer runtime.Destroy()
+
+	out := struct {
+		ImageName  string
+		Dockerfile string
+		Init       *bool
+
+		PostBuild []struct {
+			Action     string
+			User       string
+			WorkingDir string
+
+			// Exec action
+			Cmd   []string
+			Stdin *string
+
+			// Write option
+			Contents       string
+			ContentsBase64 bool
+			Filename       string
+		}
+
+		User       string
+		Cmd        []string
+		WorkingDir string
+	}{}
+
+	if err := runtime.Run(ctx, string(program), &out); err != nil {
+		return "", "", err
+	}
 
 	return "", "", errors.New("not implemented")
 }
