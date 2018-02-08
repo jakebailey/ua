@@ -18,6 +18,7 @@ import (
 	"github.com/jakebailey/ua/models"
 	"github.com/jakebailey/ua/pkg/ctxlog"
 	"github.com/jakebailey/ua/pkg/docker/image"
+	"github.com/jakebailey/ua/pkg/js"
 	"github.com/jakebailey/ua/pkg/simplecrypto"
 	"github.com/jakebailey/ua/templates"
 	uuid "github.com/satori/go.uuid"
@@ -255,6 +256,9 @@ func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.I
 		}
 	} else {
 		os.Stdout.Write(jsBuf)
+
+		_ = js.NewRuntime(nil)
+
 		panic("NOT IMPLEMENTED")
 	}
 
