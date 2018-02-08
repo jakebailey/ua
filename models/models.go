@@ -39,12 +39,22 @@ type Instance struct {
 	ExpiresAt   *time.Time
 	Active      bool
 	Cleaned     bool
+	Command     InstanceCommand
 }
 
 func newInstance() *Instance {
 	return &Instance{
 		ID: kallax.NewULID(),
 	}
+}
+
+// InstanceCommand is the command that should be proxied to the user
+// of an instance.
+type InstanceCommand struct {
+	User       string
+	Cmd        []string
+	Env        []string
+	WorkingDir string
 }
 
 //go:generate kallax gen

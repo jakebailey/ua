@@ -1,0 +1,5 @@
+BEGIN;
+
+ALTER TABLE instances DROP COLUMN command;
+
+COMMIT;

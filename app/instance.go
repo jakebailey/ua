@@ -134,7 +134,9 @@ func (a *App) handleInstance(ctx context.Context, conn proxy.Conn, instance *mod
 		token: token,
 	}
 
-	if err := proxy.Proxy(ctx, instance.ContainerID, conn, a.cli); err != nil {
+	proxyCmd := proxy.Command(instance.Command)
+
+	if err := proxy.Proxy(ctx, instance.ContainerID, conn, a.cli, proxyCmd); err != nil {
 		logger.Error("error proxying container",
 			zap.Error(err),
 		)

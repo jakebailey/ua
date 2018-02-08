@@ -217,13 +217,13 @@ func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.I
 	pathSlice = append(pathSlice, strings.Split(spec.AssignmentName, ".")...)
 	path := filepath.Join(pathSlice...)
 
-	imageID, containerID, err := a.specCreate(ctx, path, spec.Data)
+	imageID, containerID, iCmd, err := a.specCreate(ctx, path, spec.Data)
 	if err != nil {
 		if err != errNoJS {
 			return nil, err
 		}
 
-		imageID, containerID, err = a.specOldCreate(ctx, path, spec.Data)
+		imageID, containerID, iCmd, err = a.specOldCreate(ctx, path, spec.Data)
 		if err != nil {
 			return nil, err
 		}
@@ -234,6 +234,12 @@ func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.I
 	instance.ContainerID = containerID
 	instance.ExpiresAt = a.instanceExpireTime()
 	instance.Active = true
+
+	if iCmd != nil {
+		instance.Command = *iCmd
+	} else {
+		logger.Warn("no instance command provided, results may be undefined")
+	}
 
 	if err := a.specStore.Transaction(func(specStore *models.SpecStore) error {
 		specQuery := models.NewSpecQuery().FindByID(specID)
@@ -256,7 +262,7 @@ func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.I
 	return instance, nil
 }
 
-func (a *App) specOldCreate(ctx context.Context, assignmentPath string, specData interface{}) (imageID, containerID string, err error) {
+func (a *App) specOldCreate(ctx context.Context, assignmentPath string, specData interface{}) (imageID, containerID string, iCmd *models.InstanceCommand, err error) {
 	logger := ctxlog.FromContext(ctx)
 
 	// Empty image and container names are easier to identify and cleanup if
@@ -281,7 +287,7 @@ func (a *App) specOldCreate(ctx context.Context, assignmentPath string, specData
 		logger.Error("error building image",
 			zap.Error(err),
 		)
-		return "", "", err
+		return "", "", nil, err
 	}
 
 	if initCmd, ok := image.GetLabel(ctx, a.cli, imageID, "ua.initCmd"); ok {
@@ -302,15 +308,33 @@ func (a *App) specOldCreate(ctx context.Context, assignmentPath string, specData
 		logger.Error("error creating container",
 			zap.Error(err),
 		)
-		return "", "", err
+		return "", "", nil, err
+	}
+	containerID = c.ID
+
+	info, err := a.cli.ContainerInspect(ctx, containerID)
+	if err != nil {
+		return "", "", nil, err
 	}
 
-	return imageID, c.ID, nil
+	iCmd = &models.InstanceCommand{
+		User: info.Config.User,
+	}
+
+	if userCmd, ok := info.Config.Labels["ua.userCmd"]; ok {
+		iCmd.Cmd = []string{"/dev/init", "-s", "--", "/bin/sh", "-c", userCmd}
+	} else {
+		iCmd.Cmd = []string{"/dev/init", "-s", "--"}
+		iCmd.Cmd = append(iCmd.Cmd, info.Config.Entrypoint...)
+		iCmd.Cmd = append(iCmd.Cmd, info.Config.Cmd...)
+	}
+
+	return imageID, containerID, iCmd, nil
 }
 
 var errNoJS = errors.New("no JS code found for assignment")
 
-func (a *App) specCreate(ctx context.Context, assignmentPath string, specData interface{}) (imageID, containerID string, err error) {
+func (a *App) specCreate(ctx context.Context, assignmentPath string, specData interface{}) (imageID, containerID string, iCmd *models.InstanceCommand, err error) {
 	logger := ctxlog.FromContext(ctx)
 
 	if _, err := os.Stat(filepath.Join(assignmentPath, "index.js")); err != nil {
@@ -318,10 +342,10 @@ func (a *App) specCreate(ctx context.Context, assignmentPath string, specData in
 			logger.Error("error trying to load index.js",
 				zap.Error(err),
 			)
-			return "", "", err
+			return "", "", nil, err
 		}
 
-		return "", "", errNoJS
+		return "", "", nil, errNoJS
 	}
 
 	consoleOutput := &bytes.Buffer{}
@@ -344,6 +368,7 @@ func (a *App) specCreate(ctx context.Context, assignmentPath string, specData in
 
 			// Exec action
 			Cmd   []string
+			Env   []string
 			Stdin *string
 
 			// Write option
@@ -354,6 +379,7 @@ func (a *App) specCreate(ctx context.Context, assignmentPath string, specData in
 
 		User       string
 		Cmd        []string
+		Env        []string
 		WorkingDir string
 	}{}
 
@@ -363,7 +389,7 @@ func (a *App) specCreate(ctx context.Context, assignmentPath string, specData in
 			zap.Error(err),
 			zap.String("console", consoleOutput.String()),
 		)
-		return "", "", err
+		return "", "", nil, err
 	}
 
 	// Empty image and container names are easier to identify and cleanup if
@@ -375,18 +401,18 @@ func (a *App) specCreate(ctx context.Context, assignmentPath string, specData in
 	case out.ImageName != "":
 		if err := a.cli.ImageTag(ctx, out.ImageName, imageTag); err != nil {
 			if !strings.Contains(err.Error(), "No such image:") {
-				return "", "", err
+				return "", "", nil, err
 			}
 
 			resp, err := a.cli.ImagePull(ctx, out.ImageName, types.ImagePullOptions{})
 			if err != nil {
-				return "", "", err
+				return "", "", nil, err
 			}
 			io.Copy(ioutil.Discard, resp)
 			resp.Close()
 
 			if err := a.cli.ImageTag(ctx, out.ImageName, imageTag); err != nil {
-				return "", "", err
+				return "", "", nil, err
 			}
 		}
 
@@ -397,12 +423,12 @@ func (a *App) specCreate(ctx context.Context, assignmentPath string, specData in
 
 		imageID, err = image.Build(ctx, a.cli, imageTag, out.Dockerfile, contextPath)
 		if err != nil {
-			return "", "", err
+			return "", "", nil, err
 		}
 
 	default:
 		logger.Error("not enough info to build image (image name, dockerfile, etc)")
-		return "", "", errors.New("TODO: no way to build image")
+		return "", "", nil, errors.New("TODO: no way to build image")
 	}
 
 	containerConfig := &container.Config{
@@ -416,12 +442,12 @@ func (a *App) specCreate(ctx context.Context, assignmentPath string, specData in
 
 	c, err := a.cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, containerName)
 	if err != nil {
-		return "", "", err
+		return "", "", nil, err
 	}
 	containerID = c.ID
 
 	if err := a.cli.ContainerStart(ctx, containerID, types.ContainerStartOptions{}); err != nil {
-		return "", "", err
+		return "", "", nil, err
 	}
 
 	// TODO: stop container on further errors
@@ -432,13 +458,14 @@ func (a *App) specCreate(ctx context.Context, assignmentPath string, specData in
 			ec := dexec.Config{
 				User:       ac.User,
 				Cmd:        ac.Cmd,
+				Env:        ac.Env,
 				WorkingDir: ac.WorkingDir,
 				Stdout:     os.Stdout,
 				Stderr:     os.Stderr,
 			}
 
 			if err := dexec.Exec(ctx, a.cli, containerID, ec); err != nil {
-				return "", "", err
+				return "", "", nil, err
 			}
 
 		case "write":
@@ -455,7 +482,7 @@ func (a *App) specCreate(ctx context.Context, assignmentPath string, specData in
 			}
 
 			if err := dexec.Exec(ctx, a.cli, containerID, ec); err != nil {
-				return "", "", err
+				return "", "", nil, err
 			}
 
 		default:
@@ -475,10 +502,17 @@ func (a *App) specCreate(ctx context.Context, assignmentPath string, specData in
 		logger.Error("error disconnecting network",
 			zap.Error(err),
 		)
-		return "", "", err
+		return "", "", nil, err
 	}
 
-	return imageID, containerID, nil
+	iCmd = &models.InstanceCommand{
+		User:       out.User,
+		Cmd:        out.Cmd,
+		Env:        out.Env,
+		WorkingDir: out.WorkingDir,
+	}
+
+	return imageID, containerID, iCmd, nil
 }
 
 func (a *App) specClean(w http.ResponseWriter, r *http.Request) {

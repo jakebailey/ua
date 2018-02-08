@@ -20,35 +20,27 @@ type Conn interface {
 	IsClose(error) bool
 }
 
+type Command struct {
+	User       string
+	Cmd        []string
+	Env        []string
+	WorkingDir string
+}
+
 // Proxy attaches to a docker container and proxies its stdin/out/err
 // over a websocket using the terminado protocol.
-func Proxy(ctx context.Context, id string, conn Conn, cli client.CommonAPIClient) error {
+func Proxy(ctx context.Context, id string, conn Conn, cli client.CommonAPIClient, command Command) error {
 	logger := ctxlog.FromContext(ctx)
 
-	info, err := cli.ContainerInspect(ctx, id)
-	if err != nil {
-		return err
-	}
-
 	execConfig := types.ExecConfig{
-		User:         info.Config.User,
+		User:         command.User,
+		Cmd:          command.Cmd,
+		Env:          command.Env,
+		WorkingDir:   command.WorkingDir,
 		Tty:          true,
 		AttachStdin:  true,
 		AttachStdout: true,
 		AttachStderr: true,
-	}
-
-	if userCmd, ok := info.Config.Labels["ua.userCmd"]; ok {
-		execConfig.Cmd = []string{"/dev/init", "-s", "--", "/bin/sh", "-c", userCmd}
-	} else {
-		execConfig.Cmd = []string{"/dev/init", "-s", "--"}
-		execConfig.Cmd = append(execConfig.Cmd, info.Config.Entrypoint...)
-		execConfig.Cmd = append(execConfig.Cmd, info.Config.Cmd...)
-	}
-
-	switch execConfig.User {
-	case "", "root":
-		logger.Warn("instance user is root!")
 	}
 
 	logger.Debug("creating exec",

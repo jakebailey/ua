@@ -49,6 +49,8 @@ func (r *Instance) ColumnAddress(col string) (interface{}, error) {
 		return &r.Active, nil
 	case "cleaned":
 		return &r.Cleaned, nil
+	case "command":
+		return types.JSON(&r.Command), nil
 
 	default:
 		return nil, fmt.Errorf("kallax: invalid column in Instance: %s", col)
@@ -83,6 +85,8 @@ func (r *Instance) Value(col string) (interface{}, error) {
 		return r.Active, nil
 	case "cleaned":
 		return r.Cleaned, nil
+	case "command":
+		return types.JSON(r.Command), nil
 
 	default:
 		return nil, fmt.Errorf("kallax: invalid column in Instance: %s", col)
@@ -1253,6 +1257,7 @@ type schemaInstance struct {
 	ExpiresAt   kallax.SchemaField
 	Active      kallax.SchemaField
 	Cleaned     kallax.SchemaField
+	Command     *schemaInstanceCommand
 }
 
 type schemaSpec struct {
@@ -1262,6 +1267,14 @@ type schemaSpec struct {
 	UpdatedAt      kallax.SchemaField
 	AssignmentName kallax.SchemaField
 	Data           kallax.SchemaField
+}
+
+type schemaInstanceCommand struct {
+	*kallax.BaseSchemaField
+	User       kallax.SchemaField
+	Cmd        kallax.SchemaField
+	Env        kallax.SchemaField
+	WorkingDir kallax.SchemaField
 }
 
 var Schema = &schema{
@@ -1286,6 +1299,7 @@ var Schema = &schema{
 			kallax.NewSchemaField("expires_at"),
 			kallax.NewSchemaField("active"),
 			kallax.NewSchemaField("cleaned"),
+			kallax.NewSchemaField("command"),
 		),
 		ID:          kallax.NewSchemaField("id"),
 		CreatedAt:   kallax.NewSchemaField("created_at"),
@@ -1296,6 +1310,13 @@ var Schema = &schema{
 		ExpiresAt:   kallax.NewSchemaField("expires_at"),
 		Active:      kallax.NewSchemaField("active"),
 		Cleaned:     kallax.NewSchemaField("cleaned"),
+		Command: &schemaInstanceCommand{
+			BaseSchemaField: kallax.NewSchemaField("command").(*kallax.BaseSchemaField),
+			User:            kallax.NewJSONSchemaKey(kallax.JSONText, "command", "User"),
+			Cmd:             kallax.NewJSONSchemaArray("command", "Cmd"),
+			Env:             kallax.NewJSONSchemaArray("command", "Env"),
+			WorkingDir:      kallax.NewJSONSchemaKey(kallax.JSONText, "command", "WorkingDir"),
+		},
 	},
 	Spec: &schemaSpec{
 		BaseSchema: kallax.NewBaseSchema(
