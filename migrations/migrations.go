@@ -10,6 +10,7 @@ import (
 
 //go:generate go-bindata -pkg migrations -ignore=\.(go|json|md)$ .
 
+// Up brings the database up to date to the latest migration.
 func Up(db *sql.DB) error {
 	m, err := newMigrate(db)
 	if err != nil {
@@ -19,6 +20,7 @@ func Up(db *sql.DB) error {
 	return ignoreNoChange(m.Up())
 }
 
+// Down brings the database down by applying the down migrations.
 func Down(db *sql.DB) error {
 	m, err := newMigrate(db)
 	if err != nil {
@@ -28,6 +30,7 @@ func Down(db *sql.DB) error {
 	return ignoreNoChange(m.Down())
 }
 
+// Reset resets the database by bringing the database down and up again.
 func Reset(db *sql.DB) error {
 	m, err := newMigrate(db)
 	if err != nil {

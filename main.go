@@ -173,7 +173,7 @@ func buildJournaldLogger(cfg zap.Config) *zap.Logger {
 
 	if cfg.Sampling != nil {
 		opts = append(opts, zap.WrapCore(func(core zapcore.Core) zapcore.Core {
-			return zapcore.NewSampler(core, time.Second, int(cfg.Sampling.Initial), int(cfg.Sampling.Thereafter))
+			return zapcore.NewSampler(core, time.Second, cfg.Sampling.Initial, cfg.Sampling.Thereafter)
 		}))
 	}
 
