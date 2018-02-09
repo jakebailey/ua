@@ -81,7 +81,12 @@ func Decrypt(key, ciphertext []byte) (payload []byte, err error) {
 // SHA256 has function.
 func HMAC(key, message []byte) []byte {
 	mac := hmac.New(sha256.New, key)
-	mac.Write(message)
+
+	if _, err := mac.Write(message); err != nil {
+		// A write to sha256 hasher can never fail.
+		panic(err)
+	}
+
 	return mac.Sum(nil)
 }
 
@@ -104,7 +109,7 @@ func EncryptAndHMAC(key, payload []byte) (ciphertext, hmac []byte, err error) {
 	return ciphertext, HMAC(key, ciphertext), nil
 }
 
-// CheckAndDecrypt checks the HMAC of the chiphertext, and decrypts it if tje
+// CheckAndDecrypt checks the HMAC of the chiphertext, and decrypts it if the
 // HMAC matches.
 func CheckAndDecrypt(key, ciphertext, hmac []byte) (payload []byte, err error) {
 	if !CheckMAC(key, ciphertext, hmac) {

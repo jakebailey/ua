@@ -32,7 +32,6 @@ func (e ExitCodeError) Error() string {
 
 // Exec runs a process on a container, managing I/O, exit codes, etc.
 func Exec(ctx context.Context, cli client.CommonAPIClient, containerID string, config Config) error {
-
 	execConfig := types.ExecConfig{
 		User:         config.User,
 		Cmd:          config.Cmd,
@@ -60,9 +59,10 @@ func Exec(ctx context.Context, cli client.CommonAPIClient, containerID string, c
 
 	if execConfig.AttachStdin {
 		g.Go(func() error {
-			defer hj.CloseWrite()
-			_, err := io.Copy(hj.Conn, config.Stdin)
-			return err
+			if _, err := io.Copy(hj.Conn, config.Stdin); err != nil {
+				return err
+			}
+			return hj.CloseWrite()
 		})
 	}
 

@@ -14,12 +14,19 @@ import (
 
 // Build builds a docker image on the given docker client, given the Dockerfile
 // as a string and the path to the build context.
-func Build(ctx context.Context, cli client.CommonAPIClient, tag string, dockerfile string, contextPath string) (string, error) {
+func Build(ctx context.Context, cli client.CommonAPIClient, tag string, dockerfile string, contextPath string) (imageID string, err error) {
 	buildCtx, relDockerfile, err := createBuildContext(dockerfile, contextPath)
 	if err != nil {
 		return "", err
 	}
-	defer buildCtx.Close()
+	defer func() {
+		// We'd like to defer buildCtx.Close(), but doing so directly discards
+		// a potential error. Instead, close it, check the error, and propagate
+		// it upward if the Build would normally return a nil error.
+		if cerr := buildCtx.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
 
 	buildOptions := types.ImageBuildOptions{
 		Remove:     true,
@@ -27,11 +34,15 @@ func Build(ctx context.Context, cli client.CommonAPIClient, tag string, dockerfi
 		Tags:       []string{tag},
 	}
 
-	response, err := cli.ImageBuild(ctx, buildCtx, buildOptions)
-	if err != nil {
-		return "", err
+	response, buildErr := cli.ImageBuild(ctx, buildCtx, buildOptions)
+	if buildErr != nil {
+		return "", buildErr
 	}
-	defer response.Body.Close()
+	defer func() {
+		if cerr := response.Body.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
 
 	imageID, toRemove, err := readBuildBody(response.Body)
 	if err != nil {

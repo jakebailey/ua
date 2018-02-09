@@ -77,9 +77,16 @@ func Require(runtime *goja.Runtime, module *goja.Object) {
 	c.util = require.Require(runtime, "util").(*goja.Object)
 
 	o := module.Get("exports").(*goja.Object)
-	o.Set("log", c.log)
-	o.Set("error", c.log)
-	o.Set("warn", c.log)
+
+	must := func(err error) {
+		if err != nil {
+			panic(runtime.NewGoError(err))
+		}
+	}
+
+	must(o.Set("log", c.log))
+	must(o.Set("error", c.log))
+	must(o.Set("warn", c.log))
 }
 
 // Enable sets the global console object to require('console').

@@ -10,6 +10,7 @@ import (
 	"github.com/docker/docker/client"
 )
 
+// GetLabel gets a label from an image.
 func GetLabel(ctx context.Context, cli client.CommonAPIClient, imageID string, labelName string) (string, bool) {
 	var buf bytes.Buffer
 

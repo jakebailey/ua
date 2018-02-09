@@ -10,18 +10,23 @@ import (
 	"github.com/docker/docker/pkg/archive"
 )
 
-func createBuildContext(dockerfile string, contextPath string) (io.ReadCloser, string, error) {
+func createBuildContext(dockerfile string, contextPath string) (buildCtx io.ReadCloser, relDockerfile string, err error) {
 	// If the context doesn't exist, make an empty tempdir to delete after creating the context.
-	if _, err := os.Stat(contextPath); err != nil {
-		if !os.IsNotExist(err) {
-			return nil, "", err
+	if _, terr := os.Stat(contextPath); terr != nil {
+		if !os.IsNotExist(terr) {
+			return nil, "", terr
 		}
 
-		contextPath, err = ioutil.TempDir("", "image-build-empty")
-		if err != nil {
-			return nil, "", err
+		contextPath, terr = ioutil.TempDir("", "image-build-empty")
+		if terr != nil {
+			return nil, "", terr
 		}
-		defer os.RemoveAll(contextPath)
+
+		defer func() {
+			if cerr := os.RemoveAll(contextPath); cerr != nil && err == nil {
+				err = cerr
+			}
+		}()
 	}
 
 	dockerfileCtx := ioutil.NopCloser(strings.NewReader(dockerfile))
@@ -45,9 +50,8 @@ func createBuildContext(dockerfile string, contextPath string) (io.ReadCloser, s
 		return nil, "", err
 	}
 
-	excludes = build.TrimBuildFilesFromExcludes(excludes, relDockerfile, true)
-	buildCtx, err := archive.TarWithOptions(contextDir, &archive.TarOptions{
-		ExcludePatterns: excludes,
+	buildCtx, err = archive.TarWithOptions(contextDir, &archive.TarOptions{
+		ExcludePatterns: build.TrimBuildFilesFromExcludes(excludes, relDockerfile, true),
 	})
 	if err != nil {
 		return nil, "", err

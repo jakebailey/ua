@@ -20,11 +20,11 @@ func RuneCopy(dst io.Writer, src io.Reader) (written int, err error) {
 		n, err = dst.Write(s.Bytes())
 		written += n
 		if err != nil {
-			return
+			return written, err
 		}
 	}
 
-	return
+	return written, err
 }
 
 // ScanRunesGreedy is like bufio.ScanRunes, but will capture as many runes from the input as possible.

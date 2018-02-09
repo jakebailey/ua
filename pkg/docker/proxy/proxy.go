@@ -20,6 +20,7 @@ type Conn interface {
 	IsClose(error) bool
 }
 
+// Command is the configuration for a proxy'd command.
 type Command struct {
 	User       string
 	Cmd        []string
@@ -70,14 +71,13 @@ func Proxy(ctx context.Context, id string, conn Conn, cli client.CommonAPIClient
 	g, ctx := errgroup.WithContext(ctx)
 
 	g.Go(proxyInputFunc(ctx, execID, conn, cli, hj.Conn))
-	g.Go(proxyOutputFunc(ctx, execID, conn, hj.Conn, "stdout"))
-	g.Go(proxyOutputFunc(ctx, execID, conn, hj.Reader, "stderr"))
+	g.Go(proxyOutputFunc(ctx, conn, hj.Conn, "stdout"))
+	g.Go(proxyOutputFunc(ctx, conn, hj.Reader, "stderr"))
 
 	g.Go(func() error {
 		<-ctx.Done()
-		conn.Close()
 		hj.Close()
-		return nil
+		return conn.Close()
 	})
 
 	if err := g.Wait(); err != nil && !conn.IsClose(err) {
@@ -142,7 +142,7 @@ func proxyInputFunc(ctx context.Context, id string, conn Conn, cli client.Common
 	}
 }
 
-func proxyOutputFunc(ctx context.Context, id string, conn Conn, reader io.Reader, name string) func() error {
+func proxyOutputFunc(ctx context.Context, conn Conn, reader io.Reader, name string) func() error {
 	return func() error {
 		logger := ctxlog.FromContext(ctx).With(zap.String("pipe", name))
 
