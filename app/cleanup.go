@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
 	"github.com/jakebailey/ua/models"
 	"github.com/jakebailey/ua/pkg/ctxlog"
@@ -280,12 +279,10 @@ func (a *App) markAllInstancesCleanedAndInactive() {
 	}
 }
 
-var pruneFilter = filters.NewArgs()
-
 func (a *App) pruneImages(ctx context.Context) {
 	// logger := ctxlog.FromContext(ctx)
 
-	// report, err := a.cli.ImagesPrune(ctx, pruneFilter)
+	// report, err := a.cli.ImagesPrune(ctx, filters.NewArgs())
 	// if err != nil {
 	// 	logger.Error("error pruning dangling images",
 	// 		zap.Error(err),

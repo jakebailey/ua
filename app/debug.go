@@ -8,7 +8,9 @@ import (
 
 	"github.com/e-dard/netbug"
 	"github.com/go-chi/chi"
+	"github.com/jakebailey/ua/pkg/ctxlog"
 	"github.com/jakebailey/ua/pkg/simplecrypto"
+	"go.uber.org/zap"
 )
 
 func (a *App) routeDebug(r chi.Router) {
@@ -55,19 +57,17 @@ func (a *App) routeDebugProd(r chi.Router) {
 	}
 }
 
-func (a *App) triggerCleanInactive(w http.ResponseWriter, r *http.Request) {
+func (a *App) triggerCleanInactive(w http.ResponseWriter, _ *http.Request) {
 	a.cleanInactiveRunner.Run()
 	fmt.Fprint(w, "ok")
 }
 
-func (a *App) triggerCheckExpired(w http.ResponseWriter, r *http.Request) {
+func (a *App) triggerCheckExpired(w http.ResponseWriter, _ *http.Request) {
 	a.checkExpiredRunner.Run()
 	fmt.Fprint(w, "ok")
 }
 
 func (a *App) debugEncrypt(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
-
 	payload, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -81,7 +81,7 @@ func (a *App) debugEncrypt(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) debugDecrypt(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
+	logger := ctxlog.FromRequest(r)
 
 	payload, err := simplecrypto.DecodeJSONReader(a.aesKey, r.Body)
 	if err != nil {
@@ -89,5 +89,9 @@ func (a *App) debugDecrypt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Write(payload)
+	if _, err := w.Write(payload); err != nil {
+		logger.Error("error writing response",
+			zap.Error(err),
+		)
+	}
 }

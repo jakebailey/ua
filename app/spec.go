@@ -47,7 +47,7 @@ func (a *App) routeSpec(r chi.Router) {
 	r.Post("/clean", a.specClean)
 }
 
-func (a *App) specGet(w http.ResponseWriter, r *http.Request) {
+func (a *App) specGet(w http.ResponseWriter, _ *http.Request) {
 	specID := kallax.NewULID().String()
 	templates.WriteSpec(w, specID)
 }
@@ -66,7 +66,6 @@ func (a *App) specProcessRequest(w http.ResponseWriter, r *http.Request) kallax.
 	ctx := r.Context()
 	logger := ctxlog.FromContext(ctx)
 
-	defer r.Body.Close()
 	payload, err := simplecrypto.DecodeJSONReader(a.aesKey, r.Body)
 	if err != nil {
 		logger.Warn("error decrypting payload",
@@ -109,8 +108,7 @@ func (a *App) specProcessRequest(w http.ResponseWriter, r *http.Request) kallax.
 
 	specQuery := models.NewSpecQuery().FindByID(specID)
 
-	spec, err := a.specStore.FindOne(specQuery)
-	if err != nil {
+	if _, err := a.specStore.FindOne(specQuery); err != nil {
 		if err != kallax.ErrNotFound {
 			logger.Error("error querying for spec",
 				zap.Error(err),
@@ -120,7 +118,7 @@ func (a *App) specProcessRequest(w http.ResponseWriter, r *http.Request) kallax.
 			return nilULID
 		}
 
-		spec = &models.Spec{
+		spec := &models.Spec{
 			ID:             specID,
 			AssignmentName: req.AssignmentName,
 			Data:           req.Data,
@@ -408,8 +406,18 @@ func (a *App) specCreate(ctx context.Context, assignmentPath string, specData in
 			if err != nil {
 				return "", "", nil, err
 			}
-			io.Copy(ioutil.Discard, resp)
-			resp.Close()
+
+			if _, err := io.Copy(ioutil.Discard, resp); err != nil {
+				logger.Error("error discarding image pull status",
+					zap.Error(err),
+				)
+			}
+
+			if err := resp.Close(); err != nil {
+				logger.Error("error closing image pull response",
+					zap.Error(err),
+				)
+			}
 
 			if err := a.cli.ImageTag(ctx, out.ImageName, imageTag); err != nil {
 				return "", "", nil, err
@@ -516,6 +524,8 @@ func (a *App) specCreate(ctx context.Context, assignmentPath string, specData in
 }
 
 func (a *App) specClean(w http.ResponseWriter, r *http.Request) {
+	logger := ctxlog.FromRequest(r)
+
 	specID := a.specProcessRequest(w, r)
 	if specID.IsEmpty() {
 		return
@@ -528,7 +538,6 @@ func (a *App) specClean(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fn := func() {
-		logger := ctxlog.FromRequest(r)
 		ctx := ctxlog.WithLogger(context.Background(), logger)
 		instanceQuery := models.NewInstanceQuery().FindBySpec(specID).FindByCleaned(false)
 		a.cleanupInstancesByQuery(ctx, instanceQuery)
@@ -540,5 +549,9 @@ func (a *App) specClean(w http.ResponseWriter, r *http.Request) {
 		fn()
 	}
 
-	w.Write([]byte("ok"))
+	if _, err := w.Write([]byte("ok")); err != nil {
+		logger.Error("error writing response",
+			zap.Error(err),
+		)
+	}
 }

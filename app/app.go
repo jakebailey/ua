@@ -243,7 +243,13 @@ func (a *App) Run() error {
 			m.Cache = autocert.DirCache(cacheDir)
 		}
 
-		go http.ListenAndServe(":http", m.HTTPHandler(nil))
+		go func() {
+			if err := http.ListenAndServe(":http", m.HTTPHandler(nil)); err != nil {
+				a.logger.Error("regular http redirect error",
+					zap.Error(err),
+				)
+			}
+		}()
 
 		a.logger.Info("starting http server", zap.String("domain", a.letsEncryptDomain))
 
