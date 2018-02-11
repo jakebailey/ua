@@ -175,15 +175,12 @@ __handle_flag()
     fi
 
     # keep flag value with flagname as flaghash
-    # flaghash variable is an associative array which is only supported in bash > 3.
-    if [[ -z "${BASH_VERSION}" || "${BASH_VERSINFO[0]}" -gt 3 ]]; then
-        if [ -n "${flagvalue}" ] ; then
-            flaghash[${flagname}]=${flagvalue}
-        elif [ -n "${words[ $((c+1)) ]}" ] ; then
-            flaghash[${flagname}]=${words[ $((c+1)) ]}
-        else
-            flaghash[${flagname}]="true" # pad "true" for bool flag
-        fi
+    if [ -n "${flagvalue}" ] ; then
+        flaghash[${flagname}]=${flagvalue}
+    elif [ -n "${words[ $((c+1)) ]}" ] ; then
+        flaghash[${flagname}]=${words[ $((c+1)) ]}
+    else
+        flaghash[${flagname}]="true" # pad "true" for bool flag
     fi
 
     # skip the argument to a two word flag
@@ -494,20 +491,17 @@ func (c *Command) GenBashCompletionFile(filename string) error {
 	return c.GenBashCompletion(outFile)
 }
 
-// MarkFlagRequired adds the BashCompOneRequiredFlag annotation to the named flag if it exists,
-// and causes your command to report an error if invoked without the flag.
+// MarkFlagRequired adds the BashCompOneRequiredFlag annotation to the named flag, if it exists.
 func (c *Command) MarkFlagRequired(name string) error {
 	return MarkFlagRequired(c.Flags(), name)
 }
 
-// MarkPersistentFlagRequired adds the BashCompOneRequiredFlag annotation to the named persistent flag if it exists,
-// and causes your command to report an error if invoked without the flag.
+// MarkPersistentFlagRequired adds the BashCompOneRequiredFlag annotation to the named persistent flag, if it exists.
 func (c *Command) MarkPersistentFlagRequired(name string) error {
 	return MarkFlagRequired(c.PersistentFlags(), name)
 }
 
-// MarkFlagRequired adds the BashCompOneRequiredFlag annotation to the named flag if it exists,
-// and causes your command to report an error if invoked without the flag.
+// MarkFlagRequired adds the BashCompOneRequiredFlag annotation to the named flag in the flag set, if it exists.
 func MarkFlagRequired(flags *pflag.FlagSet, name string) error {
 	return flags.SetAnnotation(name, BashCompOneRequiredFlag, []string{"true"})
 }

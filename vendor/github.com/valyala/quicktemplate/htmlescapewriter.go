@@ -1,26 +1,33 @@
 package quicktemplate
 
 import (
-	"bytes"
 	"io"
+	"sync"
 )
+
+func acquireHTMLEscapeWriter(w io.Writer) io.Writer {
+	v := htmlEscapeWriterPool.Get()
+	if v == nil {
+		v = &htmlEscapeWriter{}
+	}
+	hw := v.(*htmlEscapeWriter)
+	hw.w = w
+	return hw
+}
+
+func releaseHTMLEscapeWriter(w io.Writer) {
+	hw := w.(*htmlEscapeWriter)
+	hw.w = nil
+	htmlEscapeWriterPool.Put(hw)
+}
+
+var htmlEscapeWriterPool sync.Pool
 
 type htmlEscapeWriter struct {
 	w io.Writer
 }
 
 func (w *htmlEscapeWriter) Write(b []byte) (int, error) {
-	if bytes.IndexByte(b, '<') < 0 &&
-		bytes.IndexByte(b, '>') < 0 &&
-		bytes.IndexByte(b, '"') < 0 &&
-		bytes.IndexByte(b, '\'') < 0 &&
-		bytes.IndexByte(b, '&') < 0 {
-
-		// fast path - nothing to escape
-		return w.w.Write(b)
-	}
-
-	// slow path
 	write := w.w.Write
 	j := 0
 	for i, c := range b {

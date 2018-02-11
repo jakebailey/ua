@@ -1,0 +1,16 @@
+[[constraint]]
+  branch = "master"
+  name = "github.com/docker/cli"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/docker/docker"
+
+[[override]]
+  branch = "master"
+  name = "github.com/docker/distribution"
+
+[prune]
+  non-go = true
+  go-tests = true
+  unused-packages = true
