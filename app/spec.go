@@ -1,30 +1,19 @@
 package app
 
 import (
-	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
-	"errors"
-	"io"
-	"io/ioutil"
 	"net/http"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/go-units"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/render"
+	"github.com/jakebailey/ua/app/specbuild"
 	"github.com/jakebailey/ua/models"
 	"github.com/jakebailey/ua/pkg/ctxlog"
-	"github.com/jakebailey/ua/pkg/docker/dexec"
-	"github.com/jakebailey/ua/pkg/docker/image"
-	"github.com/jakebailey/ua/pkg/js"
 	"github.com/jakebailey/ua/pkg/simplecrypto"
 	"github.com/jakebailey/ua/templates"
 	uuid "github.com/satori/go.uuid"
@@ -215,19 +204,21 @@ func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.I
 	pathSlice = append(pathSlice, strings.Split(spec.AssignmentName, ".")...)
 	path := filepath.Join(pathSlice...)
 
-	imageID, containerID, iCmd, err := a.specCreate(ctx, path, spec.Data)
+	instance := models.NewInstance()
+	imageTag := "ua-" + instance.ID.String()
+
+	imageID, containerID, iCmd, err := a.specCreate(ctx, path, spec.Data, imageTag)
 	if err != nil {
-		if err != errNoJS {
+		if err != specbuild.ErrNoJS {
 			return nil, err
 		}
 
-		imageID, containerID, iCmd, err = a.specOldCreate(ctx, path, spec.Data)
+		imageID, containerID, iCmd, err = a.specLegacyCreate(ctx, path, spec.Data, imageTag)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	instance := models.NewInstance()
 	instance.ImageID = imageID
 	instance.ContainerID = containerID
 	instance.ExpiresAt = a.instanceExpireTime()
@@ -258,269 +249,6 @@ func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.I
 	}
 
 	return instance, nil
-}
-
-func (a *App) specOldCreate(ctx context.Context, assignmentPath string, specData interface{}) (imageID, containerID string, iCmd *models.InstanceCommand, err error) {
-	logger := ctxlog.FromContext(ctx)
-
-	// Empty image and container names are easier to identify and cleanup if
-	// needed, so just leave them blank.
-	imageTag := ""
-	containerName := ""
-
-	truth := true
-
-	containerConfig := container.Config{
-		Tty:       true,
-		OpenStdin: true,
-		Image:     imageID,
-	}
-	hostConfig := container.HostConfig{
-		Init:        &truth,
-		NetworkMode: "none",
-	}
-
-	imageID, err = image.BuildLegacy(ctx, a.cli, assignmentPath, imageTag, specData)
-	if err != nil {
-		logger.Error("error building image",
-			zap.Error(err),
-		)
-		return "", "", nil, err
-	}
-
-	if initCmd, ok := image.GetLabel(ctx, a.cli, imageID, "ua.initCmd"); ok {
-		containerConfig.Cmd = []string{"/dev/init", "-s", "--", "/bin/sh", "-c", initCmd}
-	}
-
-	if !a.disableLimits {
-		hostConfig.Resources.CPUShares = 2
-		hostConfig.Resources.Memory = 16 * units.MiB
-		hostConfig.Resources.MemoryReservation = 4 * units.MiB
-		hostConfig.StorageOpt = map[string]string{
-			"size": "500M",
-		}
-	}
-
-	c, err := a.cli.ContainerCreate(ctx, &containerConfig, &hostConfig, nil, containerName)
-	if err != nil {
-		logger.Error("error creating container",
-			zap.Error(err),
-		)
-		return "", "", nil, err
-	}
-	containerID = c.ID
-
-	info, err := a.cli.ContainerInspect(ctx, containerID)
-	if err != nil {
-		return "", "", nil, err
-	}
-
-	iCmd = &models.InstanceCommand{
-		User: info.Config.User,
-	}
-
-	if userCmd, ok := info.Config.Labels["ua.userCmd"]; ok {
-		iCmd.Cmd = []string{"/dev/init", "-s", "--", "/bin/sh", "-c", userCmd}
-	} else {
-		iCmd.Cmd = []string{"/dev/init", "-s", "--"}
-		iCmd.Cmd = append(iCmd.Cmd, info.Config.Entrypoint...)
-		iCmd.Cmd = append(iCmd.Cmd, info.Config.Cmd...)
-	}
-
-	return imageID, containerID, iCmd, nil
-}
-
-var errNoJS = errors.New("no JS code found for assignment")
-
-func (a *App) specCreate(ctx context.Context, assignmentPath string, specData interface{}) (imageID, containerID string, iCmd *models.InstanceCommand, err error) {
-	logger := ctxlog.FromContext(ctx)
-
-	if _, err := os.Stat(filepath.Join(assignmentPath, "index.js")); err != nil {
-		if !os.IsNotExist(err) {
-			logger.Error("error trying to load index.js",
-				zap.Error(err),
-			)
-			return "", "", nil, err
-		}
-
-		return "", "", nil, errNoJS
-	}
-
-	consoleOutput := &bytes.Buffer{}
-	runtime := js.NewRuntime(&js.Options{
-		Stdout:       consoleOutput,
-		ModuleLoader: js.PathsModuleLoader(assignmentPath),
-		FileReader:   js.PathsFileReader(assignmentPath),
-	})
-	defer runtime.Destroy()
-
-	out := struct {
-		ImageName  string
-		Dockerfile string
-		Init       *bool
-
-		PostBuild []struct {
-			Action     string
-			User       string
-			WorkingDir string
-
-			// Exec action
-			Cmd   []string
-			Env   []string
-			Stdin *string
-
-			// Write option
-			Contents       string
-			ContentsBase64 bool
-			Filename       string
-		}
-
-		User       string
-		Cmd        []string
-		Env        []string
-		WorkingDir string
-	}{}
-
-	runtime.Set("__specData__", specData)
-	if err := runtime.Run(ctx, "require('index.js').generate(__specData__);", &out); err != nil {
-		logger.Error("javascript error",
-			zap.Error(err),
-			zap.String("console", consoleOutput.String()),
-		)
-		return "", "", nil, err
-	}
-
-	// Empty image and container names are easier to identify and cleanup if
-	// needed, so just leave them blank.
-	imageTag := "TODO"
-	containerName := ""
-
-	switch {
-	case out.ImageName != "":
-		if err := a.cli.ImageTag(ctx, out.ImageName, imageTag); err != nil {
-			if !strings.Contains(err.Error(), "No such image:") {
-				return "", "", nil, err
-			}
-
-			resp, err := a.cli.ImagePull(ctx, out.ImageName, types.ImagePullOptions{})
-			if err != nil {
-				return "", "", nil, err
-			}
-
-			if _, err := io.Copy(ioutil.Discard, resp); err != nil {
-				logger.Error("error discarding image pull status",
-					zap.Error(err),
-				)
-			}
-
-			if err := resp.Close(); err != nil {
-				logger.Error("error closing image pull response",
-					zap.Error(err),
-				)
-			}
-
-			if err := a.cli.ImageTag(ctx, out.ImageName, imageTag); err != nil {
-				return "", "", nil, err
-			}
-		}
-
-		imageID = imageTag
-
-	case out.Dockerfile != "":
-		contextPath := filepath.Join(assignmentPath, "context")
-
-		imageID, err = image.Build(ctx, a.cli, imageTag, out.Dockerfile, contextPath)
-		if err != nil {
-			return "", "", nil, err
-		}
-
-	default:
-		logger.Error("not enough info to build image (image name, dockerfile, etc)")
-		return "", "", nil, errors.New("TODO: no way to build image")
-	}
-
-	containerConfig := &container.Config{
-		Image:     imageID,
-		OpenStdin: true,
-		Cmd:       []string{"/bin/cat"},
-	}
-	hostConfig := &container.HostConfig{
-		Init: out.Init,
-	}
-
-	c, err := a.cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, containerName)
-	if err != nil {
-		return "", "", nil, err
-	}
-	containerID = c.ID
-
-	if err := a.cli.ContainerStart(ctx, containerID, types.ContainerStartOptions{}); err != nil {
-		return "", "", nil, err
-	}
-
-	// TODO: stop container on further errors
-
-	for _, ac := range out.PostBuild {
-		switch ac.Action {
-		case "exec":
-			ec := dexec.Config{
-				User:       ac.User,
-				Cmd:        ac.Cmd,
-				Env:        ac.Env,
-				WorkingDir: ac.WorkingDir,
-				Stdout:     os.Stdout,
-				Stderr:     os.Stderr,
-			}
-
-			if err := dexec.Exec(ctx, a.cli, containerID, ec); err != nil {
-				return "", "", nil, err
-			}
-
-		case "write":
-			var r io.Reader = strings.NewReader(ac.Contents)
-			if ac.ContentsBase64 {
-				r = base64.NewDecoder(base64.StdEncoding, r)
-			}
-
-			ec := dexec.Config{
-				User:       ac.User,
-				Cmd:        []string{"dd", "of=" + ac.Filename},
-				WorkingDir: ac.WorkingDir,
-				Stdin:      r,
-			}
-
-			if err := dexec.Exec(ctx, a.cli, containerID, ec); err != nil {
-				return "", "", nil, err
-			}
-
-		default:
-			logger.Warn("unknown action",
-				zap.String("action", ac.Action),
-			)
-		}
-	}
-
-	if err := a.cli.NetworkDisconnect(ctx, "bridge", containerID, true); err != nil {
-		logger.Error("error disconnecting network",
-			zap.Error(err),
-		)
-	}
-
-	if err := a.cli.ContainerStop(ctx, containerID, nil); err != nil {
-		logger.Error("error disconnecting network",
-			zap.Error(err),
-		)
-		return "", "", nil, err
-	}
-
-	iCmd = &models.InstanceCommand{
-		User:       out.User,
-		Cmd:        out.Cmd,
-		Env:        out.Env,
-		WorkingDir: out.WorkingDir,
-	}
-
-	return imageID, containerID, iCmd, nil
 }
 
 func (a *App) specClean(w http.ResponseWriter, r *http.Request) {
