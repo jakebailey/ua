@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
@@ -266,7 +267,10 @@ func (a *App) specClean(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fn := func() {
-		ctx := ctxlog.WithLogger(context.Background(), logger)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+
+		ctx = ctxlog.WithLogger(ctx, logger)
 		instanceQuery := models.NewInstanceQuery().FindBySpec(specID).FindByCleaned(false)
 		a.cleanupInstancesByQuery(ctx, instanceQuery)
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -55,7 +56,10 @@ func (a *App) specCreate(ctx context.Context, assignmentPath string, specData in
 		iOpts := types.ImageRemoveOptions{PruneChildren: true}
 
 		// Use another context just in case the old context was cancelled.
-		if _, removeErr := a.cli.ImageRemove(context.Background(), imageID, iOpts); err != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if _, removeErr := a.cli.ImageRemove(ctx, imageID, iOpts); err != nil {
 			logger.Error("failed to remove image",
 				zap.Error(removeErr),
 			)
@@ -90,6 +94,9 @@ func (a *App) specCreateContainer(ctx context.Context, imageID string, gen *spec
 
 	c, err := a.cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, containerName)
 	if err != nil {
+		logger.Error("error creating container",
+			zap.Error(err),
+		)
 		return "", nil, err
 	}
 	containerID = c.ID
@@ -116,7 +123,7 @@ func (a *App) specCreateContainer(ctx context.Context, imageID string, gen *spec
 	}
 
 	if stopErr := a.cli.ContainerStop(ctx, containerID, nil); stopErr != nil {
-		logger.Error("error disconnecting network",
+		logger.Error("error stopping container",
 			zap.Error(stopErr),
 		)
 		return "", nil, stopErr

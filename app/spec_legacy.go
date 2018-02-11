@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -34,7 +35,10 @@ func (a *App) specLegacyCreate(ctx context.Context, assignmentPath string, specD
 		iOpts := types.ImageRemoveOptions{PruneChildren: true}
 
 		// Use another context just in case the old context was cancelled.
-		if _, removeErr := a.cli.ImageRemove(context.Background(), imageID, iOpts); err != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if _, removeErr := a.cli.ImageRemove(ctx, imageID, iOpts); err != nil {
 			logger.Error("failed to remove image",
 				zap.Error(removeErr),
 			)
@@ -94,7 +98,10 @@ func (a *App) specLegacyCreateContainer(ctx context.Context, imageID string) (co
 		cOpts := types.ContainerRemoveOptions{RemoveVolumes: true}
 
 		// Use another context just in case the old context was cancelled.
-		if err := a.cli.ContainerRemove(context.Background(), containerID, cOpts); err != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if err := a.cli.ContainerRemove(ctx, containerID, cOpts); err != nil {
 			logger.Error("failed to remove container",
 				zap.Error(err),
 			)

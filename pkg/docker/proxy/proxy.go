@@ -52,11 +52,11 @@ func Proxy(ctx context.Context, id string, conn Conn, cli client.CommonAPIClient
 	if err != nil {
 		return err
 	}
-
 	execID := execResp.ID
 
-	logger = logger.With(zap.String("exec_id", execID))
-	ctx = ctxlog.WithLogger(ctx, logger)
+	ctx, logger = ctxlog.FromContextWith(ctx,
+		zap.String("exec_id", execID),
+	)
 
 	logger.Debug("attaching to exec")
 
@@ -94,7 +94,7 @@ func proxyInputFunc(ctx context.Context, id string, conn Conn, cli client.Common
 		)
 
 		defer logger.Debug("proxy stopping")
-		logger.Debug("stdin proxy starting")
+		logger.Debug("proxy starting")
 
 		var buf []interface{}
 		for {
@@ -131,7 +131,9 @@ func proxyInputFunc(ctx context.Context, id string, conn Conn, cli client.Common
 					Height: height,
 					Width:  width,
 				}); err != nil {
-					return err
+					logger.Error("error resizing exec",
+						zap.Error(err),
+					)
 				}
 			default:
 				logger.Warn("unknown command",
@@ -144,7 +146,9 @@ func proxyInputFunc(ctx context.Context, id string, conn Conn, cli client.Common
 
 func proxyOutputFunc(ctx context.Context, conn Conn, reader io.Reader, name string) func() error {
 	return func() error {
-		logger := ctxlog.FromContext(ctx).With(zap.String("pipe", name))
+		logger := ctxlog.FromContext(ctx).With(
+			zap.String("pipe", name),
+		)
 
 		defer logger.Debug("proxy stopping")
 		logger.Debug("proxy starting")

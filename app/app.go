@@ -149,13 +149,7 @@ func (a *App) Run() error {
 
 	var err error
 
-	if dockerPing, err := a.cli.Ping(context.Background()); err != nil {
-		a.logger.Warn("error pinging docker daemon, continuing anyway",
-			zap.Error(err),
-		)
-	} else {
-		a.cli.NegotiateAPIVersionPing(dockerPing)
-	}
+	a.initDocker()
 
 	if a.db, err = sql.Open("postgres", a.dbString); err != nil {
 		a.logger.Error("error opening database",
@@ -320,5 +314,19 @@ func (a *App) Shutdown() {
 	a.logger.Info("closing database connection")
 	if err := a.db.Close(); err != nil {
 		a.logger.Error("error closing database connection", zap.Error(err))
+	}
+}
+
+func (a *App) initDocker() {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	dockerPing, err := a.cli.Ping(ctx)
+	if err != nil {
+		a.logger.Warn("error pinging docker daemon, continuing anyway",
+			zap.Error(err),
+		)
+	} else {
+		a.cli.NegotiateAPIVersionPing(dockerPing)
 	}
 }
