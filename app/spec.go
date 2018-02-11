@@ -90,6 +90,9 @@ func (a *App) specProcessRequest(w http.ResponseWriter, r *http.Request) kallax.
 		a.httpError(w, err.Error(), http.StatusBadRequest)
 		return nilULID
 	}
+	ctx, logger = ctxlog.FromContextWith(ctx,
+		zap.Any("spec_id", specID.String()),
+	)
 
 	if specID.IsEmpty() {
 		http.Error(w, "spec ID cannot be all zero", http.StatusBadRequest)
@@ -102,7 +105,6 @@ func (a *App) specProcessRequest(w http.ResponseWriter, r *http.Request) kallax.
 		if err != kallax.ErrNotFound {
 			logger.Error("error querying for spec",
 				zap.Error(err),
-				zap.Any("spec_id", specID.String()),
 			)
 			a.httpError(w, err.Error(), http.StatusInternalServerError)
 			return nilULID
@@ -117,7 +119,6 @@ func (a *App) specProcessRequest(w http.ResponseWriter, r *http.Request) kallax.
 		if err := a.specStore.Insert(spec); err != nil {
 			logger.Error("error inserting spec",
 				zap.Error(err),
-				zap.Any("spec_id", specID.String()),
 			)
 			a.httpError(w, err.Error(), http.StatusInternalServerError)
 			return nilULID
@@ -135,6 +136,9 @@ func (a *App) specPost(w http.ResponseWriter, r *http.Request) {
 	if specID.IsEmpty() {
 		return
 	}
+	ctx, logger = ctxlog.FromContextWith(ctx,
+		zap.Any("spec_id", specID.String()),
+	)
 
 	instance, err := a.getActiveInstance(ctx, specID)
 	if err != nil {
@@ -213,6 +217,8 @@ func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.I
 		if err != specbuild.ErrNoJS {
 			return nil, err
 		}
+
+		logger.Debug("building legacy image")
 
 		imageID, containerID, iCmd, err = a.specLegacyCreate(ctx, path, spec.Data, imageTag)
 		if err != nil {

@@ -24,7 +24,7 @@ type Action struct {
 	Env   []string
 	Stdin *string
 
-	// Write option
+	// Write/append option
 	Contents       string
 	ContentsBase64 bool
 	Filename       string
@@ -54,15 +54,21 @@ func PerformActions(ctx context.Context, cli client.CommonAPIClient, containerID
 				return err
 			}
 
-		case "write":
+		case "write", "append":
 			var r io.Reader = strings.NewReader(ac.Contents)
 			if ac.ContentsBase64 {
 				r = base64.NewDecoder(base64.StdEncoding, r)
 			}
 
+			redir := ">"
+
+			if ac.Action == "append" {
+				redir = ">>"
+			}
+
 			ec := dexec.Config{
 				User:       ac.User,
-				Cmd:        []string{"dd", "of=" + ac.Filename},
+				Cmd:        []string{"sh", "-c", "cat " + redir + " " + ac.Filename},
 				WorkingDir: ac.WorkingDir,
 				Stdin:      r,
 			}
