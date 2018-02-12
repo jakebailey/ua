@@ -212,6 +212,8 @@ func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.I
 	instance := models.NewInstance()
 	imageTag := "ua-" + instance.ID.String()
 
+	before := time.Now()
+
 	imageID, containerID, iCmd, err := a.specCreate(ctx, path, spec.Data, imageTag)
 	if err != nil {
 		if err != specbuild.ErrNoJS {
@@ -225,6 +227,16 @@ func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.I
 			return nil, err
 		}
 	}
+
+	took := time.Now().Sub(before)
+
+	ctx, logger = ctxlog.FromContextWith(ctx,
+		zap.String("image_id", imageID),
+	)
+
+	logger.Info("spec instance created",
+		zap.Duration("took", took),
+	)
 
 	instance.ImageID = imageID
 	instance.ContainerID = containerID

@@ -37,6 +37,13 @@ func PerformActions(ctx context.Context, cli client.CommonAPIClient, containerID
 	for _, ac := range actions {
 		switch ac.Action {
 		case "exec":
+			logger.Debug("exec action",
+				zap.String("user", ac.User),
+				zap.Strings("cmd", ac.Cmd),
+				zap.Strings("env", ac.Env),
+				zap.String("working_dir", ac.WorkingDir),
+			)
+
 			ec := dexec.Config{
 				User:       ac.User,
 				Cmd:        ac.Cmd,
@@ -55,6 +62,13 @@ func PerformActions(ctx context.Context, cli client.CommonAPIClient, containerID
 			}
 
 		case "write", "append":
+			logger.Debug(ac.Action+" action",
+				zap.String("user", ac.User),
+				zap.String("filename", ac.Filename),
+				zap.String("working_dir", ac.WorkingDir),
+				zap.Bool("contents_base64", ac.ContentsBase64),
+			)
+
 			var r io.Reader = strings.NewReader(ac.Contents)
 			if ac.ContentsBase64 {
 				r = base64.NewDecoder(base64.StdEncoding, r)
