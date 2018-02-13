@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"sort"
+	"sync"
 	"syscall"
 	"time"
 
@@ -123,7 +124,12 @@ func main() {
 
 	a := app.NewApp(args.Database, options...)
 
+	var wg sync.WaitGroup
+	wg.Add(1)
+
 	go func() {
+		defer wg.Done()
+
 		logger.Info("starting app")
 		if err := a.Run(); err != nil {
 			logger.Fatal("app.Run error",
@@ -138,6 +144,8 @@ func main() {
 	<-stopChan
 	logger.Info("shutting down app")
 	a.Shutdown()
+
+	wg.Wait()
 }
 
 type journaldLogger struct{}
