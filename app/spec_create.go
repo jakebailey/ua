@@ -49,7 +49,7 @@ func (a *App) specCreate(ctx context.Context, assignmentPath string, specData in
 		zap.String("image_id", imageID),
 	)
 
-	containerID, iCmd, err = a.specCreateContainer(ctx, imageID, out)
+	containerID, iCmd, err = a.specCreateContainer(ctx, assignmentPath, imageID, out)
 	if err != nil {
 		logger.Warn("specCreate failed, attempting to remove built image")
 
@@ -59,7 +59,7 @@ func (a *App) specCreate(ctx context.Context, assignmentPath string, specData in
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		if _, removeErr := a.cli.ImageRemove(ctx, imageID, iOpts); err != nil {
+		if _, removeErr := a.cli.ImageRemove(ctx, imageID, iOpts); removeErr != nil {
 			logger.Error("failed to remove image",
 				zap.Error(removeErr),
 			)
@@ -69,7 +69,7 @@ func (a *App) specCreate(ctx context.Context, assignmentPath string, specData in
 	return imageID, containerID, iCmd, err
 }
 
-func (a *App) specCreateContainer(ctx context.Context, imageID string, gen *specbuild.GenerateOutput) (containerID string, iCmd *models.InstanceCommand, err error) {
+func (a *App) specCreateContainer(ctx context.Context, assignmentPath string, imageID string, gen *specbuild.GenerateOutput) (containerID string, iCmd *models.InstanceCommand, err error) {
 	logger := ctxlog.FromContext(ctx)
 
 	containerName := ""
@@ -107,6 +107,13 @@ func (a *App) specCreateContainer(ctx context.Context, imageID string, gen *spec
 
 	if err = a.cli.ContainerStart(ctx, containerID, types.ContainerStartOptions{}); err != nil {
 		return "", nil, err
+	}
+
+	for i, ac := range gen.PostBuild {
+		if ac.Action != "gobuild" {
+			continue
+		}
+		gen.PostBuild[i].SrcPath = filepath.Join(assignmentPath, "gosrc")
 	}
 
 	err = specbuild.PerformActions(ctx, a.cli, containerID, gen.PostBuild)

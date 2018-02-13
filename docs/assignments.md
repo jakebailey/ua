@@ -154,10 +154,15 @@ actions are supported:
     changing `user` to be the intended user.
 -   `append` is exactly the same as `write`, but instead appends to the
     specified file.
-
-More actions are planned, including actions which allow the compilation of
-static binaries to be placed in the container (instead of using docker to
-build them, which is slow).
+-   `gobuild` builds Go binaries. `packages` is a list of Go packages to
+    build, for example, `["grade"]` for the package (and binary) called
+    `grade`. `ldflags` is a string that is added to the Go compiler's ldflags
+    during build (mainly to set variables via the linker, without editing the
+    source code on the fly). Currently, the assignment directory must contain
+    a directory called `gosrc` which is considered to be `$GOPATH/src`, but
+    this may change in the future. Additionally, it may be more helpful to be
+    able to templetize the Go source instead of using the linker hack to add
+    info, but that will wait until the future.
 
 `index.js` is run each time a spec instance is created. This means that
 `index.js` can be changed on the server without needing to remove cached data.

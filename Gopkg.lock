@@ -119,6 +119,7 @@
     "pkg/mount",
     "pkg/pools",
     "pkg/progress",
+    "pkg/stdcopy",
     "pkg/streamformatter",
     "pkg/stringid",
     "pkg/symlink",
@@ -439,6 +440,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "b08bb4a4640be84868b5459f94647a8948879cff4949b9202197b41baec390b7"
+  inputs-digest = "54ef11dd93c4b0e9f97ed2aeeed298e44abc16eb1b44810479fbcd7cd0df4591"
   solver-name = "gps-cdcl"
   solver-version = 1

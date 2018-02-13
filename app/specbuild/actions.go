@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/docker/docker/client"
+	"github.com/jakebailey/ua/app/gobuild"
 	"github.com/jakebailey/ua/pkg/ctxlog"
 	"github.com/jakebailey/ua/pkg/docker/dexec"
 	"go.uber.org/zap"
@@ -28,12 +29,18 @@ type Action struct {
 	Contents       string
 	ContentsBase64 bool
 	Filename       string
+
+	// Gobuild action
+	SrcPath  string
+	Packages []string
+	LDFlags  string
 }
 
 // PerformActions performs the given actions on the specified container.
 func PerformActions(ctx context.Context, cli client.CommonAPIClient, containerID string, actions []Action) error {
 	logger := ctxlog.FromContext(ctx)
 
+	// TODO: Make this a lookup into a map instead.
 	for _, ac := range actions {
 		switch ac.Action {
 		case "exec":
@@ -49,8 +56,6 @@ func PerformActions(ctx context.Context, cli client.CommonAPIClient, containerID
 				Cmd:        ac.Cmd,
 				Env:        ac.Env,
 				WorkingDir: ac.WorkingDir,
-				Stdout:     os.Stdout,
-				Stderr:     os.Stderr,
 			}
 
 			if ac.Stdin != nil {
@@ -85,6 +90,37 @@ func PerformActions(ctx context.Context, cli client.CommonAPIClient, containerID
 				Cmd:        []string{"sh", "-c", "cat " + redir + " " + ac.Filename},
 				WorkingDir: ac.WorkingDir,
 				Stdin:      r,
+			}
+
+			if err := dexec.Exec(ctx, cli, containerID, ec); err != nil {
+				return err
+			}
+
+		case "gobuild":
+			logger.Debug("gobuild action",
+				zap.String("src_path", ac.SrcPath),
+				zap.Strings("packages", ac.Packages),
+				zap.String("ldflags", ac.LDFlags),
+			)
+
+			options := gobuild.Options{
+				SrcPath:  ac.SrcPath,
+				Packages: ac.Packages,
+				LDFlags:  ac.LDFlags,
+			}
+
+			r, err := gobuild.Build(ctx, cli, options)
+			if err != nil {
+				return err
+			}
+
+			ec := dexec.Config{
+				User:       "root",
+				Cmd:        []string{"tar", "-x"},
+				WorkingDir: "/bin",
+				Stdin:      r,
+				Stdout:     os.Stdout,
+				Stderr:     os.Stderr,
 			}
 
 			if err := dexec.Exec(ctx, cli, containerID, ec); err != nil {

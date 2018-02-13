@@ -62,6 +62,7 @@ func main() {
 	if args.Debug {
 		logConfig = zap.NewDevelopmentConfig()
 		logConfig.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+		logConfig.DisableStacktrace = true
 	} else {
 		logConfig = zap.NewProductionConfig()
 	}

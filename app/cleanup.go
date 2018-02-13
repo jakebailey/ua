@@ -6,7 +6,9 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
+	units "github.com/docker/go-units"
 	"github.com/jakebailey/ua/models"
 	"github.com/jakebailey/ua/pkg/ctxlog"
 	"go.uber.org/zap"
@@ -123,6 +125,7 @@ func (a *App) cleanInactiveInstances() {
 	}
 
 	a.pruneImages(ctx)
+	a.pruneVolumes(ctx)
 
 	if count != 0 {
 		logger.Info("cleaned up instances",
@@ -300,4 +303,21 @@ func (a *App) pruneImages(ctx context.Context) {
 	// } else {
 	// 	logger.Debug("no dangling images to prune")
 	// }
+}
+
+func (a *App) pruneVolumes(ctx context.Context) {
+	logger := ctxlog.FromContext(ctx)
+
+	report, err := a.cli.VolumesPrune(ctx, filters.NewArgs())
+	if err != nil {
+		logger.Error("error pruning volumes",
+			zap.Error(err),
+		)
+		return
+	}
+
+	logger.Info("pruned volumes",
+		zap.Int("count", len(report.VolumesDeleted)),
+		zap.String("space_reclaimed", units.HumanSize(float64(report.SpaceReclaimed))),
+	)
 }
