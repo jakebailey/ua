@@ -288,7 +288,7 @@ func (a *App) pruneImages(ctx context.Context) {
 
 	filter := filters.NewArgs(
 		filters.Arg("dangling", "true"),
-		filters.Arg("until", "1d"),
+		filters.Arg("until", "24h"),
 	)
 
 	report, err := a.cli.ImagesPrune(ctx, filter)
