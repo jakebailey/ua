@@ -87,14 +87,32 @@ func Build(ctx context.Context, cli client.CommonAPIClient, options Options) (io
 	}
 
 	go func() {
-		defer hj.CloseWrite()
+		defer func() {
+			if err := hj.CloseWrite(); err != nil {
+				logger.Warn("error closing gobuild stdin",
+					zap.Error(err),
+				)
+			}
+		}()
+
 		source, err := archive.Tar(options.SrcPath, archive.Uncompressed)
 		if err != nil {
 			return
 		}
-		defer source.Close()
 
-		io.Copy(hj.Conn, source)
+		defer func() {
+			if err := source.Close(); err != nil {
+				logger.Warn("error closing gobuild source",
+					zap.Error(err),
+				)
+			}
+		}()
+
+		if _, err := io.Copy(hj.Conn, source); err != nil {
+			logger.Warn("error copying gobuild stdin",
+				zap.Error(err),
+			)
+		}
 	}()
 
 	stderr := &bytes.Buffer{}

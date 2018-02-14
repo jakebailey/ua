@@ -104,11 +104,13 @@ func (a *App) specLegacyCreateContainer(ctx context.Context, imageID string, con
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		if err := a.cli.ContainerRemove(ctx, containerID, cOpts); err != nil {
+		if rerr := a.cli.ContainerRemove(ctx, containerID, cOpts); rerr != nil {
 			logger.Warn("failed to remove container",
-				zap.Error(err),
+				zap.Error(rerr),
 			)
 		}
+
+		return "", nil, err
 	}
 
 	return containerID, iCmd, nil

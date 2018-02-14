@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
+	"github.com/jakebailey/ua/pkg/ctxlog"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -32,6 +33,8 @@ func (e ExitCodeError) Error() string {
 
 // Exec runs a process on a container, managing I/O, exit codes, etc.
 func Exec(ctx context.Context, cli client.CommonAPIClient, containerID string, config Config) error {
+	logger := ctxlog.FromContext(ctx)
+
 	execConfig := types.ExecConfig{
 		User:         config.User,
 		Cmd:          config.Cmd,
@@ -59,29 +62,30 @@ func Exec(ctx context.Context, cli client.CommonAPIClient, containerID string, c
 
 	if execConfig.AttachStdin {
 		g.Go(func() error {
-			if _, err := io.Copy(hj.Conn, config.Stdin); err != nil {
-				return err
-			}
-			return hj.CloseWrite()
+			defer func() {
+				if cerr := hj.CloseWrite(); cerr != nil {
+					logger.Warn("dexec hj.CloseWrite error",
+						zap.Error(cerr),
+					)
+				}
+			}()
+
+			return copyFunc(hj.Conn, config.Stdin)()
 		})
 	}
 
 	if execConfig.AttachStdout {
-		g.Go(func() error {
-			_, err := io.Copy(config.Stdout, hj.Conn)
-			return err
-		})
+		g.Go(copyFunc(config.Stdout, hj.Conn))
 	}
 
 	if execConfig.AttachStderr {
-		g.Go(func() error {
-			_, err := io.Copy(config.Stderr, hj.Reader)
-			return err
-		})
+		g.Go(copyFunc(config.Stderr, hj.Reader))
 	}
 
-	if err := g.Wait(); err != nil {
-		log.Println(err)
+	if werr := g.Wait(); werr != nil {
+		logger.Warn("dexec wait error",
+			zap.Error(werr),
+		)
 	}
 
 	resp, err := cli.ContainerExecInspect(ctx, execID)
@@ -94,4 +98,11 @@ func Exec(ctx context.Context, cli client.CommonAPIClient, containerID string, c
 	}
 
 	return nil
+}
+
+func copyFunc(w io.Writer, r io.Reader) func() error {
+	return func() error {
+		_, err := io.Copy(w, r)
+		return err
+	}
 }

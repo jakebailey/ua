@@ -67,11 +67,11 @@ func (a *App) specProcessRequest(w http.ResponseWriter, r *http.Request) kallax.
 
 	var req specPostRequest
 
-	if err := json.Unmarshal(payload, &req); err != nil {
+	if jerr := json.Unmarshal(payload, &req); jerr != nil {
 		logger.Warn("error decoding specPostRequest",
-			zap.Error(err),
+			zap.Error(jerr),
 		)
-		a.httpError(w, err.Error(), http.StatusBadRequest)
+		a.httpError(w, jerr.Error(), http.StatusBadRequest)
 		return nilULID
 	}
 
@@ -90,8 +90,9 @@ func (a *App) specProcessRequest(w http.ResponseWriter, r *http.Request) kallax.
 		a.httpError(w, err.Error(), http.StatusBadRequest)
 		return nilULID
 	}
-	ctx, logger = ctxlog.FromContextWith(ctx,
-		zap.Any("spec_id", specID.String()),
+
+	logger = logger.With(
+		zap.String("spec_id", specID.String()),
 	)
 
 	if specID.IsEmpty() {
@@ -229,7 +230,7 @@ func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.I
 
 	took := time.Since(before)
 
-	ctx, logger = ctxlog.FromContextWith(ctx,
+	logger = logger.With(
 		zap.String("image_id", imageID),
 	)
 

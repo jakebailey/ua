@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/base64"
-	"fmt"
 	"os"
 	"os/signal"
 	"sort"
@@ -58,8 +57,7 @@ var args = struct {
 
 func main() {
 	if err := godotenv.Load(); err != nil {
-		fmt.Fprintln(os.Stderr, "error loading .env file:", err)
-		os.Exit(1)
+		panic(err)
 	}
 
 	p := arg.MustParse(&args)

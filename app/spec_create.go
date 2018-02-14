@@ -116,15 +116,15 @@ func (a *App) specCreateContainer(ctx context.Context, assignmentPath string, co
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		if err := a.cli.ContainerStop(ctx, containerID, nil); err != nil {
+		if serr := a.cli.ContainerStop(ctx, containerID, nil); serr != nil {
 			logger.Warn("failed to stop container",
-				zap.Error(err),
+				zap.Error(serr),
 			)
 		}
 
-		if err := a.cli.ContainerRemove(ctx, containerID, cOpts); err != nil {
+		if rerr := a.cli.ContainerRemove(ctx, containerID, cOpts); rerr != nil {
 			logger.Warn("failed to remove container",
-				zap.Error(err),
+				zap.Error(rerr),
 			)
 		}
 

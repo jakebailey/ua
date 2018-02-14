@@ -174,21 +174,21 @@ func (a *App) Run() error {
 		return err
 	}
 
-	if err := a.db.Ping(); err != nil {
+	if err = a.db.Ping(); err != nil {
 		a.logger.Warn("error pinging database, continuing anyway",
 			zap.Error(err),
 		)
 	}
 
 	if a.migrateReset {
-		if err := migrations.Reset(a.db); err != nil {
+		if err = migrations.Reset(a.db); err != nil {
 			a.logger.Error("error resetting database",
 				zap.Error(err),
 			)
 			return err
 		}
 	} else if a.migrateUp {
-		if err := migrations.Up(a.db); err != nil {
+		if err = migrations.Up(a.db); err != nil {
 			a.logger.Error("error migrating database up",
 				zap.Error(err),
 			)
@@ -253,7 +253,7 @@ func (a *App) Run() error {
 			cacheDir = filepath.Join(homeDir, ".cache", cacheBase)
 		}
 
-		if err := os.MkdirAll(cacheDir, 0700); err != nil {
+		if err = os.MkdirAll(cacheDir, 0700); err != nil {
 			a.logger.Warn("warning: autocert not using a cache",
 				zap.Error(err),
 			)
@@ -262,9 +262,10 @@ func (a *App) Run() error {
 		}
 
 		go func() {
-			if err := http.ListenAndServe(":http", m.HTTPHandler(nil)); err != nil {
+			// tls-http-01 challenge
+			if herr := http.ListenAndServe(":http", m.HTTPHandler(nil)); herr != nil {
 				a.logger.Error("regular http redirect error",
-					zap.Error(err),
+					zap.Error(herr),
 				)
 			}
 		}()
