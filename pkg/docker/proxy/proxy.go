@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"io"
+	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
@@ -127,14 +128,41 @@ func proxyInputFunc(ctx context.Context, id string, conn Conn, cli client.Common
 				}
 				width := uint(wFloat)
 
-				if err := cli.ContainerExecResize(ctx, id, types.ResizeOptions{
+				if height == 0 && width == 0 {
+					logger.Warn("got zero height and width for resize")
+					continue
+				}
+
+				resizeOptions := types.ResizeOptions{
 					Height: height,
 					Width:  width,
-				}); err != nil {
+				}
+
+				var i int
+				var resizeErr error
+
+				for i = 0; i < 5; i++ {
+					resizeErr = cli.ContainerExecResize(ctx, id, resizeOptions)
+					if resizeErr == nil {
+						break
+					}
+
+					// Arbitrary. Set to 0.05 seconds for now.
+					time.Sleep(50 * time.Millisecond)
+				}
+
+				if resizeErr == nil {
+					if i > 1 {
+						logger.Warn("multiple tries to resize exec",
+							zap.Int("count", i),
+						)
+					}
+				} else {
 					logger.Error("error resizing exec",
-						zap.Error(err),
+						zap.Error(resizeErr),
 					)
 				}
+
 			default:
 				logger.Warn("unknown command",
 					zap.Any("command", buf[0]),
