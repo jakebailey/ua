@@ -129,14 +129,12 @@ func (a *App) specProcessRequest(w http.ResponseWriter, r *http.Request) kallax.
 }
 
 func (a *App) specPost(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	logger := ctxlog.FromContext(ctx)
-
 	specID := a.specProcessRequest(w, r)
 	if specID.IsEmpty() {
 		return
 	}
-	ctx, logger = ctxlog.FromContextWith(ctx,
+
+	ctx, logger := ctxlog.FromContextWith(r.Context(),
 		zap.Any("spec_id", specID.String()),
 	)
 
@@ -229,7 +227,7 @@ func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.I
 		}
 	}
 
-	took := time.Now().Sub(before)
+	took := time.Since(before)
 
 	ctx, logger = ctxlog.FromContextWith(ctx,
 		zap.String("image_id", imageID),
@@ -286,6 +284,8 @@ func (a *App) specClean(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fn := func() {
+		logger.Debug("cleaning up spec instance")
+
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
 

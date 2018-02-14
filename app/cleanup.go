@@ -86,56 +86,6 @@ func (a *App) cleanInstance(ctx context.Context, instance *models.Instance) erro
 	return nil
 }
 
-func (a *App) cleanInactiveInstances() {
-	logger := a.logger
-	ctx := ctxlog.WithLogger(context.Background(), logger)
-
-	instanceQuery := models.NewInstanceQuery().
-		FindByActive(false).
-		FindByCleaned(false)
-
-	logger.Debug("cleaning up instances")
-
-	instances, err := a.instanceStore.Find(instanceQuery)
-	if err != nil {
-		logger.Error("error querying for cleanable instances",
-			zap.Error(err),
-		)
-		return
-	}
-
-	count := 0
-
-	if err := instances.ForEach(func(instance *models.Instance) error {
-		if err := a.cleanInstance(ctx, instance); err != nil {
-			logger.Error("error cleaning instance",
-				zap.Error(err),
-				zap.String("instance_id", instance.ID.String()),
-			)
-			return nil
-		}
-
-		count++
-
-		return nil
-	}); err != nil {
-		logger.Error("error while looping over instances",
-			zap.Error(err),
-		)
-	}
-
-	a.pruneImages(ctx)
-	a.pruneVolumes(ctx)
-
-	if count != 0 {
-		logger.Info("cleaned up instances",
-			zap.Int("count", count),
-		)
-	} else {
-		logger.Debug("no instances to clean up")
-	}
-}
-
 func (a *App) checkExpiredInstances() {
 	logger := a.logger
 
@@ -182,17 +132,28 @@ func (a *App) checkExpiredInstances() {
 	}
 }
 
+func (a *App) cleanInactiveInstances() {
+	ctx := ctxlog.WithLogger(context.Background(), a.logger)
+
+	instanceQuery := models.NewInstanceQuery().
+		FindByActive(false).
+		FindByCleaned(false)
+
+	a.logger.Debug("cleaning up inactive instances")
+	a.cleanupInstancesByQuery(ctx, instanceQuery)
+}
+
 func (a *App) cleanupLeftoverInstances() {
 	ctx := ctxlog.WithLogger(context.Background(), a.logger)
 
 	instanceQuery := models.NewInstanceQuery().FindByActive(true)
+
+	a.logger.Debug("cleaning up leftover instances")
 	a.cleanupInstancesByQuery(ctx, instanceQuery)
 }
 
 func (a *App) cleanupInstancesByQuery(ctx context.Context, instanceQuery *models.InstanceQuery) {
 	logger := ctxlog.FromContext(ctx)
-
-	logger.Debug("looking for leftover instances")
 
 	instances, err := a.instanceStore.Find(instanceQuery)
 	if err != nil {
