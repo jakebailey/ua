@@ -296,7 +296,7 @@ func (a *App) specClean(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if async {
-		go fn()
+		go fn() // Exits when fn returns.
 	} else {
 		fn()
 	}

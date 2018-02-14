@@ -113,7 +113,7 @@ func Build(ctx context.Context, cli client.CommonAPIClient, options Options) (io
 				zap.Error(err),
 			)
 		}
-	}()
+	}() // Exits when hj.Conn closes, or the source code has been sent.
 
 	stderr := &bytes.Buffer{}
 	stdout := &bytes.Buffer{}
@@ -131,7 +131,7 @@ func Build(ctx context.Context, cli client.CommonAPIClient, options Options) (io
 				zap.Error(err),
 			)
 		}
-	}()
+	}() // Exits when hj.Reader returns EOF.
 
 	select {
 	case result := <-resultC:

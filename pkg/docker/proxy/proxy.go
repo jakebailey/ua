@@ -32,6 +32,9 @@ type Command struct {
 // Proxy attaches to a docker container and proxies its stdin/out/err
 // over a websocket using the terminado protocol.
 func Proxy(ctx context.Context, id string, conn Conn, cli client.CommonAPIClient, command Command) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	logger := ctxlog.FromContext(ctx)
 
 	execConfig := types.ExecConfig{
@@ -71,6 +74,8 @@ func Proxy(ctx context.Context, id string, conn Conn, cli client.CommonAPIClient
 
 	g, ctx := errgroup.WithContext(ctx)
 
+	// These exit when the context is cancelled, or the hijacked connection or
+	// proxy connection close.
 	g.Go(proxyInputFunc(ctx, execID, conn, cli, hj.Conn))
 	g.Go(proxyOutputFunc(ctx, conn, hj.Conn, "stdout"))
 	g.Go(proxyOutputFunc(ctx, conn, hj.Reader, "stderr"))
@@ -79,7 +84,7 @@ func Proxy(ctx context.Context, id string, conn Conn, cli client.CommonAPIClient
 		<-ctx.Done()
 		hj.Close()
 		return conn.Close()
-	})
+	}) // Exits when the context is cancelled.
 
 	if err := g.Wait(); err != nil && !conn.IsClose(err) {
 		return err

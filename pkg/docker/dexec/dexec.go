@@ -71,15 +71,15 @@ func Exec(ctx context.Context, cli client.CommonAPIClient, containerID string, c
 			}()
 
 			return copyFunc(hj.Conn, config.Stdin)()
-		})
+		}) // Exits when stdin or the connection closes.
 	}
 
 	if execConfig.AttachStdout {
-		g.Go(copyFunc(config.Stdout, hj.Conn))
+		g.Go(copyFunc(config.Stdout, hj.Conn)) // Exits when stdout or the connection closes.
 	}
 
 	if execConfig.AttachStderr {
-		g.Go(copyFunc(config.Stderr, hj.Reader))
+		g.Go(copyFunc(config.Stderr, hj.Reader)) // Exits when stderr or the connection closes.
 	}
 
 	if werr := g.Wait(); werr != nil {

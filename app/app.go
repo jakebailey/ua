@@ -268,7 +268,7 @@ func (a *App) Run() error {
 					zap.Error(herr),
 				)
 			}
-		}()
+		}() // Never exits, unless the server has an error. TODO: fix this.
 
 		a.logger.Info("starting http server", zap.String("domain", a.letsEncryptDomain))
 
