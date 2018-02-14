@@ -116,9 +116,9 @@ func (a *App) specCreateContainer(ctx context.Context, assignmentPath string, co
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		if serr := a.cli.ContainerStop(ctx, containerID, nil); serr != nil {
-			logger.Warn("failed to stop container",
-				zap.Error(serr),
+		if kerr := a.cli.ContainerKill(ctx, containerID, "KILL"); kerr != nil {
+			logger.Warn("failed to kill container",
+				zap.Error(kerr),
 			)
 		}
 
