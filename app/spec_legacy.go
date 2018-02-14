@@ -41,7 +41,7 @@ func (a *App) specLegacyCreate(ctx context.Context, assignmentPath string, specD
 		defer cancel()
 
 		if _, removeErr := a.cli.ImageRemove(ctx, imageID, iOpts); err != nil {
-			logger.Error("failed to remove image",
+			logger.Warn("failed to remove image",
 				zap.Error(removeErr),
 			)
 		}
@@ -105,7 +105,7 @@ func (a *App) specLegacyCreateContainer(ctx context.Context, imageID string, con
 		defer cancel()
 
 		if err := a.cli.ContainerRemove(ctx, containerID, cOpts); err != nil {
-			logger.Error("failed to remove container",
+			logger.Warn("failed to remove container",
 				zap.Error(err),
 			)
 		}

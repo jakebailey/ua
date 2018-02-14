@@ -62,7 +62,7 @@ func (a *App) specCreate(ctx context.Context, assignmentPath string, specData in
 		defer cancel()
 
 		if _, removeErr := a.cli.ImageRemove(ctx, imageID, iOpts); removeErr != nil {
-			logger.Error("failed to remove image",
+			logger.Warn("failed to remove image",
 				zap.Error(removeErr),
 			)
 		}
@@ -116,8 +116,14 @@ func (a *App) specCreateContainer(ctx context.Context, assignmentPath string, co
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
+		if err := a.cli.ContainerStop(ctx, containerID, nil); err != nil {
+			logger.Warn("failed to stop container",
+				zap.Error(err),
+			)
+		}
+
 		if err := a.cli.ContainerRemove(ctx, containerID, cOpts); err != nil {
-			logger.Error("failed to remove container",
+			logger.Warn("failed to remove container",
 				zap.Error(err),
 			)
 		}
