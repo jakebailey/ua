@@ -30,7 +30,9 @@ func (a *App) specLegacyCreate(ctx context.Context, assignmentPath string, specD
 
 	containerID, iCmd, err = a.specLegacyCreateContainer(ctx, imageID, containerName)
 	if err != nil {
-		logger.Warn("specLegacyCreate failed, attempting to remove built image")
+		logger.Warn("specLegacyCreate failed, attempting to remove built image",
+			zap.Error(err),
+		)
 
 		iOpts := types.ImageRemoveOptions{PruneChildren: true}
 
@@ -92,7 +94,9 @@ func (a *App) specLegacyCreateContainer(ctx context.Context, imageID string, con
 	iCmd, err = a.specLegacyCreateCmd(ctx, containerID)
 
 	if err != nil {
-		logger.Warn("specLegacyCreate failed, attempting to remove created container")
+		logger.Warn("specLegacyCreate failed, attempting to remove created container",
+			zap.Error(err),
+		)
 
 		cOpts := types.ContainerRemoveOptions{RemoveVolumes: true}
 

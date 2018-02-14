@@ -105,8 +105,41 @@ func (a *App) specCreateContainer(ctx context.Context, assignmentPath string, co
 		zap.String("container_id", containerID),
 	)
 
-	if err = a.cli.ContainerStart(ctx, containerID, types.ContainerStartOptions{}); err != nil {
+	if err := a.specCreateContainerSetup(ctx, assignmentPath, containerID, gen); err != nil {
+		logger.Warn("setup failed, attempting to remove",
+			zap.Error(err),
+		)
+
+		cOpts := types.ContainerRemoveOptions{RemoveVolumes: true}
+
+		// Use another context just in case the old context was cancelled.
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if err := a.cli.ContainerRemove(ctx, containerID, cOpts); err != nil {
+			logger.Error("failed to remove container",
+				zap.Error(err),
+			)
+		}
+
 		return "", nil, err
+	}
+
+	iCmd = &models.InstanceCommand{
+		User:       gen.User,
+		Cmd:        gen.Cmd,
+		Env:        gen.Env,
+		WorkingDir: gen.WorkingDir,
+	}
+
+	return containerID, iCmd, nil
+}
+
+func (a *App) specCreateContainerSetup(ctx context.Context, assignmentPath string, containerID string, gen *specbuild.GenerateOutput) error {
+	logger := ctxlog.FromContext(ctx)
+
+	if err := a.cli.ContainerStart(ctx, containerID, types.ContainerStartOptions{}); err != nil {
+		return err
 	}
 
 	for i, ac := range gen.PostBuild {
@@ -117,32 +150,26 @@ func (a *App) specCreateContainer(ctx context.Context, assignmentPath string, co
 		a.autoPullMark(gobuild.DockerImageName)
 	}
 
-	err = specbuild.PerformActions(ctx, a.cli, containerID, gen.PostBuild)
-	if err != nil {
+	if err := specbuild.PerformActions(ctx, a.cli, containerID, gen.PostBuild); err != nil {
 		logger.Error("error performing post-build actions, will attempt to cleanup",
 			zap.Error(err),
 		)
+		return err
 	}
 
-	if discErr := a.cli.NetworkDisconnect(ctx, "bridge", containerID, true); discErr != nil {
+	if err := a.cli.NetworkDisconnect(ctx, "bridge", containerID, true); err != nil {
 		logger.Error("error disconnecting network",
-			zap.Error(discErr),
+			zap.Error(err),
 		)
+		return err
 	}
 
-	if stopErr := a.cli.ContainerStop(ctx, containerID, nil); stopErr != nil {
+	if err := a.cli.ContainerStop(ctx, containerID, nil); err != nil {
 		logger.Error("error stopping container",
-			zap.Error(stopErr),
+			zap.Error(err),
 		)
-		return "", nil, stopErr
+		return err
 	}
 
-	iCmd = &models.InstanceCommand{
-		User:       gen.User,
-		Cmd:        gen.Cmd,
-		Env:        gen.Env,
-		WorkingDir: gen.WorkingDir,
-	}
-
-	return containerID, iCmd, err
+	return nil
 }
