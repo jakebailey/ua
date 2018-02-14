@@ -9,6 +9,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	units "github.com/docker/go-units"
+	"github.com/jakebailey/ua/app/gobuild"
 	"github.com/jakebailey/ua/app/specbuild"
 	"github.com/jakebailey/ua/models"
 	"github.com/jakebailey/ua/pkg/ctxlog"
@@ -16,7 +17,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func (a *App) specCreate(ctx context.Context, assignmentPath string, specData interface{}, imageTag string) (imageID, containerID string, iCmd *models.InstanceCommand, err error) {
+func (a *App) specCreate(ctx context.Context, assignmentPath string, specData interface{}, imageTag string, containerName string) (imageID, containerID string, iCmd *models.InstanceCommand, err error) {
 	logger := ctxlog.FromContext(ctx)
 
 	out, err := specbuild.Generate(ctx, assignmentPath, specData)
@@ -31,6 +32,7 @@ func (a *App) specCreate(ctx context.Context, assignmentPath string, specData in
 		}
 
 		imageID = imageTag
+		a.autoPullMark(out.ImageName)
 
 	case out.Dockerfile != "":
 		contextPath := filepath.Join(assignmentPath, "context")
@@ -49,7 +51,7 @@ func (a *App) specCreate(ctx context.Context, assignmentPath string, specData in
 		zap.String("image_id", imageID),
 	)
 
-	containerID, iCmd, err = a.specCreateContainer(ctx, assignmentPath, imageID, out)
+	containerID, iCmd, err = a.specCreateContainer(ctx, assignmentPath, containerName, imageID, out)
 	if err != nil {
 		logger.Warn("specCreate failed, attempting to remove built image")
 
@@ -69,10 +71,8 @@ func (a *App) specCreate(ctx context.Context, assignmentPath string, specData in
 	return imageID, containerID, iCmd, err
 }
 
-func (a *App) specCreateContainer(ctx context.Context, assignmentPath string, imageID string, gen *specbuild.GenerateOutput) (containerID string, iCmd *models.InstanceCommand, err error) {
+func (a *App) specCreateContainer(ctx context.Context, assignmentPath string, containerName string, imageID string, gen *specbuild.GenerateOutput) (containerID string, iCmd *models.InstanceCommand, err error) {
 	logger := ctxlog.FromContext(ctx)
-
-	containerName := ""
 
 	containerConfig := &container.Config{
 		Image:     imageID,
@@ -114,6 +114,7 @@ func (a *App) specCreateContainer(ctx context.Context, assignmentPath string, im
 			continue
 		}
 		gen.PostBuild[i].SrcPath = filepath.Join(assignmentPath, "gosrc")
+		a.autoPullMark(gobuild.DockerImageName)
 	}
 
 	err = specbuild.PerformActions(ctx, a.cli, containerID, gen.PostBuild)

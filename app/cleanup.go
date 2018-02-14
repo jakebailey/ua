@@ -223,6 +223,7 @@ func (a *App) cleanupInstancesByQuery(ctx context.Context, instanceQuery *models
 	}
 
 	a.pruneImages(ctx)
+	a.pruneVolumes(ctx)
 
 	if count != 0 {
 		logger.Info("cleaned up instances",
@@ -283,26 +284,31 @@ func (a *App) markAllInstancesCleanedAndInactive() {
 }
 
 func (a *App) pruneImages(ctx context.Context) {
-	// logger := ctxlog.FromContext(ctx)
+	logger := ctxlog.FromContext(ctx)
 
-	// report, err := a.cli.ImagesPrune(ctx, filters.NewArgs())
-	// if err != nil {
-	// 	logger.Error("error pruning dangling images",
-	// 		zap.Error(err),
-	// 	)
-	// 	return
-	// }
+	filter := filters.NewArgs(
+		filters.Arg("dangling", "true"),
+		filters.Arg("until", "1d"),
+	)
 
-	// count := len(report.ImagesDeleted)
+	report, err := a.cli.ImagesPrune(ctx, filter)
+	if err != nil {
+		logger.Error("error pruning dangling images",
+			zap.Error(err),
+		)
+		return
+	}
 
-	// if count != 0 {
-	// 	logger.Info("pruned dangling images",
-	// 		zap.Int("count", count),
-	// 		zap.Uint64("reclaimed", report.SpaceReclaimed),
-	// 	)
-	// } else {
-	// 	logger.Debug("no dangling images to prune")
-	// }
+	count := len(report.ImagesDeleted)
+
+	if count != 0 {
+		logger.Info("pruned dangling images",
+			zap.Int("count", count),
+			zap.String("space_reclaimed", units.HumanSize(float64(report.SpaceReclaimed))),
+		)
+	} else {
+		logger.Debug("no dangling images pruned")
+	}
 }
 
 func (a *App) pruneVolumes(ctx context.Context) {
@@ -316,8 +322,14 @@ func (a *App) pruneVolumes(ctx context.Context) {
 		return
 	}
 
-	logger.Info("pruned volumes",
-		zap.Int("count", len(report.VolumesDeleted)),
-		zap.String("space_reclaimed", units.HumanSize(float64(report.SpaceReclaimed))),
-	)
+	count := len(report.VolumesDeleted)
+
+	if count != 0 {
+		logger.Info("pruned volumes",
+			zap.Int("count", count),
+			zap.String("space_reclaimed", units.HumanSize(float64(report.SpaceReclaimed))),
+		)
+	} else {
+		logger.Debug("no volumes pruned")
+	}
 }

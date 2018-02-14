@@ -168,3 +168,24 @@ func PProfToken(token string) Option {
 		a.pprofToken = token
 	}
 }
+
+// AutoPull sets whether or not the app will auto-pull images.
+func AutoPull(enable bool) Option {
+	return func(a *App) {
+		a.autoPullDisabled = !enable
+	}
+}
+
+// AutoPullEvery sets the interval at which to autopull recently used images.
+func AutoPullEvery(d time.Duration) Option {
+	return func(a *App) {
+		a.autoPullEvery = d
+	}
+}
+
+// AutoPullExpiry determines what "recently" means for auto-pull.
+func AutoPullExpiry(d time.Duration) Option {
+	return func(a *App) {
+		a.autoPullExpiry = d
+	}
+}

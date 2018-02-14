@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/signal"
 	"sort"
-	"sync"
 	"syscall"
 	"time"
 
@@ -41,6 +40,10 @@ var args = struct {
 
 	JournaldDirect bool   `arg:"--journald-direct,env:UA_JOURNALD_DIRECT,help:log directory to journald instead of stdout"`
 	PProfToken     string `arg:"--pprof-token,env:UA_PPROF_TOKEN,help:token/password for pprof debug endpoint (disabled if not set unless in debug mode)"`
+
+	AutoPull       bool          `arg:"--auto-pull,env:UA_AUTO_PULL,help:enable image auto-pull"`
+	AutoPullEvery  time.Duration `arg:"--auto-pull-every,env:UA_AUTO_PULL_EVERY,help:how often to auto-pull recently used images"`
+	AutoPullExpiry time.Duration `arg:"--auto-pull-expiry,env:UA_AUTO_PULL_EXPIRY,help:how often an image must be used to be auto-pulled"`
 }{
 	Addr:               app.DefaultAddr,
 	AssignmentPath:     app.DefaultAssignmentPath,
@@ -48,6 +51,9 @@ var args = struct {
 	CheckExpiredEvery:  app.DefaultCheckExpiredEvery,
 	WebsocketTimeout:   app.DefaultWebsocketTimeout,
 	InstanceExpire:     app.DefaultInstanceExpire,
+	AutoPull:           true,
+	AutoPullEvery:      app.DefaultAutoPullEvery,
+	AutoPullExpiry:     app.DefaultAutoPullExpiry,
 }
 
 func main() {
@@ -84,7 +90,7 @@ func main() {
 
 	key, err := base64.StdEncoding.DecodeString(args.AESKey)
 	if err != nil {
-		logger.Fatal("error decoding AES key",
+		logger.Fatal("error decoding base64'd AES key",
 			zap.Error(err),
 		)
 	}
@@ -108,6 +114,9 @@ func main() {
 		app.MigrateReset(args.MigrateReset),
 		app.DisableLimits(args.DisableLimits),
 		app.PProfToken(args.PProfToken),
+		app.AutoPull(args.AutoPull),
+		app.AutoPullEvery(args.AutoPullEvery),
+		app.AutoPullExpiry(args.AutoPullExpiry),
 	}
 
 	if args.LetsEncryptDomain != "" {
@@ -124,28 +133,21 @@ func main() {
 
 	a := app.NewApp(args.Database, options...)
 
-	var wg sync.WaitGroup
-	wg.Add(1)
-
 	go func() {
-		defer wg.Done()
+		stopChan := make(chan os.Signal, 1)
+		signal.Notify(stopChan, os.Interrupt, syscall.SIGTERM)
 
-		logger.Info("starting app")
-		if err := a.Run(); err != nil {
-			logger.Fatal("app.Run error",
-				zap.Error(err),
-			)
-		}
+		<-stopChan
+		logger.Info("shutting down app")
+		a.Shutdown()
 	}()
 
-	stopChan := make(chan os.Signal, 1)
-	signal.Notify(stopChan, os.Interrupt, syscall.SIGTERM)
-
-	<-stopChan
-	logger.Info("shutting down app")
-	a.Shutdown()
-
-	wg.Wait()
+	logger.Info("starting app")
+	if err := a.Run(); err != nil {
+		logger.Fatal("app.Run error",
+			zap.Error(err),
+		)
+	}
 }
 
 type journaldLogger struct{}

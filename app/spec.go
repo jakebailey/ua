@@ -211,10 +211,11 @@ func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.I
 
 	instance := models.NewInstance()
 	imageTag := "ua-" + instance.ID.String()
+	containerName := imageTag
 
 	before := time.Now()
 
-	imageID, containerID, iCmd, err := a.specCreate(ctx, path, spec.Data, imageTag)
+	imageID, containerID, iCmd, err := a.specCreate(ctx, path, spec.Data, imageTag, containerName)
 	if err != nil {
 		if err != specbuild.ErrNoJS {
 			return nil, err
@@ -222,7 +223,7 @@ func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.I
 
 		logger.Debug("building legacy image")
 
-		imageID, containerID, iCmd, err = a.specLegacyCreate(ctx, path, spec.Data, imageTag)
+		imageID, containerID, iCmd, err = a.specLegacyCreate(ctx, path, spec.Data, imageTag, containerName)
 		if err != nil {
 			return nil, err
 		}

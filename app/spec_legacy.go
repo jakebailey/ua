@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func (a *App) specLegacyCreate(ctx context.Context, assignmentPath string, specData interface{}, imageTag string) (imageID, containerID string, iCmd *models.InstanceCommand, err error) {
+func (a *App) specLegacyCreate(ctx context.Context, assignmentPath string, specData interface{}, imageTag string, containerName string) (imageID, containerID string, iCmd *models.InstanceCommand, err error) {
 	logger := ctxlog.FromContext(ctx)
 
 	imageID, err = image.BuildLegacy(ctx, a.cli, assignmentPath, imageTag, specData)
@@ -28,7 +28,7 @@ func (a *App) specLegacyCreate(ctx context.Context, assignmentPath string, specD
 		zap.String("image_id", imageID),
 	)
 
-	containerID, iCmd, err = a.specLegacyCreateContainer(ctx, imageID)
+	containerID, iCmd, err = a.specLegacyCreateContainer(ctx, imageID, containerName)
 	if err != nil {
 		logger.Warn("specLegacyCreate failed, attempting to remove built image")
 
@@ -48,10 +48,9 @@ func (a *App) specLegacyCreate(ctx context.Context, assignmentPath string, specD
 	return imageID, containerID, iCmd, err
 }
 
-func (a *App) specLegacyCreateContainer(ctx context.Context, imageID string) (containerID string, iCmd *models.InstanceCommand, err error) {
+func (a *App) specLegacyCreateContainer(ctx context.Context, imageID string, containerName string) (containerID string, iCmd *models.InstanceCommand, err error) {
 	logger := ctxlog.FromContext(ctx)
 
-	containerName := ""
 	truth := true
 
 	containerConfig := container.Config{

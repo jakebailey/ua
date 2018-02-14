@@ -19,6 +19,7 @@ import (
 	"github.com/jakebailey/ua/models"
 	"github.com/jakebailey/ua/pkg/expire"
 	"github.com/jakebailey/ua/pkg/sched"
+	cache "github.com/patrickmn/go-cache"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/acme/autocert"
 )
@@ -58,6 +59,13 @@ var (
 	// DefaultInstanceExpire is the maximum duration an instance will be kept
 	// on the server until it expires and a new instance must be created.
 	DefaultInstanceExpire = 4 * time.Hour
+
+	// DefaultAutoPullEvery is the interval at which the server will attempt
+	// to pull images that have been recently used (to keep them updated).
+	DefaultAutoPullEvery = time.Hour
+
+	// DefaultAutoPullExpiry defines what the autopuller defines as "recent".
+	DefaultAutoPullExpiry = 30 * time.Minute
 )
 
 // App is the main application for uAssign.
@@ -103,6 +111,12 @@ type App struct {
 
 	aesKey     []byte
 	pprofToken string
+
+	autoPullDisabled bool
+	autoPullRunner   *sched.Runner
+	autoPullImages   *cache.Cache
+	autoPullEvery    time.Duration
+	autoPullExpiry   time.Duration
 }
 
 // NewApp creates a new app, with an optional list of options.
@@ -120,6 +134,8 @@ func NewApp(dbString string, options ...Option) *App {
 		cleanInactiveEvery: DefaultCleanInactiveEvery,
 		checkExpiredEvery:  DefaultCheckExpiredEvery,
 		wsTimeout:          DefaultWebsocketTimeout,
+		autoPullEvery:      DefaultAutoPullEvery,
+		autoPullExpiry:     DefaultAutoPullExpiry,
 	}
 
 	for _, o := range options {
@@ -188,11 +204,19 @@ func (a *App) Run() error {
 	// will need to be removed once the platform improves.
 	a.markAllInstancesCleanedAndInactive()
 
+	// TODO: merge these scheduled tasks into some library that handles many.
 	a.cleanInactiveRunner = sched.NewRunner(a.cleanInactiveInstances, a.cleanInactiveEvery)
 	a.cleanInactiveRunner.Start()
 
 	a.checkExpiredRunner = sched.NewRunner(a.checkExpiredInstances, a.checkExpiredEvery)
 	a.checkExpiredRunner.Start()
+
+	a.autoPullImages = cache.New(a.autoPullExpiry, time.Minute)
+
+	if !a.autoPullDisabled {
+		a.autoPullRunner = sched.NewRunner(a.autoPull, a.autoPullEvery)
+		a.autoPullRunner.Start()
+	}
 
 	a.wsManager = expire.NewManager(time.Minute, a.wsTimeout)
 	a.wsManager.Run()
@@ -289,6 +313,7 @@ func (a *App) Shutdown() {
 	a.logger.Info("stopping scheduled tasks")
 	a.cleanInactiveRunner.Stop()
 	a.checkExpiredRunner.Stop()
+	a.autoPullRunner.Stop()
 
 	a.logger.Info("expiring all websocket connections")
 	a.wsManager.Stop()
