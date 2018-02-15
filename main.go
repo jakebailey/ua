@@ -43,6 +43,8 @@ var args = struct {
 	AutoPull       bool          `arg:"--auto-pull,env:UA_AUTO_PULL,help:enable image auto-pull"`
 	AutoPullEvery  time.Duration `arg:"--auto-pull-every,env:UA_AUTO_PULL_EVERY,help:how often to auto-pull recently used images"`
 	AutoPullExpiry time.Duration `arg:"--auto-pull-expiry,env:UA_AUTO_PULL_EXPIRY,help:how often an image must be used to be auto-pulled"`
+
+	PruneEvery time.Duration `arg:"--prune-every,env:UA_PRUNE_EVERY,help=how often to prune docker"`
 }{
 	Addr:               app.DefaultAddr,
 	AssignmentPath:     app.DefaultAssignmentPath,
@@ -53,6 +55,7 @@ var args = struct {
 	AutoPull:           true,
 	AutoPullEvery:      app.DefaultAutoPullEvery,
 	AutoPullExpiry:     app.DefaultAutoPullExpiry,
+	PruneEvery:         app.DefaultPruneEvery,
 }
 
 func main() {
@@ -115,6 +118,7 @@ func main() {
 		app.AutoPull(args.AutoPull),
 		app.AutoPullEvery(args.AutoPullEvery),
 		app.AutoPullExpiry(args.AutoPullExpiry),
+		app.PruneEvery(args.PruneEvery),
 	}
 
 	if args.LetsEncryptDomain != "" {

@@ -66,6 +66,9 @@ var (
 
 	// DefaultAutoPullExpiry defines what the autopuller defines as "recent".
 	DefaultAutoPullExpiry = 30 * time.Minute
+
+	// DefaultPruneEvery is the interval at which the server will prune docker.
+	DefaultPruneEvery = time.Hour
 )
 
 // App is the main application for uAssign.
@@ -117,6 +120,9 @@ type App struct {
 	autoPullImages   *cache.Cache
 	autoPullEvery    time.Duration
 	autoPullExpiry   time.Duration
+
+	pruneRunner *sched.Runner
+	pruneEvery  time.Duration
 }
 
 // NewApp creates a new app, with an optional list of options.
@@ -136,6 +142,7 @@ func NewApp(dbString string, options ...Option) *App {
 		wsTimeout:          DefaultWebsocketTimeout,
 		autoPullEvery:      DefaultAutoPullEvery,
 		autoPullExpiry:     DefaultAutoPullExpiry,
+		pruneEvery:         DefaultPruneEvery,
 	}
 
 	for _, o := range options {
@@ -217,6 +224,9 @@ func (a *App) Run() error {
 		a.autoPullRunner = sched.NewRunner(a.autoPull, a.autoPullEvery)
 		a.autoPullRunner.Start()
 	}
+
+	a.pruneRunner = sched.NewRunner(a.pruneDocker, a.pruneEvery)
+	a.pruneRunner.Start()
 
 	a.wsManager = expire.NewManager(time.Minute, a.wsTimeout)
 	a.wsManager.Run()
@@ -315,6 +325,7 @@ func (a *App) Shutdown() {
 	a.cleanInactiveRunner.Stop()
 	a.checkExpiredRunner.Stop()
 	a.autoPullRunner.Stop()
+	a.pruneRunner.Stop()
 
 	a.logger.Info("expiring all websocket connections")
 	a.wsManager.Stop()

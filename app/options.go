@@ -189,3 +189,10 @@ func AutoPullExpiry(d time.Duration) Option {
 		a.autoPullExpiry = d
 	}
 }
+
+// PruneEvery sets how often the server will prune docker.
+func PruneEvery(d time.Duration) Option {
+	return func(a *App) {
+		a.pruneEvery = d
+	}
+}

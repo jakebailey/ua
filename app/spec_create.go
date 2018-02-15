@@ -78,6 +78,9 @@ func (a *App) specCreateContainer(ctx context.Context, assignmentPath string, co
 		Image:     imageID,
 		OpenStdin: true,
 		Cmd:       []string{"/bin/cat"},
+		Labels: map[string]string{
+			"ua.owned": "true",
+		},
 	}
 	hostConfig := &container.HostConfig{
 		Init: gen.Init,

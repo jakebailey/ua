@@ -183,9 +183,6 @@ func (a *App) cleanupInstancesByQuery(ctx context.Context, instanceQuery *models
 		)
 	}
 
-	a.pruneImages(ctx)
-	a.pruneVolumes(ctx)
-
 	if count != 0 {
 		logger.Info("cleaned up instances",
 			zap.Int("count", count),
@@ -244,53 +241,66 @@ func (a *App) markAllInstancesCleanedAndInactive() {
 	}
 }
 
-func (a *App) pruneImages(ctx context.Context) {
-	logger := ctxlog.FromContext(ctx)
+func (a *App) pruneDocker() {
+	// Order: containers, networks, volumes, images, then build cache
+	// (from docker system prune).
 
-	filter := filters.NewArgs(
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	logger := a.logger
+
+	contReport, err := a.cli.ContainersPrune(ctx, filters.NewArgs(
+		filters.Arg("label", "ua.owned=true"),
+		filters.Arg("until", "24h"),
+	))
+	if err != nil {
+		logger.Warn("error pruning containers",
+			zap.Error(err),
+		)
+		contReport = types.ContainersPruneReport{}
+	}
+
+	netReport, err := a.cli.NetworksPrune(ctx, filters.NewArgs(
+		filters.Arg("until", "24h"),
+	))
+	if err != nil {
+		logger.Warn("error pruning networks",
+			zap.Error(err),
+		)
+		netReport = types.NetworksPruneReport{}
+	}
+
+	volReport, err := a.cli.VolumesPrune(ctx, filters.NewArgs())
+	if err != nil {
+		logger.Warn("error pruning volumes",
+			zap.Error(err),
+		)
+		volReport = types.VolumesPruneReport{}
+	}
+
+	imgReport, err := a.cli.ImagesPrune(ctx, filters.NewArgs(
 		filters.Arg("dangling", "true"),
 		filters.Arg("until", "24h"),
+	))
+	if err != nil {
+		logger.Warn("error pruning images",
+			zap.Error(err),
+		)
+		imgReport = types.ImagesPruneReport{}
+	}
+
+	spaceReclaimed := contReport.SpaceReclaimed + volReport.SpaceReclaimed + imgReport.SpaceReclaimed
+
+	if spaceReclaimed == 0 && len(netReport.NetworksDeleted) == 0 {
+		return
+	}
+
+	logger.Info("pruned docker system",
+		zap.String("space_reclaimed", units.HumanSize(float64(spaceReclaimed))),
+		zap.Int("containers", len(contReport.ContainersDeleted)),
+		zap.Int("networks", len(netReport.NetworksDeleted)),
+		zap.Int("volumes", len(volReport.VolumesDeleted)),
+		zap.Int("images", len(imgReport.ImagesDeleted)),
 	)
-
-	report, err := a.cli.ImagesPrune(ctx, filter)
-	if err != nil {
-		logger.Error("error pruning dangling images",
-			zap.Error(err),
-		)
-		return
-	}
-
-	count := len(report.ImagesDeleted)
-
-	if count != 0 {
-		logger.Info("pruned dangling images",
-			zap.Int("count", count),
-			zap.String("space_reclaimed", units.HumanSize(float64(report.SpaceReclaimed))),
-		)
-	} else {
-		logger.Debug("no dangling images pruned")
-	}
-}
-
-func (a *App) pruneVolumes(ctx context.Context) {
-	logger := ctxlog.FromContext(ctx)
-
-	report, err := a.cli.VolumesPrune(ctx, filters.NewArgs())
-	if err != nil {
-		logger.Error("error pruning volumes",
-			zap.Error(err),
-		)
-		return
-	}
-
-	count := len(report.VolumesDeleted)
-
-	if count != 0 {
-		logger.Info("pruned volumes",
-			zap.Int("count", count),
-			zap.String("space_reclaimed", units.HumanSize(float64(report.SpaceReclaimed))),
-		)
-	} else {
-		logger.Debug("no volumes pruned")
-	}
 }

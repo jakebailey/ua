@@ -59,6 +59,9 @@ func (a *App) specLegacyCreateContainer(ctx context.Context, imageID string, con
 		Tty:       true,
 		OpenStdin: true,
 		Image:     imageID,
+		Labels: map[string]string{
+			"ua.owned": "true",
+		},
 	}
 	hostConfig := container.HostConfig{
 		Init:        &truth,
