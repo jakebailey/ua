@@ -138,6 +138,12 @@ func (a *App) specCreateContainer(ctx context.Context, assignmentPath string, co
 		WorkingDir: gen.WorkingDir,
 	}
 
+	// This somewhat correct, but the logic for which command to run needs to
+	// be fixed. (TODO)
+	if gen.Init != nil && *gen.Init {
+		iCmd.Cmd = append([]string{"/dev/init", "-s", "--"}, iCmd.Cmd...)
+	}
+
 	return containerID, iCmd, nil
 }
 
