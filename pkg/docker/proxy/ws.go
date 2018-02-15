@@ -2,13 +2,12 @@ package proxy
 
 import (
 	"encoding/json"
-	"io"
 	"net"
-	"strings"
 	"sync"
 
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
+	"github.com/jakebailey/ua/pkg/errhack"
 )
 
 // WSConn wraps a gobwas/ws connection.
@@ -57,7 +56,7 @@ func (w *WSConn) Close() error {
 // and can be ignored. This includes io.EOF and a wsutil.ClosedError
 // with the code set to StatusNormalClosure or StatusGoingAway.
 func (w *WSConn) IsClose(err error) bool {
-	if err == io.EOF {
+	if errhack.IsClose(err) {
 		return true
 	}
 
@@ -66,16 +65,6 @@ func (w *WSConn) IsClose(err error) bool {
 		case ws.StatusNormalClosure, ws.StatusGoingAway:
 			return true
 		}
-	}
-
-	errText := err.Error()
-
-	if strings.Contains(errText, "use of closed network connection") {
-		return true
-	}
-
-	if strings.Contains(errText, "broken pipe") {
-		return true
 	}
 
 	return false

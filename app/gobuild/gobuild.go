@@ -61,9 +61,16 @@ func Build(ctx context.Context, cli client.CommonAPIClient, options Options) (io
 
 	c, err := cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, "")
 	if err != nil {
+		logger.Error("error creating gobuild container",
+			zap.Error(err),
+		)
 		return nil, err
 	}
 	containerID := c.ID
+
+	ctx, logger = ctxlog.FromContextWith(ctx,
+		zap.String("container_id", containerID),
+	)
 
 	attachOptions := types.ContainerAttachOptions{
 		Stream: true,
@@ -74,7 +81,12 @@ func Build(ctx context.Context, cli client.CommonAPIClient, options Options) (io
 
 	hj, err := cli.ContainerAttach(ctx, containerID, attachOptions)
 	if err != nil {
+		logger.Error("error attaching to gobuild container",
+			zap.Error(err),
+		)
+
 		tryContainerRemove(ctx, cli, containerID)
+
 		return nil, err
 	}
 	defer hj.Close()
@@ -82,7 +94,12 @@ func Build(ctx context.Context, cli client.CommonAPIClient, options Options) (io
 	resultC, errC := cli.ContainerWait(ctx, containerID, container.WaitConditionRemoved)
 
 	if err := cli.ContainerStart(ctx, containerID, types.ContainerStartOptions{}); err != nil {
+		logger.Error("error starting gobuild container",
+			zap.Error(err),
+		)
+
 		tryContainerRemove(ctx, cli, containerID)
+
 		return nil, err
 	}
 
@@ -97,6 +114,9 @@ func Build(ctx context.Context, cli client.CommonAPIClient, options Options) (io
 
 		source, err := archive.Tar(options.SrcPath, archive.Uncompressed)
 		if err != nil {
+			logger.Error("error tarring go source",
+				zap.Error(err),
+			)
 			return
 		}
 
@@ -144,6 +164,9 @@ func Build(ctx context.Context, cli client.CommonAPIClient, options Options) (io
 		}
 
 	case err := <-errC:
+		logger.Error("gobuild errC",
+			zap.Error(err),
+		)
 		return nil, err
 	}
 
@@ -157,10 +180,14 @@ func tryContainerRemove(ctx context.Context, cli client.CommonAPIClient, contain
 	rctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
-	err := cli.ContainerRemove(rctx, containerID, cOpts)
+	if err := cli.ContainerKill(ctx, containerID, "KILL"); err != nil {
+		logger.Warn("error killing gobuild container",
+			zap.Error(err),
+		)
+	}
 
-	if err != nil {
-		logger.Error("error removing gobuild container",
+	if err := cli.ContainerRemove(rctx, containerID, cOpts); err != nil {
+		logger.Warn("error removing gobuild container",
 			zap.Error(err),
 		)
 	}
