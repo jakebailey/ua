@@ -40,11 +40,11 @@ var args = struct {
 	JournaldDirect bool   `arg:"--journald-direct,env:UA_JOURNALD_DIRECT,help:log directory to journald instead of stdout"`
 	PProfToken     string `arg:"--pprof-token,env:UA_PPROF_TOKEN,help:token/password for pprof debug endpoint (disabled if not set unless in debug mode)"`
 
-	AutoPull       bool          `arg:"--auto-pull,env:UA_AUTO_PULL,help:enable image auto-pull"`
+	AutoPull       bool          `arg:"--auto-pull,env:UA_AUTO_PULL,help:enable image autopull"`
 	AutoPullEvery  time.Duration `arg:"--auto-pull-every,env:UA_AUTO_PULL_EVERY,help:how often to auto-pull recently used images"`
-	AutoPullExpiry time.Duration `arg:"--auto-pull-expiry,env:UA_AUTO_PULL_EXPIRY,help:how often an image must be used to be auto-pulled"`
+	AutoPullExpiry time.Duration `arg:"--auto-pull-expiry,env:UA_AUTO_PULL_EXPIRY,help:how often an image must be used to be autopulled"`
 
-	PruneEvery time.Duration `arg:"--prune-every,env:UA_PRUNE_EVERY,help=how often to prune docker"`
+	PruneEvery time.Duration `arg:"--prune-every,env:UA_PRUNE_EVERY,help:how often to prune docker"`
 }{
 	Addr:               app.DefaultAddr,
 	AssignmentPath:     app.DefaultAssignmentPath,
