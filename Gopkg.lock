@@ -76,7 +76,7 @@
     "cli/command/inspect",
     "templates"
   ]
-  revision = "3e5f2f29ad2ebeb98ca50b13584386e05a0ebb20"
+  revision = "847cc4bdc082235f045c557333ec582b658d7fc2"
 
 [[projects]]
   branch = "master"
@@ -128,7 +128,7 @@
     "pkg/term/windows",
     "pkg/urlutil"
   ]
-  revision = "68c3201626439d5be5c24d14d4fe7e27fe93954d"
+  revision = "db360995df97f9d9bcb4eb6a34a5c35a2711795b"
 
 [[projects]]
   name = "github.com/docker/go-connections"
@@ -391,7 +391,7 @@
     "context/ctxhttp",
     "proxy"
   ]
-  revision = "f5dfe339be1d06f81b22525fe34671ee7d2c8904"
+  revision = "136a25c244d3019482a795d728110278d6ba09a4"
 
 [[projects]]
   branch = "master"
