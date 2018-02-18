@@ -204,11 +204,17 @@ func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.I
 		return nil, err
 	}
 
+	instance := models.NewInstance()
+
+	ctx, logger = ctxlog.FromContextWith(ctx,
+		zap.String("assignment_name", spec.AssignmentName),
+		zap.String("instance_id", instance.ID.String()),
+	)
+
 	pathSlice := []string{a.assignmentPath}
 	pathSlice = append(pathSlice, strings.Split(spec.AssignmentName, ".")...)
 	path := filepath.Join(pathSlice...)
 
-	instance := models.NewInstance()
 	imageTag := "ua-" + instance.ID.String()
 	containerName := imageTag
 

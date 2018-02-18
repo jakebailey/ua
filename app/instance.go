@@ -48,7 +48,11 @@ func (a *App) instanceWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	instanceQuery := models.NewInstanceQuery().FindByID(instanceID).FindByActive(true)
+	ctx, logger = ctxlog.FromContextWith(ctx,
+		zap.String("instance_id", instanceID.String()),
+	)
+
+	instanceQuery := models.NewInstanceQuery().FindByID(instanceID).FindByActive(true).WithSpec()
 	instance, err := a.instanceStore.FindOne(instanceQuery)
 	if err != nil {
 		if err == kallax.ErrNotFound {
@@ -63,6 +67,11 @@ func (a *App) instanceWS(w http.ResponseWriter, r *http.Request) {
 		a.httpError(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	ctx, logger = ctxlog.FromContextWith(ctx,
+		zap.String("spec_id", instance.Spec.ID.String()),
+		zap.String("assignment_name", instance.Spec.AssignmentName),
+	)
 
 	conn, _, _, err := ws.UpgradeHTTP(r, w, nil)
 	if err != nil {
