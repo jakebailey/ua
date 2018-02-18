@@ -163,6 +163,9 @@ actions are supported:
     this may change in the future. Additionally, it may be more helpful to be
     able to templetize the Go source instead of using the linker hack to add
     info, but that will wait until the future.
+-   `parallel` executes many subactions in parallel. `subactions` is a list of
+    actions. This is useful when needing to do many independent actions, like
+    writing many files that don't require each other.
 
 `index.js` is run each time a spec instance is created. This means that
 `index.js` can be changed on the server without needing to remove cached data.

@@ -3,6 +3,7 @@ package specbuild
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/jakebailey/ua/pkg/ctxlog"
 	"github.com/jakebailey/ua/pkg/docker/dexec"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 // Action defines an action that can be performed on a running container.
@@ -34,29 +36,35 @@ type Action struct {
 	SrcPath  string
 	Packages []string
 	LDFlags  string
+
+	// Parallel action
+	Subactions []Action
 }
 
-var actionFuncs = map[string]func(ctx context.Context, cli client.CommonAPIClient, containerID string, ac Action) error{
-	"exec":    actionExec,
-	"write":   actionWriteAppend,
-	"append":  actionWriteAppend,
-	"gobuild": actionGobuild,
+type actionFunc func(ctx context.Context, cli client.CommonAPIClient, containerID string, ac Action) error
+
+var actionFuncs = map[string]actionFunc{}
+
+func init() {
+	actionFuncs["exec"] = actionExec
+	actionFuncs["write"] = actionWriteAppend
+	actionFuncs["append"] = actionWriteAppend
+	actionFuncs["gobuild"] = actionGobuild
+	actionFuncs["parallel"] = actionParallel
+}
+
+func performAction(ctx context.Context, cli client.CommonAPIClient, containerID string, ac Action) error {
+	fn, ok := actionFuncs[ac.Action]
+	if !ok {
+		return fmt.Errorf("specbuild: unknown action %v", ac.Action)
+	}
+	return fn(ctx, cli, containerID, ac)
 }
 
 // PerformActions performs the given actions on the specified container.
 func PerformActions(ctx context.Context, cli client.CommonAPIClient, containerID string, actions []Action) error {
-	logger := ctxlog.FromContext(ctx)
-
 	for _, ac := range actions {
-		fn, ok := actionFuncs[ac.Action]
-		if !ok {
-			logger.Warn("unknown action",
-				zap.String("action", ac.Action),
-			)
-			continue
-		}
-
-		if err := fn(ctx, cli, containerID, ac); err != nil {
+		if err := performAction(ctx, cli, containerID, ac); err != nil {
 			return err
 		}
 	}
@@ -149,4 +157,22 @@ func actionGobuild(ctx context.Context, cli client.CommonAPIClient, containerID 
 	}
 
 	return dexec.Exec(ctx, cli, containerID, ec)
+}
+
+func actionParallel(ctx context.Context, cli client.CommonAPIClient, containerID string, ac Action) error {
+	logger := ctxlog.FromContext(ctx)
+
+	logger.Debug("parallel action",
+		zap.Int("subactions", len(ac.Subactions)),
+	)
+
+	g, ctx := errgroup.WithContext(ctx)
+
+	for _, ac := range ac.Subactions {
+		g.Go(func() error {
+			return performAction(ctx, cli, containerID, ac)
+		})
+	}
+
+	return g.Wait()
 }
