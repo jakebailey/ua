@@ -54,6 +54,9 @@ func Build(ctx context.Context, cli client.CommonAPIClient, options Options) (io
 		AttachStdin:  true,
 		AttachStdout: true,
 		AttachStderr: true,
+		Labels: map[string]string{
+			"ua.owned": "true",
+		},
 	}
 	hostConfig := &container.HostConfig{
 		AutoRemove: true,
