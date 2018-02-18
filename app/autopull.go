@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"io/ioutil"
+	"time"
 
 	"github.com/docker/docker/api/types"
 	"go.uber.org/zap"
@@ -29,6 +30,8 @@ func (a *App) autoPull() {
 
 		logger.Debug("attemping to auto-pull")
 
+		before := time.Now()
+
 		resp, err := a.cli.ImagePull(ctx, ref, types.ImagePullOptions{})
 		if err != nil {
 			logger.Error("error auto-pulling image",
@@ -50,7 +53,9 @@ func (a *App) autoPull() {
 			continue
 		}
 
-		logger.Info("auto-pulled image")
+		logger.Info("auto-pulled image",
+			zap.Duration("took", time.Since(before)),
+		)
 	}
 }
 
