@@ -44,7 +44,7 @@
   branch = "master"
   name = "github.com/containerd/continuity"
   packages = ["pathdriver"]
-  revision = "3eb6c382b26d2cc63a4a8c0d2355f23d90efe83b"
+  revision = "d8fb8589b0e8e85b8c8bbaa8840226d0dfeb7371"
 
 [[projects]]
   name = "github.com/coreos/go-systemd"
@@ -76,7 +76,7 @@
     "cli/command/inspect",
     "templates"
   ]
-  revision = "847cc4bdc082235f045c557333ec582b658d7fc2"
+  revision = "a0044ba3a7339a61db4388a3431ed30d91c52ba4"
 
 [[projects]]
   branch = "master"
@@ -128,7 +128,7 @@
     "pkg/term/windows",
     "pkg/urlutil"
   ]
-  revision = "db360995df97f9d9bcb4eb6a34a5c35a2711795b"
+  revision = "c5e7537d2305c1855f95422f08ca844d05a17aa2"
 
 [[projects]]
   name = "github.com/docker/go-connections"
@@ -247,7 +247,7 @@
   branch = "master"
   name = "github.com/lann/builder"
   packages = ["."]
-  revision = "f22ce00fd9394014049dad11c244859432bd6820"
+  revision = "1b87b36280d04fe7882d1512bf038ea2967ad534"
 
 [[projects]]
   branch = "master"
