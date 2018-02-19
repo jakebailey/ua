@@ -169,6 +169,8 @@ func actionParallel(ctx context.Context, cli client.CommonAPIClient, containerID
 	g, ctx := errgroup.WithContext(ctx)
 
 	for _, ac := range ac.Subactions {
+		ac := ac
+
 		g.Go(func() error {
 			return performAction(ctx, cli, containerID, ac)
 		})

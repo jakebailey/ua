@@ -157,13 +157,21 @@ func (a *App) specCreateContainerSetup(ctx context.Context, assignmentPath strin
 		return err
 	}
 
-	for i, ac := range gen.PostBuild {
-		if ac.Action != "gobuild" {
-			continue
+	var gobuildHack func(actions []specbuild.Action)
+
+	gobuildHack = func(actions []specbuild.Action) {
+		for i, ac := range actions {
+			switch ac.Action {
+			case "parallel":
+				gobuildHack(ac.Subactions)
+			case "gobuild":
+				actions[i].SrcPath = filepath.Join(assignmentPath, "gosrc")
+				a.autoPullMark(gobuild.DockerImageName)
+			}
 		}
-		gen.PostBuild[i].SrcPath = filepath.Join(assignmentPath, "gosrc")
-		a.autoPullMark(gobuild.DockerImageName)
 	}
+
+	gobuildHack(gen.PostBuild)
 
 	if err := specbuild.PerformActions(ctx, a.cli, containerID, gen.PostBuild); err != nil {
 		logger.Error("error performing post-build actions, will attempt to cleanup",

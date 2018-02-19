@@ -25,13 +25,16 @@ type Options struct {
 	// Stdout is where the console writes.
 	// If nil, then the console writes nowhere.
 	Stdout io.Writer
+
 	// ModuleLoader is a function which loads JS source by name.
 	// If nil, then then no modules can be loaded (other than embedded ones,
 	// see DisableLibs).
 	ModuleLoader func(name string) ([]byte, error)
+
 	// FileReader is a function which reads a file into the runtime. If not nil,
 	// then this function is accessible through the name "readFile".
 	FileReader func(filename string) ([]byte, error)
+
 	// DisableLibs controls access to embedded libraries (lodash, etc).
 	// If false, then they will not be accessible.
 	DisableLibs bool
@@ -39,24 +42,22 @@ type Options struct {
 
 // NewRuntime creates a new js runtime. Once the runtime is no longer needed,
 // call Destroy.
-func NewRuntime(options *Options) *Runtime {
+func NewRuntime(options Options) *Runtime {
 	r := &Runtime{
 		vm: goja.New(),
 	}
 
-	if options != nil {
-		r.stdout = options.Stdout
+	r.stdout = options.Stdout
 
-		if options.FileReader != nil {
-			r.vm.Set("readFile", func(call goja.FunctionCall) goja.Value {
-				filename := call.Argument(0).String()
-				contents, err := options.FileReader(filename)
-				if err != nil {
-					panic(r.vm.NewGoError(err))
-				}
-				return r.vm.ToValue(string(contents))
-			})
-		}
+	if options.FileReader != nil {
+		r.vm.Set("readFile", func(call goja.FunctionCall) goja.Value {
+			filename := call.Argument(0).String()
+			contents, err := options.FileReader(filename)
+			if err != nil {
+				panic(r.vm.NewGoError(err))
+			}
+			return r.vm.ToValue(string(contents))
+		})
 	}
 
 	moduleLoader := options.ModuleLoader

@@ -2,10 +2,13 @@ package specbuild
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
+	"encoding/base64"
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/jakebailey/ua/pkg/ctxlog"
 	"github.com/jakebailey/ua/pkg/js"
@@ -51,7 +54,7 @@ func Generate(ctx context.Context, assignmentPath string, specData interface{}) 
 	}
 
 	consoleOutput := &bytes.Buffer{}
-	runtime := js.NewRuntime(&js.Options{
+	runtime := js.NewRuntime(js.Options{
 		Stdout:       consoleOutput,
 		ModuleLoader: js.PathsModuleLoader(assignmentPath),
 		FileReader:   js.PathsFileReader(assignmentPath),
@@ -59,6 +62,8 @@ func Generate(ctx context.Context, assignmentPath string, specData interface{}) 
 	defer runtime.Destroy()
 
 	var out GenerateOutput
+
+	runtime.Set("gzipXorBase64", genGzipXorBase64)
 
 	runtime.Set("__specData__", specData)
 	if err := runtime.Run(ctx, "require('index.js').generate(__specData__);", &out); err != nil {
@@ -70,4 +75,26 @@ func Generate(ctx context.Context, assignmentPath string, specData interface{}) 
 	}
 
 	return &out, nil
+}
+
+// Replacement for {{ json . | gzip | xor 0xF9 | base64 }} and similar.
+func genGzipXorBase64(s string, x byte) (string, error) {
+	gzipOut := &bytes.Buffer{}
+	gzipWriter := gzip.NewWriter(gzipOut)
+
+	if _, err := strings.NewReader(s).WriteTo(gzipWriter); err != nil {
+		return "", err
+	}
+
+	if err := gzipWriter.Close(); err != nil {
+		return "", err
+	}
+
+	outBytes := gzipOut.Bytes()
+
+	for i, b := range outBytes {
+		outBytes[i] = b ^ x
+	}
+
+	return base64.StdEncoding.EncodeToString(outBytes), nil
 }

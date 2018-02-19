@@ -26,10 +26,14 @@ type Options struct {
 	// SrcPath is the path to the Go source. This is mounted in the builder
 	// as $GOPATH/src.
 	SrcPath string
+
 	// Packages is a list of package names to build.
 	Packages []string
+
 	// LDFlags is a string which is inserted into the Go build's ldflags arg.
 	LDFlags string
+
+	// TODO: LinkVars field to help wth -X.
 }
 
 // Build builds Go completely static binaries in a docker container, and
