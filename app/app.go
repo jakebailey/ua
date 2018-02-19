@@ -123,6 +123,8 @@ type App struct {
 
 	pruneRunner *sched.Runner
 	pruneEvery  time.Duration
+
+	forceInactive bool
 }
 
 // NewApp creates a new app, with an optional list of options.
@@ -206,10 +208,15 @@ func (a *App) Run() error {
 	a.specStore = models.NewSpecStore(a.db)
 	a.instanceStore = models.NewInstanceStore(a.db)
 
-	// Ensure that the database doesn't have any already active or uncleaned
-	// instances. For now, only one of these servers will run at a time. This
-	// will need to be removed once the platform improves.
-	a.markAllInstancesCleanedAndInactive()
+	if a.forceInactive {
+		// Ensure that the database doesn't have any already active or uncleaned
+		// instances. For now, only one of these servers will run at a time. This
+		// will need to be removed once the platform improves.
+		//
+		// Update: This should really only be set locally, when the server
+		// doesn't stick around long enough to manage Docker properly.
+		a.markAllInstancesCleanedAndInactive()
+	}
 
 	// TODO: merge these scheduled tasks into some library that handles many.
 	a.cleanInactiveRunner = sched.NewRunner(a.cleanInactiveInstances, a.cleanInactiveEvery)
@@ -336,10 +343,15 @@ func (a *App) Shutdown() {
 
 	a.cleanupLeftoverInstances()
 
-	// This shouldn't be needed, but by this point all instances should be both
-	// cleaned and inactive, so just force everything into the correct state
-	// ignoring all of the errors that happened during cleanup.
-	a.markAllInstancesCleanedAndInactive()
+	if a.forceInactive {
+		// This shouldn't be needed, but by this point all instances should be both
+		// cleaned and inactive, so just force everything into the correct state
+		// ignoring all of the errors that happened during cleanup.
+		//
+		// Update: This should really only be set locally, when the server
+		// doesn't stick around long enough to manage Docker properly.
+		a.markAllInstancesCleanedAndInactive()
+	}
 
 	if a.cliClose != nil {
 		a.logger.Info("closing docker client")

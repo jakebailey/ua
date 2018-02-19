@@ -196,3 +196,11 @@ func PruneEvery(d time.Duration) Option {
 		a.pruneEvery = d
 	}
 }
+
+// ForceInactive makes the app force all instances to be inactive on startup
+// and shutdown. For local use, mainly.
+func ForceInactive(forceInactive bool) Option {
+	return func(a *App) {
+		a.forceInactive = forceInactive
+	}
+}
