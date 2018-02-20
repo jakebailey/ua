@@ -70,13 +70,8 @@
 [[projects]]
   branch = "master"
   name = "github.com/docker/cli"
-  packages = [
-    "cli",
-    "cli/command/image/build",
-    "cli/command/inspect",
-    "templates"
-  ]
-  revision = "a0044ba3a7339a61db4388a3431ed30d91c52ba4"
+  packages = ["cli/command/image/build"]
+  revision = "f56265ae3e58b3e4b1809a9f85b0959216fb0405"
 
 [[projects]]
   branch = "master"
@@ -128,7 +123,7 @@
     "pkg/term/windows",
     "pkg/urlutil"
   ]
-  revision = "c5e7537d2305c1855f95422f08ca844d05a17aa2"
+  revision = "733ed2ddd3c621dadafbb74feb7b80d20fd3fd6f"
 
 [[projects]]
   name = "github.com/docker/go-connections"
@@ -232,12 +227,6 @@
   version = "v1.0.0"
 
 [[projects]]
-  name = "github.com/inconshreveable/mousetrap"
-  packages = ["."]
-  revision = "76626ae9c91c4f2a10f34cad8ce83ea42c93bb75"
-  version = "v1.0"
-
-[[projects]]
   name = "github.com/joho/godotenv"
   packages = ["."]
   revision = "a79fa1e548e2c689c241d10173efd51e5d689d5b"
@@ -331,18 +320,6 @@
   version = "v1.0.4"
 
 [[projects]]
-  name = "github.com/spf13/cobra"
-  packages = ["."]
-  revision = "7b2c5ac9fc04fc5efafb60700713d4fa609b777b"
-  version = "v0.0.1"
-
-[[projects]]
-  name = "github.com/spf13/pflag"
-  packages = ["."]
-  revision = "e57e3eeb33f795204c1ca35f56c44f83227c6e66"
-  version = "v1.0.0"
-
-[[projects]]
   name = "github.com/valyala/quicktemplate"
   packages = ["."]
   revision = "de41ba48f1d9953aca12983c953532f3776b4347"
@@ -381,7 +358,7 @@
     "acme/autocert",
     "ssh/terminal"
   ]
-  revision = "650f4a345ab4e5b245a3034b110ebc7299e68186"
+  revision = "432090b8f568c018896cd8a0fb0345872bbac6ce"
 
 [[projects]]
   branch = "master"
@@ -391,7 +368,7 @@
     "context/ctxhttp",
     "proxy"
   ]
-  revision = "136a25c244d3019482a795d728110278d6ba09a4"
+  revision = "cbe0f9307d0156177f9dd5dc85da1a31abc5f2fb"
 
 [[projects]]
   branch = "master"
@@ -446,6 +423,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "272685466289948a017339cc0836afe7a1df0fce1a66357d269054d6b2b70d09"
+  inputs-digest = "71e64a4281504f9fa79c261372168d914586b28d7d2ebe1417f7642e0bd520f1"
   solver-name = "gps-cdcl"
   solver-version = 1
