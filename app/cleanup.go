@@ -194,6 +194,12 @@ func (a *App) cleanupInstancesByQuery(ctx context.Context, instanceQuery *models
 
 func (a *App) markAllInstancesCleanedAndInactive() {
 	logger := a.logger
+	ctx := ctxlog.WithLogger(context.Background(), logger)
+
+	logger.Info("forcing all instances to be cleaned and inactive")
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
 
 	instanceQuery := models.NewInstanceQuery().
 		Where(kallax.Or(
@@ -217,8 +223,14 @@ func (a *App) markAllInstancesCleanedAndInactive() {
 		instance.Active = false
 		instance.Cleaned = true
 
+		if err := a.cleanInstance(ctx, instance); err != nil {
+			logger.Error("error forcing instance to be removed from docker",
+				zap.Error(err),
+			)
+		}
+
 		if _, err := a.instanceStore.Update(instance, models.Schema.Instance.Active, models.Schema.Instance.Cleaned); err != nil {
-			logger.Error("error marking instance as cleaned and inactive in database",
+			logger.Error("error forcing instance to be cleaned and inactive in database",
 				zap.Error(err),
 			)
 		}
