@@ -15,9 +15,9 @@ import (
 // Build builds a docker image on the given docker client, given the Dockerfile
 // as a string and the path to the build context.
 func Build(ctx context.Context, cli client.CommonAPIClient, tag string, dockerfile string, contextPath string) (imageID string, err error) {
-	buildCtx, relDockerfile, err := createBuildContext(dockerfile, contextPath)
-	if err != nil {
-		return "", err
+	buildCtx, relDockerfile, createErr := createBuildContext(dockerfile, contextPath)
+	if createErr != nil {
+		return "", createErr
 	}
 	defer func() {
 		// We'd like to defer buildCtx.Close(), but doing so directly discards
