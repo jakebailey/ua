@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -13,6 +12,7 @@ import (
 	"github.com/jakebailey/ua/models"
 	"github.com/jakebailey/ua/pkg/ctxlog"
 	"github.com/jakebailey/ua/pkg/docker/proxy"
+	"github.com/jakebailey/ua/pkg/errhack"
 	"github.com/jakebailey/ua/pkg/expire"
 	"github.com/jakebailey/ua/templates"
 	"go.uber.org/zap"
@@ -112,11 +112,7 @@ func (a *App) handleInstance(ctx context.Context, conn proxy.Conn, instance *mod
 		instance.ID.String(),
 		func() {
 			logger.Debug("websocket expired")
-			if err := conn.Close(); err != nil {
-				if strings.Contains(err.Error(), "use of closed connection") {
-					return
-				}
-
+			if err := errhack.IgnoreClose(conn.Close()); err != nil {
 				logger.Error("error closing connection on expiry",
 					zap.Error(err),
 				)
