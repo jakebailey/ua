@@ -93,7 +93,6 @@ type App struct {
 	spew   *spew.ConfigState
 
 	cli           client.CommonAPIClient
-	cliClose      func() error
 	disableLimits bool
 
 	dbString      string
@@ -160,7 +159,7 @@ func NewApp(dbString string, options ...Option) *App {
 // until an error occurs, or the app closes.
 func (a *App) Run() error {
 	if a.cli == nil {
-		cli, err := client.NewEnvClient()
+		cli, err := client.NewClientWithOpts(client.FromEnv)
 		if err != nil {
 			a.logger.Error("error creating docker env client",
 				zap.Error(err),
@@ -169,7 +168,6 @@ func (a *App) Run() error {
 		}
 
 		a.cli = cli
-		a.cliClose = cli.Close
 	}
 
 	var err error
@@ -353,11 +351,9 @@ func (a *App) Shutdown() {
 		a.markAllInstancesCleanedAndInactive()
 	}
 
-	if a.cliClose != nil {
-		a.logger.Info("closing docker client")
-		if err := a.cliClose(); err != nil {
-			a.logger.Error("error closing docker client", zap.Error(err))
-		}
+	a.logger.Info("closing docker client")
+	if err := a.cli.Close(); err != nil {
+		a.logger.Error("error closing docker client", zap.Error(err))
 	}
 
 	a.logger.Info("closing database connection")

@@ -54,12 +54,10 @@ func SpewConfig(c *spew.ConfigState) Option {
 	}
 }
 
-// DockerClient sets the docker client used in the app. If closeFunc is not
-// nil, then it will be called when the app closes.
-func DockerClient(cli client.CommonAPIClient, closeFunc func() error) Option {
+// DockerClient sets the docker client used in the app.
+func DockerClient(cli client.CommonAPIClient) Option {
 	return func(a *App) {
 		a.cli = cli
-		a.cliClose = closeFunc
 	}
 }
 
