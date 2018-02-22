@@ -227,6 +227,12 @@
   version = "v1.0.0"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/hashicorp/go-gatedio"
+  packages = ["."]
+  revision = "8b8de1022221dde1fb52fa25d0caab46e59c8c14"
+
+[[projects]]
   name = "github.com/joho/godotenv"
   packages = ["."]
   revision = "a79fa1e548e2c689c241d10173efd51e5d689d5b"
@@ -423,6 +429,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "71e64a4281504f9fa79c261372168d914586b28d7d2ebe1417f7642e0bd520f1"
+  inputs-digest = "9b2e49cd939c7768ea91a5a5807ac698988733ab73b8295cae3ccf0309f47f0a"
   solver-name = "gps-cdcl"
   solver-version = 1

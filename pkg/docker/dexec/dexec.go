@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
@@ -45,6 +46,17 @@ func Exec(ctx context.Context, cli client.CommonAPIClient, containerID string, c
 		AttachStderr: config.Stderr != nil,
 		Tty:          config.Tty,
 	}
+
+	logger.Debug("dexec",
+		zap.String("user", execConfig.User),
+		zap.Strings("cmd", execConfig.Cmd),
+		zap.Strings("env", execConfig.Env),
+		zap.String("working_dir", execConfig.WorkingDir),
+		zap.Bool("stdin", execConfig.AttachStdin),
+		zap.Bool("stdout", execConfig.AttachStdout),
+		zap.Bool("stderr", execConfig.AttachStderr),
+		zap.Bool("tty", execConfig.Tty),
+	)
 
 	execResp, err := cli.ContainerExecCreate(ctx, containerID, execConfig)
 	if err != nil {
@@ -88,21 +100,51 @@ func Exec(ctx context.Context, cli client.CommonAPIClient, containerID string, c
 		)
 	}
 
-	resp, err := cli.ContainerExecInspect(ctx, execID)
-	if err != nil {
-		return err
-	}
-
-	if resp.ExitCode != 0 {
-		return ExitCodeError(resp.ExitCode)
-	}
-
-	return nil
+	return waitForExit(ctx, cli, execID)
 }
 
 func copyFunc(w io.Writer, r io.Reader) func() error {
 	return func() error {
 		_, err := io.Copy(w, r)
 		return err
+	}
+}
+
+func waitForExit(ctx context.Context, cli client.CommonAPIClient, execID string) error {
+	logger := ctxlog.FromContext(ctx)
+
+	ctx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+
+	i := 0
+
+	for {
+		i++
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		resp, err := cli.ContainerExecInspect(ctx, execID)
+		if err != nil {
+			return err
+		}
+
+		if resp.Running {
+			time.Sleep(10 * time.Millisecond) // Arbitrary.
+			continue
+		}
+
+		logger.Debug("dexec waitForExit",
+			zap.Int("count", i),
+		)
+
+		if resp.ExitCode != 0 {
+			return ExitCodeError(resp.ExitCode)
+		}
+
+		return nil
 	}
 }

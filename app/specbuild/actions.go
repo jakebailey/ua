@@ -5,10 +5,10 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/docker/docker/client"
+	"github.com/hashicorp/go-gatedio"
 	"github.com/jakebailey/ua/app/gobuild"
 	"github.com/jakebailey/ua/pkg/ctxlog"
 	"github.com/jakebailey/ua/pkg/docker/dexec"
@@ -54,6 +54,9 @@ func init() {
 }
 
 func performAction(ctx context.Context, cli client.CommonAPIClient, containerID string, ac Action) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	fn, ok := actionFuncs[ac.Action]
 	if !ok {
 		return fmt.Errorf("specbuild: unknown action %v", ac.Action)
@@ -82,18 +85,33 @@ func actionExec(ctx context.Context, cli client.CommonAPIClient, containerID str
 		zap.String("working_dir", ac.WorkingDir),
 	)
 
+	stdout := gatedio.NewByteBuffer()
+	stderr := gatedio.NewByteBuffer()
+
 	ec := dexec.Config{
 		User:       ac.User,
 		Cmd:        ac.Cmd,
 		Env:        ac.Env,
 		WorkingDir: ac.WorkingDir,
+		Stdout:     stdout,
+		Stderr:     stderr,
 	}
 
 	if ac.Stdin != nil {
 		ec.Stdin = strings.NewReader(*ac.Stdin)
 	}
 
-	return dexec.Exec(ctx, cli, containerID, ec)
+	// TODO: Properly return stdout/stderr in the error value.
+	if err := dexec.Exec(ctx, cli, containerID, ec); err != nil {
+		logger.Warn("actionExec error",
+			zap.Error(err),
+			zap.String("stdout", stdout.String()),
+			zap.String("stderr", stderr.String()),
+		)
+		return err
+	}
+
+	return nil
 }
 
 func actionWriteAppend(ctx context.Context, cli client.CommonAPIClient, containerID string, ac Action) error {
@@ -117,14 +135,29 @@ func actionWriteAppend(ctx context.Context, cli client.CommonAPIClient, containe
 		redir = ">>"
 	}
 
+	stdout := gatedio.NewByteBuffer()
+	stderr := gatedio.NewByteBuffer()
+
 	ec := dexec.Config{
 		User:       ac.User,
-		Cmd:        []string{"sh", "-c", "cat " + redir + " " + ac.Filename},
+		Cmd:        []string{"sh", "-c", "exec cat " + redir + " " + ac.Filename},
 		WorkingDir: ac.WorkingDir,
 		Stdin:      r,
+		Stdout:     stdout,
+		Stderr:     stderr,
 	}
 
-	return dexec.Exec(ctx, cli, containerID, ec)
+	// TODO: Properly return stdout/stderr in the error value.
+	if err := dexec.Exec(ctx, cli, containerID, ec); err != nil {
+		logger.Warn("actionWriteAppend error",
+			zap.Error(err),
+			zap.String("stdout", stdout.String()),
+			zap.String("stderr", stderr.String()),
+		)
+		return err
+	}
+
+	return nil
 }
 
 func actionGobuild(ctx context.Context, cli client.CommonAPIClient, containerID string, ac Action) error {
@@ -147,16 +180,29 @@ func actionGobuild(ctx context.Context, cli client.CommonAPIClient, containerID 
 		return err
 	}
 
+	stdout := gatedio.NewByteBuffer()
+	stderr := gatedio.NewByteBuffer()
+
 	ec := dexec.Config{
 		User:       "root",
 		Cmd:        []string{"tar", "-x"},
 		WorkingDir: "/bin",
 		Stdin:      r,
-		Stdout:     os.Stdout,
-		Stderr:     os.Stderr,
+		Stdout:     stdout,
+		Stderr:     stderr,
 	}
 
-	return dexec.Exec(ctx, cli, containerID, ec)
+	// TODO: Properly return stdout/stderr in the error value.
+	if err := dexec.Exec(ctx, cli, containerID, ec); err != nil {
+		logger.Warn("actionGobuild error",
+			zap.Error(err),
+			zap.String("stdout", stdout.String()),
+			zap.String("stderr", stderr.String()),
+		)
+		return err
+	}
+
+	return nil
 }
 
 func actionParallel(ctx context.Context, cli client.CommonAPIClient, containerID string, ac Action) error {
