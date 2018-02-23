@@ -33,6 +33,9 @@ func (e ExitCodeError) Error() string {
 }
 
 // Exec runs a process on a container, managing I/O, exit codes, etc.
+//
+// Exec will wait for the program to exit before returning. Cancel the context
+// via a timeout/deadline/cancel to cause Exec to stop waiting and return.
 func Exec(ctx context.Context, cli client.CommonAPIClient, containerID string, config Config) error {
 	logger := ctxlog.FromContext(ctx)
 
@@ -113,14 +116,7 @@ func copyFunc(w io.Writer, r io.Reader) func() error {
 func waitForExit(ctx context.Context, cli client.CommonAPIClient, execID string) error {
 	logger := ctxlog.FromContext(ctx)
 
-	ctx, cancel := context.WithTimeout(ctx, time.Second)
-	defer cancel()
-
-	i := 0
-
-	for {
-		i++
-
+	for i := 0; ; i++ {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -137,9 +133,11 @@ func waitForExit(ctx context.Context, cli client.CommonAPIClient, execID string)
 			continue
 		}
 
-		logger.Debug("dexec waitForExit",
-			zap.Int("count", i),
-		)
+		if i != 0 {
+			logger.Debug("dexec waitForExit",
+				zap.Int("retries", i),
+			)
+		}
 
 		if resp.ExitCode != 0 {
 			return ExitCodeError(resp.ExitCode)
