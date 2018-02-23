@@ -114,8 +114,6 @@ func copyFunc(w io.Writer, r io.Reader) func() error {
 }
 
 func waitForExit(ctx context.Context, cli client.CommonAPIClient, execID string) error {
-	logger := ctxlog.FromContext(ctx)
-
 	for i := 0; ; i++ {
 		select {
 		case <-ctx.Done():
@@ -134,6 +132,7 @@ func waitForExit(ctx context.Context, cli client.CommonAPIClient, execID string)
 		}
 
 		if i != 0 {
+			logger := ctxlog.FromContext(ctx)
 			logger.Debug("dexec waitForExit",
 				zap.Int("retries", i),
 			)
