@@ -2,11 +2,9 @@ package app
 
 import (
 	"context"
-	"io"
-	"io/ioutil"
 	"time"
 
-	"github.com/docker/docker/api/types"
+	"github.com/jakebailey/ua/pkg/docker/image"
 	"go.uber.org/zap"
 )
 
@@ -32,22 +30,8 @@ func (a *App) autoPull() {
 
 		before := time.Now()
 
-		resp, err := a.cli.ImagePull(ctx, ref, types.ImagePullOptions{})
-		if err != nil {
+		if err := image.Pull(ctx, a.cli, ref); err != nil {
 			logger.Error("error auto-pulling image",
-				zap.Error(err),
-			)
-			continue
-		}
-
-		if _, err := io.Copy(ioutil.Discard, resp); err != nil {
-			logger.Warn("error discarding image pull response",
-				zap.Error(err),
-			)
-		}
-
-		if err := resp.Close(); err != nil {
-			logger.Warn("error closing image pull response",
 				zap.Error(err),
 			)
 			continue
