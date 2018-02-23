@@ -51,6 +51,7 @@ func init() {
 	actionFuncs["append"] = actionWriteAppend
 	actionFuncs["gobuild"] = actionGobuild
 	actionFuncs["parallel"] = actionParallel
+	actionFuncs["ordered"] = actionOrdered
 }
 
 func performAction(ctx context.Context, cli client.CommonAPIClient, containerID string, ac Action) error {
@@ -223,4 +224,8 @@ func actionParallel(ctx context.Context, cli client.CommonAPIClient, containerID
 	}
 
 	return g.Wait()
+}
+
+func actionOrdered(ctx context.Context, cli client.CommonAPIClient, containerID string, ac Action) error {
+	return PerformActions(ctx, cli, containerID, ac.Subactions)
 }
