@@ -46,6 +46,8 @@ type actionFunc func(ctx context.Context, cli client.CommonAPIClient, containerI
 var actionFuncs = map[string]actionFunc{}
 
 func init() {
+	// This is done to prevent an initialization loop
+	// (which occurs if these assignments occur above).
 	actionFuncs["exec"] = actionExec
 	actionFuncs["write"] = actionWriteAppend
 	actionFuncs["append"] = actionWriteAppend
