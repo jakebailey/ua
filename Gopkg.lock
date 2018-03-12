@@ -71,7 +71,7 @@
   branch = "master"
   name = "github.com/docker/cli"
   packages = ["cli/command/image/build"]
-  revision = "82f325ed8117e939ab696a9a9a93ef2b7a72b5ee"
+  revision = "2731c71c993a4d1e43101eea56e7c343315024f1"
 
 [[projects]]
   branch = "master"
@@ -123,7 +123,7 @@
     "pkg/term/windows",
     "pkg/urlutil"
   ]
-  revision = "0c01629e17752749b32422e327d47764ce23baac"
+  revision = "a575b0b1384b2ba89b79cbd7e770fbeb616758b3"
 
 [[projects]]
   name = "github.com/docker/go-connections"
@@ -171,8 +171,8 @@
 [[projects]]
   name = "github.com/etherlabsio/healthcheck"
   packages = ["."]
-  revision = "cb3830d84d1a86738de7d3b21373dc9a636697ed"
-  version = "2.0.1"
+  revision = "343d97cb6361280be544941f6d50424fc19bd013"
+  version = "2.0.2"
 
 [[projects]]
   name = "github.com/go-chi/chi"
@@ -331,8 +331,8 @@
 [[projects]]
   name = "github.com/sirupsen/logrus"
   packages = ["."]
-  revision = "d682213848ed68c0a260ca37d6dd5ace8423f5ba"
-  version = "v1.0.4"
+  revision = "c155da19408a8799da419ed3eeb0cb5db0ad5dbc"
+  version = "v1.0.5"
 
 [[projects]]
   name = "github.com/valyala/quicktemplate"
@@ -383,7 +383,7 @@
     "context/ctxhttp",
     "proxy"
   ]
-  revision = "d0aafc73d5cdc42264b0af071c261abac580695e"
+  revision = "ae89d30ce0c63142b652837da33d782e2b0a9b25"
 
 [[projects]]
   branch = "master"
