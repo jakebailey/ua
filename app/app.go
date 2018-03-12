@@ -13,7 +13,6 @@ import (
 	_ "github.com/lib/pq" // postgresql driver
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/docker/docker/api/types/versions"
 	"github.com/docker/docker/client"
 	"github.com/go-chi/chi"
 	"github.com/jakebailey/ua/migrations"
@@ -379,8 +378,4 @@ func (a *App) initDocker() {
 	a.logger.Info("negotiated Docker API version",
 		zap.String("version", a.cli.ClientVersion()),
 	)
-
-	if versions.LessThan(a.cli.ClientVersion(), "1.35") {
-		a.logger.Error("Docker version is too old! Certain features may not work properly.")
-	}
 }

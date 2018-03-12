@@ -9,6 +9,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/jakebailey/ua/pkg/ctxlog"
+	"github.com/jakebailey/ua/pkg/docker/dcompat"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
@@ -49,6 +50,7 @@ func Exec(ctx context.Context, cli client.CommonAPIClient, containerID string, c
 		AttachStderr: config.Stderr != nil,
 		Tty:          config.Tty,
 	}
+	execConfig = dcompat.ExecConfig(cli, execConfig)
 
 	logger.Debug("dexec",
 		zap.String("user", execConfig.User),

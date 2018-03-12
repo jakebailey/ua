@@ -9,6 +9,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/jakebailey/ua/pkg/ctxlog"
+	"github.com/jakebailey/ua/pkg/docker/dcompat"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
@@ -47,6 +48,7 @@ func Proxy(ctx context.Context, id string, conn Conn, cli client.CommonAPIClient
 		AttachStdout: true,
 		AttachStderr: true,
 	}
+	execConfig = dcompat.ExecConfig(cli, execConfig)
 
 	logger.Debug("creating exec",
 		zap.Any("exec_config", execConfig),
