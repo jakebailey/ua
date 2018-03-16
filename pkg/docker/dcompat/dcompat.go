@@ -1,10 +1,33 @@
 package dcompat
 
 import (
+	"context"
+
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/versions"
 	"github.com/docker/docker/client"
 )
+
+type compatClient struct {
+	client.CommonAPIClient
+}
+
+func (c compatClient) ContainerExecCreate(ctx context.Context, container string, config types.ExecConfig) (types.IDResponse, error) {
+	config = ExecConfig(c, config)
+	return c.CommonAPIClient.ContainerExecCreate(ctx, container, config)
+}
+
+// Wrap wraps a Docker client with compatibility fixes.
+func Wrap(cli client.CommonAPIClient) client.CommonAPIClient {
+	// Avoid double wrapping.
+	if _, ok := cli.(compatClient); ok {
+		return cli
+	}
+
+	return compatClient{
+		CommonAPIClient: cli,
+	}
+}
 
 // ExecConfig converts an ExecConfig to be compatible with the provided
 // client's version, and returns a new config.

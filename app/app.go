@@ -17,6 +17,7 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/jakebailey/ua/migrations"
 	"github.com/jakebailey/ua/models"
+	"github.com/jakebailey/ua/pkg/docker/dcompat"
 	"github.com/jakebailey/ua/pkg/expire"
 	"github.com/jakebailey/ua/pkg/sched"
 	cache "github.com/patrickmn/go-cache"
@@ -169,6 +170,7 @@ func (a *App) Run() error {
 
 		a.cli = cli
 	}
+	a.cli = dcompat.Wrap(a.cli)
 
 	var err error
 
