@@ -123,7 +123,7 @@
     "pkg/term/windows",
     "pkg/urlutil"
   ]
-  revision = "823de22db611d5079fcc92788a89897daba6f389"
+  revision = "72ba7f593fa4dbb628cf5ee83cd7daf955934cf5"
 
 [[projects]]
   name = "github.com/docker/go-connections"
@@ -373,7 +373,7 @@
     "acme/autocert",
     "ssh/terminal"
   ]
-  revision = "b4956d363a8b14623cc81db401707679605930a3"
+  revision = "374053ea96cb300f8671b8d3b07edeeb06e203b4"
 
 [[projects]]
   branch = "master"
@@ -383,7 +383,7 @@
     "context/ctxhttp",
     "proxy"
   ]
-  revision = "e0c57d8f86c17f0724497efcb3bc617e82834821"
+  revision = "24dd3780ca4f75fed9f321890729414a4b5d3f13"
 
 [[projects]]
   branch = "master"
@@ -398,7 +398,7 @@
     "unix",
     "windows"
   ]
-  revision = "cc7307a45468e49eaf2997c890f14aa03a26917b"
+  revision = "0deb464c5a1b48110355376f934e733e43b483bf"
 
 [[projects]]
   name = "golang.org/x/text"
