@@ -39,8 +39,12 @@ func (a *App) route() {
 
 	r.Handle("/favicon.ico", http.RedirectHandler("/static/favicon.ico", http.StatusFound))
 
-	r.Route("/spec", a.routeSpec)
-	r.Route("/instance", a.routeInstance)
+	r.Group(func(r chi.Router) {
+		r.Use(a.precheckDockerMiddleware, a.precheckDatabaseMiddleware)
+
+		r.Route("/spec", a.routeSpec)
+		r.Route("/instance", a.routeInstance)
+	})
 
 	if a.debug {
 		r.Route("/debug", a.routeDebug)

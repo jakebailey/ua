@@ -1,7 +1,5 @@
 [Unit]
 Description=uAssign server
-Requires=docker.service
-After=docker.service
 
 [Service]
 User=centos

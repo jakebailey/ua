@@ -1,7 +1,6 @@
 package app
 
 import (
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -16,14 +15,18 @@ import (
 func (a *App) routeDebug(r chi.Router) {
 	a.routeDebugProd(r)
 
-	r.Route("/trigger", func(r chi.Router) {
-		r.Get("/clean_inactive", a.triggerCleanInactive)
-		r.Get("/check_expired", a.triggerCheckExpired)
-	})
+	r.Group(func(r chi.Router) {
+		r.Use(a.precheckDockerMiddleware, a.precheckDatabaseMiddleware)
 
-	r.Route("/crypto", func(r chi.Router) {
-		r.Post("/encrypt", a.debugEncrypt)
-		r.Post("/decrypt", a.debugDecrypt)
+		r.Route("/trigger", func(r chi.Router) {
+			r.Get("/clean_inactive", a.triggerCleanInactive)
+			r.Get("/check_expired", a.triggerCheckExpired)
+		})
+
+		r.Route("/crypto", func(r chi.Router) {
+			r.Post("/encrypt", a.debugEncrypt)
+			r.Post("/decrypt", a.debugDecrypt)
+		})
 	})
 }
 
@@ -55,16 +58,28 @@ func (a *App) routeDebugProd(r chi.Router) {
 		// pprofHandler = http.StripPrefix("/debug/pprof/", pprofHandler)
 		r.Handle("/pprof/*", http.HandlerFunc(fixer))
 	}
+
+	r.Get("/trigger/checks", func(w http.ResponseWriter, r *http.Request) {
+		// TODO: Change pprofToken into a generic debug password.
+		if !a.debug && r.FormValue("token") != a.pprofToken {
+			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			return
+		}
+
+		a.dockerCheckRunner.Run()
+		a.databaseCheckRunner.Run()
+		w.Write([]byte("ok"))
+	})
 }
 
 func (a *App) triggerCleanInactive(w http.ResponseWriter, _ *http.Request) {
 	a.cleanInactiveRunner.Run()
-	fmt.Fprint(w, "ok")
+	w.Write([]byte("ok"))
 }
 
 func (a *App) triggerCheckExpired(w http.ResponseWriter, _ *http.Request) {
 	a.checkExpiredRunner.Run()
-	fmt.Fprint(w, "ok")
+	w.Write([]byte("ok"))
 }
 
 func (a *App) debugEncrypt(w http.ResponseWriter, r *http.Request) {

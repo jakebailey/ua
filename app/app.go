@@ -21,6 +21,7 @@ import (
 	"github.com/jakebailey/ua/pkg/expire"
 	"github.com/jakebailey/ua/pkg/sched"
 	cache "github.com/patrickmn/go-cache"
+	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/acme/autocert"
 )
@@ -125,6 +126,11 @@ type App struct {
 	pruneEvery  time.Duration
 
 	forceInactive bool
+
+	dockerCheckRunner   *sched.Runner
+	dockerOk            atomic.Bool
+	databaseCheckRunner *sched.Runner
+	databaseOk          atomic.Bool
 }
 
 // NewApp creates a new app, with an optional list of options.
@@ -174,7 +180,7 @@ func (a *App) Run() error {
 
 	var err error
 
-	a.initDocker()
+	a.precheckDockerTask()
 
 	if a.db, err = sql.Open("postgres", a.dbString); err != nil {
 		a.logger.Error("error opening database",
@@ -183,11 +189,7 @@ func (a *App) Run() error {
 		return err
 	}
 
-	if err = a.db.Ping(); err != nil {
-		a.logger.Warn("error pinging database, continuing anyway",
-			zap.Error(err),
-		)
-	}
+	a.precheckDatabaseTask()
 
 	if a.migrateReset {
 		if err = migrations.Reset(a.db); err != nil {
@@ -237,6 +239,14 @@ func (a *App) Run() error {
 
 	a.wsManager = expire.NewManager(time.Minute, a.wsTimeout)
 	a.wsManager.Run()
+
+	// TODO: Make this configurable.
+	a.dockerCheckRunner = sched.NewRunner(a.precheckDockerTask, 30*time.Second)
+	a.dockerCheckRunner.Start()
+
+	// TODO: Make this configurable.
+	a.databaseCheckRunner = sched.NewRunner(a.precheckDatabaseTask, 30*time.Second)
+	a.databaseCheckRunner.Start()
 
 	errorLog, err := zap.NewStdLogAt(a.logger, zap.DebugLevel)
 	if err != nil {
@@ -333,6 +343,8 @@ func (a *App) Shutdown() {
 	a.checkExpiredRunner.Stop()
 	a.autoPullRunner.Stop()
 	a.pruneRunner.Stop()
+	a.dockerCheckRunner.Stop()
+	a.databaseCheckRunner.Stop()
 
 	a.logger.Info("expiring all websocket connections")
 	a.wsManager.Stop()
@@ -362,22 +374,4 @@ func (a *App) Shutdown() {
 	if err := a.db.Close(); err != nil {
 		a.logger.Error("error closing database connection", zap.Error(err))
 	}
-}
-
-func (a *App) initDocker() {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	dockerPing, err := a.cli.Ping(ctx)
-	if err != nil {
-		a.logger.Warn("error pinging docker daemon, continuing anyway",
-			zap.Error(err),
-		)
-	} else {
-		a.cli.NegotiateAPIVersionPing(dockerPing)
-	}
-
-	a.logger.Info("negotiated Docker API version",
-		zap.String("version", a.cli.ClientVersion()),
-	)
 }

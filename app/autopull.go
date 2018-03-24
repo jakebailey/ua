@@ -9,6 +9,10 @@ import (
 )
 
 func (a *App) autoPull() {
+	if !a.precheckDocker() {
+		return
+	}
+
 	ctx := context.Background()
 
 	refsMap := a.autoPullImages.Items()

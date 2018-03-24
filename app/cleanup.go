@@ -87,6 +87,10 @@ func (a *App) cleanInstance(ctx context.Context, instance *models.Instance) erro
 }
 
 func (a *App) checkExpiredInstances() {
+	if !a.precheckDocker() && !a.precheckDatabase() {
+		return
+	}
+
 	logger := a.logger
 
 	instanceQuery := models.NewInstanceQuery().
@@ -133,6 +137,10 @@ func (a *App) checkExpiredInstances() {
 }
 
 func (a *App) cleanInactiveInstances() {
+	if !a.precheckDocker() && !a.precheckDatabase() {
+		return
+	}
+
 	ctx := ctxlog.WithLogger(context.Background(), a.logger)
 
 	instanceQuery := models.NewInstanceQuery().
@@ -144,6 +152,10 @@ func (a *App) cleanInactiveInstances() {
 }
 
 func (a *App) cleanupLeftoverInstances() {
+	if !a.precheckDocker() && !a.precheckDatabase() {
+		return
+	}
+
 	ctx := ctxlog.WithLogger(context.Background(), a.logger)
 
 	instanceQuery := models.NewInstanceQuery().FindByActive(true)
@@ -193,6 +205,10 @@ func (a *App) cleanupInstancesByQuery(ctx context.Context, instanceQuery *models
 }
 
 func (a *App) markAllInstancesCleanedAndInactive() {
+	if !a.precheckDocker() && !a.precheckDatabase() {
+		return
+	}
+
 	logger := a.logger
 	ctx := ctxlog.WithLogger(context.Background(), logger)
 
@@ -254,6 +270,10 @@ func (a *App) markAllInstancesCleanedAndInactive() {
 }
 
 func (a *App) pruneDocker() {
+	if !a.precheckDocker() {
+		return
+	}
+
 	// Order: containers, networks, volumes, images, then build cache
 	// (from docker system prune).
 
