@@ -71,7 +71,7 @@
   branch = "master"
   name = "github.com/docker/cli"
   packages = ["cli/command/image/build"]
-  revision = "a6d235430a0a69f6515606604d63252ab20510c1"
+  revision = "eb4a4fe9b91c2b1f04a90c2f165521d55fad53dd"
 
 [[projects]]
   branch = "master"
@@ -80,7 +80,7 @@
     "digestset",
     "reference"
   ]
-  revision = "23bef416bdd6dcff90083288c284367cf6af955e"
+  revision = "83389a148052d74ac602f5f1d62f86ff2f3c4aa5"
 
 [[projects]]
   branch = "master"
@@ -123,7 +123,7 @@
     "pkg/term/windows",
     "pkg/urlutil"
   ]
-  revision = "69091990c72f3a3a6143fe6417a769e7a1a1ff1a"
+  revision = "859e43e64c4358c9aa48e045c0e5b048361a4c9b"
 
 [[projects]]
   name = "github.com/docker/go-connections"
@@ -266,7 +266,7 @@
     ".",
     "oid"
   ]
-  revision = "b2004221932bd6b13167ef654c81cffac36f7537"
+  revision = "d34b9ff171c21ad295489235aec8b6626023cd04"
 
 [[projects]]
   name = "github.com/mattes/migrate"
@@ -398,7 +398,7 @@
     "unix",
     "windows"
   ]
-  revision = "91ee8cde435411ca3f1cd365e8f20131aed4d0a1"
+  revision = "378d26f46672a356c46195c28f61bdb4c0a781dd"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -438,6 +438,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "4ccc0ce066fe9433ea9e20f9b28bc0835dd5bbe7537a05abb8f158620ff25f06"
+  inputs-digest = "8d64a1145d2ddb2f9c2e1f259943b3fa5a082dd257c42cdcea5314cefe9c7b77"
   solver-name = "gps-cdcl"
   solver-version = 1
