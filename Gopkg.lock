@@ -123,7 +123,7 @@
     "pkg/term/windows",
     "pkg/urlutil"
   ]
-  revision = "859e43e64c4358c9aa48e045c0e5b048361a4c9b"
+  revision = "7410b046491a027fa49cc69475c09fa929b9f810"
 
 [[projects]]
   name = "github.com/docker/go-connections"
@@ -227,7 +227,7 @@
     ".",
     "wsutil"
   ]
-  revision = "c8595a6266aa8b97b14e7406cf059cd240b34100"
+  revision = "f77940ef3d124c46fab90681588a8f2f1c751b34"
 
 [[projects]]
   name = "github.com/gogo/protobuf"
@@ -373,7 +373,7 @@
     "acme/autocert",
     "ssh/terminal"
   ]
-  revision = "88942b9c40a4c9d203b82b3731787b672d6e809b"
+  revision = "12892e8c234f4fe6f6803f052061de9057903bb2"
 
 [[projects]]
   branch = "master"
@@ -383,7 +383,7 @@
     "context/ctxhttp",
     "proxy"
   ]
-  revision = "6078986fec03a1dcc236c34816c71b0e05018fda"
+  revision = "b68f30494add4df6bd8ef5e82803f308e7f7c59c"
 
 [[projects]]
   branch = "master"
