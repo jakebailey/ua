@@ -74,6 +74,11 @@ func Generate(ctx context.Context, assignmentPath string, specData interface{}) 
 		return nil, err
 	}
 
+	if out.Init == nil {
+		truth := true
+		out.Init = &truth
+	}
+
 	return &out, nil
 }
 
