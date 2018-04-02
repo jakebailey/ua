@@ -52,10 +52,15 @@ func (w *WSConn) Close() error {
 	return w.c.Close()
 }
 
-// IsClose returns true if the error provided is a normal closure error
+// IsClose returns true if the error is a close. See WSIsClose.
+func (w *WSConn) IsClose(err error) bool {
+	return WSIsClose(err)
+}
+
+// WSIsClose returns true if the error provided is a normal closure error
 // and can be ignored. This includes io.EOF and a wsutil.ClosedError
 // with the code set to StatusNormalClosure or StatusGoingAway.
-func (w *WSConn) IsClose(err error) bool {
+func WSIsClose(err error) bool {
 	if errhack.IsClose(err) {
 		return true
 	}
