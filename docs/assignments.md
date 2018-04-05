@@ -1,3 +1,5 @@
+# Assignments
+
 ## Directory structure
 
 Assignments are held in a single directory. They are referred to by name.
@@ -80,7 +82,9 @@ exports.generate = function(data) {
             {
                 action: "exec",
                 user: "root",
-                cmd: ["sh", "-c", "printf '" + secret + "' | od -A n -t d1 | xargs -n1 printf '%d, ' >> /usr/include/stdio.h"],
+                cmd: ["sh", "-c", "printf '" + secret
+                    + "' | od -A n -t d1 | "
+                    + "xargs -n1 printf '%d, ' >> /usr/include/stdio.h"],
             },
             {
                 action: "append",

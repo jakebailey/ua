@@ -70,6 +70,6 @@ In addition to `spec_name` (which is required), `uassign_terminal` has other
 options:
 
 -   `host`, which changes the hostname of the uAssign server, for example:
-    `host="notcs126term.cs.illinois.edu"`
+    `host="uassign.example.edu"`
 -   `insecure`, which when set to true (`insecure="true"` or similar) will
     use normal websockets instead of secure websockets.
