@@ -8,7 +8,7 @@ work as expected on both Linux and OS X.
 ## Local server
 
 First, configure the environment variables by populating `.env` in the root
-directory:
+directory of your clone of this repository:
 
 ```
 UA_DEBUG=true
@@ -44,7 +44,8 @@ interrupt. The HTTP server is available at port 8000.
 ## Local PrairieLearn
 
 PrairieLearn is used as usual, however, the uAssign aspects need some
-modification to point to a local server. In `uassign_terminal.py`'s render
+modification to point to a local server. In your course's PrairieLearn content
+repository's `elements/uassign_terminal/uassign_terminal.py`'s render
 function, force:
 
 ```python
@@ -52,7 +53,7 @@ host = 'localhost:8000'
 insecure = True
 ```
 
-And in `uassign.py`'s clean_spec function, replace the URL, like:
+And in `serverFilesCourse/uassign.py`'s clean_spec function, replace the URL, like:
 
 ```python
 req = Request('http://localhost:8000/spec/clean')

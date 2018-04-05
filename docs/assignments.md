@@ -44,7 +44,8 @@ For example, to refer to the `tar_extract` assignment, you can refer to it as
 An assignment directory consists of:
 
 -   `index.js`, a CommonJS-style module. This module must export a `generate`
-    function, which accepts a JavaScript object with the spec data, and returns
+    function, which accepts a JavaScript object with the spec data, (that comes from
+    the `data` object from the PrairieLearn question), and returns
     another JavaScript object with the generated instance information.
 -   `context`, an optional directory which is the build context given to the
     docker daemon. This directory behaves like a regular docker context,
