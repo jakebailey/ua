@@ -167,6 +167,9 @@ actions are supported:
 -   `parallel` executes many subactions in parallel. `subactions` is a list of
     actions. This is useful when needing to do many independent actions, like
     writing many files that don't require each other.
+-   `ordered` executes many subactions in sequence. `subactions` is a list of
+    actions. Paired with `parallel`, this can be used to construct more
+    complicated parallel configurations.
 
 `index.js` is run each time a spec instance is created. This means that
 `index.js` can be changed on the server without needing to remove cached data.
