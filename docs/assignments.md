@@ -192,4 +192,3 @@ rendering context for the template, which is then sent to the docker daemon
 as normal. If `index.js` isn't present in an assignment directory, then
 the server will attempt to use the legacy method instead.
 
-TODO: document these older assignment types.

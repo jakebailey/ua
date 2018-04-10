@@ -5,8 +5,6 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"io"
-	"io/ioutil"
 	"log"
 	"math/rand"
 	"net"
@@ -90,6 +88,10 @@ func postSpec(s spec) (string, error) {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != 200 {
+		return "", errors.Errorf("code %d, %s", resp.StatusCode, resp.Status)
+	}
+
 	var sr specResp
 	if err := json.NewDecoder(resp.Body).Decode(&sr); err != nil {
 		return "", err
@@ -139,16 +141,25 @@ func newWorker(num int) *worker {
 		variance: time.Second,
 		spec: spec{
 			SpecID:         uuid.NewV4().String(),
-			AssignmentName: "fs.cp",
+			AssignmentName: "00_basic_use",
 			Data: map[string]string{
-				"oldFilename": "test",
-				"contents":    "1234567890",
+				"filename": "foobar",
+				"secret":   "foobar",
 			},
+			// AssignmentName: "fs.cp",
+			// Data: map[string]string{
+			// 	"oldFilename": "test",
+			// 	"contents":    "1234567890",
+			// },
+			// AssignmentName: "globbing.range",
+			// Data: map[string]string{
+			// 	"secret": "foobar",
+			// },
 		},
 	}
 }
 
-func (w *worker) work(ctx context.Context) error {
+func (w *worker) work(ctx context.Context, connected chan<- struct{}) error {
 	for {
 		select {
 		case <-ctx.Done():
@@ -156,7 +167,7 @@ func (w *worker) work(ctx context.Context) error {
 		default:
 		}
 
-		if err := w.doFor(ctx, time.Minute); err != nil {
+		if err := w.doFor(ctx, time.Minute, connected); err != nil {
 			log.Println(w.num, "-", err)
 			return err
 		}
@@ -169,19 +180,27 @@ func (w *worker) work(ctx context.Context) error {
 
 		dur := randDur(w.period, w.variance)
 		time.Sleep(dur)
+
+		connected = nil
 	}
 }
 
-func (w *worker) doFor(ctx context.Context, d time.Duration) error {
+func (w *worker) doFor(ctx context.Context, d time.Duration, connected chan<- struct{}) error {
 	ctx, cancel := context.WithTimeout(ctx, d)
 	defer cancel()
-	return w.do(ctx)
+	return w.do(ctx, connected)
 }
 
-func (w *worker) do(ctx context.Context) (oerr error) {
+func (w *worker) do(ctx context.Context, connected chan<- struct{}) (oerr error) {
+	before := time.Now()
 	specID, err := postSpec(w.spec)
 	if err != nil {
 		return errors.Wrap(err, "postSpec")
+	}
+	log.Printf("%d - postSpec took %v", w.num, time.Since(before))
+
+	if connected != nil {
+		connected <- struct{}{}
 	}
 
 	defer func() {
@@ -228,7 +247,9 @@ func (w *worker) simulate(ctx context.Context, conn net.Conn) error {
 					return errors.Wrap(err, "ws write json")
 				}
 
-				if err := wsutil.WriteClientText(conn, buf); err != nil {
+				err = wsutil.WriteClientText(conn, buf)
+
+				if err != nil {
 					return errors.Wrap(err, "ws write")
 				}
 
@@ -238,8 +259,19 @@ func (w *worker) simulate(ctx context.Context, conn net.Conn) error {
 	})
 
 	g.Go(func() error {
-		_, err := io.Copy(ioutil.Discard, conn)
-		return errors.Wrap(err, "ws read")
+		for {
+			buf, op, err := wsutil.ReadServerData(conn)
+			if err != nil {
+				return err
+			}
+
+			_, _ = buf, op
+
+			// log.Printf("%d - op(%d) : %s", w.num, op, buf)
+		}
+
+		// _, err := io.Copy(ioutil.Discard, conn)
+		// return errors.Wrap(err, "ws read")
 	})
 
 	g.Go(func() error {
@@ -303,12 +335,16 @@ func main() {
 
 	log.Printf("starting %d simulated users, staggered by %v", args.Num, args.Stagger)
 
+	connected := make(chan struct{})
+
 	for i := 0; i < args.Num; i++ {
 		w := newWorker(i)
 
 		g.Go(func() error {
-			return w.work(ctx)
+			return w.work(ctx, connected)
 		})
+
+		<-connected
 
 		time.Sleep(args.Stagger)
 	}
