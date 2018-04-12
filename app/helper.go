@@ -9,7 +9,7 @@ import (
 // then the message will be written, otherwise the default message
 // for the provided status code will be used.
 func (a *App) httpError(w http.ResponseWriter, msg string, code int) {
-	if a.debug {
+	if a.config.Debug {
 		http.Error(w, msg, code)
 	} else {
 		http.Error(w, http.StatusText(code), code)
@@ -17,6 +17,6 @@ func (a *App) httpError(w http.ResponseWriter, msg string, code int) {
 }
 
 func (a *App) instanceExpireTime() *time.Time {
-	t := time.Now().Add(a.instanceExpire)
+	t := time.Now().Add(a.config.InstanceExpire)
 	return &t
 }

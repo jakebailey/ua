@@ -86,7 +86,7 @@ func (a *App) specCreateContainer(ctx context.Context, assignmentPath string, co
 		Init: gen.Init,
 	}
 
-	if !a.disableLimits {
+	if !a.config.DisableLimits {
 		hostConfig.Resources.CPUShares = 2
 		hostConfig.Resources.Memory = 16 * units.MiB
 		hostConfig.Resources.MemoryReservation = 4 * units.MiB

@@ -29,7 +29,7 @@ var (
 func (a *App) routeSpec(r chi.Router) {
 	r.Use(middleware.NoCache)
 
-	if a.debug {
+	if a.config.Debug {
 		r.Get("/", a.specGet)
 	}
 
@@ -211,7 +211,7 @@ func (a *App) createInstance(ctx context.Context, specID kallax.ULID) (*models.I
 		zap.String("instance_id", instance.ID.String()),
 	)
 
-	pathSlice := []string{a.assignmentPath}
+	pathSlice := []string{a.config.AssignmentPath}
 	pathSlice = append(pathSlice, strings.Split(spec.AssignmentName, ".")...)
 	path := filepath.Join(pathSlice...)
 

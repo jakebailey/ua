@@ -31,10 +31,10 @@ func (a *App) route() {
 
 	r.Route("/health", a.routeHealth)
 
-	if a.staticPath == "" {
+	if a.config.StaticPath == "" {
 		r.Handle("/static/*", http.StripPrefix("/static", http.FileServer(static.FS(false))))
 	} else {
-		routeStatic(r, "/static", a.staticPath)
+		routeStatic(r, "/static", a.config.StaticPath)
 	}
 
 	r.Handle("/favicon.ico", http.RedirectHandler("/static/favicon.ico", http.StatusFound))
@@ -46,7 +46,7 @@ func (a *App) route() {
 		r.Route("/instance", a.routeInstance)
 	})
 
-	if a.debug {
+	if a.config.Debug {
 		r.Route("/debug", a.routeDebug)
 	} else {
 		r.Route("/debug", a.routeDebugProd)

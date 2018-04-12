@@ -32,10 +32,10 @@ func (a *App) routeDebug(r chi.Router) {
 
 func (a *App) routeDebugProd(r chi.Router) {
 	var pprofHandler http.Handler
-	if a.debug {
+	if a.config.Debug {
 		pprofHandler = netbug.Handler()
-	} else if a.pprofToken != "" {
-		pprofHandler = netbug.AuthHandler(a.pprofToken)
+	} else if a.config.PProfToken != "" {
+		pprofHandler = netbug.AuthHandler(a.config.PProfToken)
 	}
 
 	if pprofHandler != nil {
@@ -61,7 +61,7 @@ func (a *App) routeDebugProd(r chi.Router) {
 
 	r.Get("/trigger/checks", func(w http.ResponseWriter, r *http.Request) {
 		// TODO: Change pprofToken into a generic debug password.
-		if !a.debug && r.FormValue("token") != a.pprofToken {
+		if !a.config.Debug && r.FormValue("token") != a.config.PProfToken {
 			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 			return
 		}

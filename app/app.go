@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/tls"
 	"database/sql"
+	"encoding/base64"
+	"errors"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -26,67 +28,9 @@ import (
 	"golang.org/x/crypto/acme/autocert"
 )
 
-var (
-	// DefaultAddr is the default address where app will run its HTTP server.
-	DefaultAddr = ":8000"
-
-	// DefaultAssignmentPath is the path assignments are stored in. If relative,
-	// then this will be relative to the current working directory.
-	DefaultAssignmentPath = "assignments"
-
-	// DefaultLogger is the default zerolog Logger that will be used. It
-	// defaults to logging nothing.
-	DefaultLogger = zap.NewNop()
-
-	// DefaultStaticPath is the path to the static elements served at /static
-	// by the app.
-	DefaultStaticPath = "static"
-
-	// DefaultSpew is the spew configuration used in various debugging
-	// endpoints.
-	DefaultSpew = &spew.ConfigState{Indent: "    ", ContinueOnMethod: true}
-
-	// DefaultCleanInactiveEvery is the period at which the app will clean up
-	// inactive images and containers.
-	DefaultCleanInactiveEvery = time.Hour
-
-	// DefaultCheckExpiredEvery is the period at which the app will check for
-	// active instances past their expiry time and stop them.
-	DefaultCheckExpiredEvery = time.Minute
-
-	// DefaultWebsocketTimeout is the maximum duration a websocket can be
-	// inactive before expiring.
-	DefaultWebsocketTimeout = time.Hour
-
-	// DefaultInstanceExpire is the maximum duration an instance will be kept
-	// on the server until it expires and a new instance must be created.
-	DefaultInstanceExpire = 4 * time.Hour
-
-	// DefaultAutoPullEvery is the interval at which the server will attempt
-	// to pull images that have been recently used (to keep them updated).
-	DefaultAutoPullEvery = time.Hour
-
-	// DefaultAutoPullExpiry defines what the autopuller defines as "recent".
-	DefaultAutoPullExpiry = 30 * time.Minute
-
-	// DefaultPruneEvery is the interval at which the server will prune docker.
-	DefaultPruneEvery = time.Hour
-)
-
 // App is the main application for uAssign.
 type App struct {
-	debug bool
-
-	addr           string
-	assignmentPath string
-	staticPath     string
-	instanceExpire time.Duration
-
-	letsEncrypt       bool
-	letsEncryptDomain string
-
-	tls                     bool
-	tlsCertFile, tlsKeyFile string
+	config Config
 
 	router chi.Router
 	srv    *http.Server
@@ -94,38 +38,24 @@ type App struct {
 	logger *zap.Logger
 	spew   *spew.ConfigState
 
-	cli           client.CommonAPIClient
-	disableLimits bool
+	cli client.CommonAPIClient
 
-	dbString      string
 	db            *sql.DB
 	specStore     *models.SpecStore
 	instanceStore *models.InstanceStore
-	migrateUp     bool
-	migrateReset  bool
 
 	cleanInactiveRunner *sched.Runner
-	cleanInactiveEvery  time.Duration
 	checkExpiredRunner  *sched.Runner
-	checkExpiredEvery   time.Duration
 
 	wsWG      sync.WaitGroup
-	wsTimeout time.Duration
 	wsManager *expire.Manager
 
-	aesKey     []byte
-	pprofToken string
+	aesKey []byte
 
-	autoPullDisabled bool
-	autoPullRunner   *sched.Runner
-	autoPullImages   *cache.Cache
-	autoPullEvery    time.Duration
-	autoPullExpiry   time.Duration
+	autoPullRunner *sched.Runner
+	autoPullImages *cache.Cache
 
 	pruneRunner *sched.Runner
-	pruneEvery  time.Duration
-
-	forceInactive bool
 
 	dockerCheckRunner   *sched.Runner
 	dockerOk            atomic.Bool
@@ -136,30 +66,45 @@ type App struct {
 // NewApp creates a new app, with an optional list of options.
 // This function does not open any connections, only setting up the app before
 // Run is called.
-func NewApp(dbString string, options ...Option) *App {
+func NewApp(config *Config, options ...Option) (*App, error) {
 	a := &App{
-		addr:               DefaultAddr,
-		assignmentPath:     DefaultAssignmentPath,
-		instanceExpire:     DefaultInstanceExpire,
-		logger:             DefaultLogger,
-		staticPath:         DefaultStaticPath,
-		spew:               DefaultSpew,
-		dbString:           dbString,
-		cleanInactiveEvery: DefaultCleanInactiveEvery,
-		checkExpiredEvery:  DefaultCheckExpiredEvery,
-		wsTimeout:          DefaultWebsocketTimeout,
-		autoPullEvery:      DefaultAutoPullEvery,
-		autoPullExpiry:     DefaultAutoPullExpiry,
-		pruneEvery:         DefaultPruneEvery,
+		config: DefaultConfig,
+		logger: zap.NewNop(),
+		spew:   &spew.ConfigState{Indent: "    ", ContinueOnMethod: true},
+	}
+
+	if config != nil {
+		a.config = *config
+	}
+
+	if err := a.config.Verify(); err != nil {
+		return nil, err
+	}
+
+	if a.config.AESKey != "" {
+		key, err := base64.StdEncoding.DecodeString(a.config.AESKey)
+		if err != nil {
+			return nil, err
+		}
+		a.aesKey = key
 	}
 
 	for _, o := range options {
 		o(a)
 	}
 
+	switch len(a.aesKey) {
+	case 0:
+		return nil, errors.New("zero-length aes key")
+	case 16, 24, 32:
+		// Do nothing.
+	default:
+		return nil, errors.New("AES key must be of length 16, 24, or 32")
+	}
+
 	a.route()
 
-	return a
+	return a, nil
 }
 
 // Run runs the app, opening docker/db/etc connections. This function blocks
@@ -182,7 +127,7 @@ func (a *App) Run() error {
 
 	a.precheckDockerTask()
 
-	if a.db, err = sql.Open("postgres", a.dbString); err != nil {
+	if a.db, err = sql.Open("postgres", a.config.Database); err != nil {
 		a.logger.Error("error opening database",
 			zap.Error(err),
 		)
@@ -191,14 +136,14 @@ func (a *App) Run() error {
 
 	a.precheckDatabaseTask()
 
-	if a.migrateReset {
+	if a.config.MigrateReset {
 		if err = migrations.Reset(a.db); err != nil {
 			a.logger.Error("error resetting database",
 				zap.Error(err),
 			)
 			return err
 		}
-	} else if a.migrateUp {
+	} else if a.config.MigrateUp {
 		if err = migrations.Up(a.db); err != nil {
 			a.logger.Error("error migrating database up",
 				zap.Error(err),
@@ -210,7 +155,7 @@ func (a *App) Run() error {
 	a.specStore = models.NewSpecStore(a.db)
 	a.instanceStore = models.NewInstanceStore(a.db)
 
-	if a.forceInactive {
+	if a.config.ForceInactive {
 		// Ensure that the database doesn't have any already active or uncleaned
 		// instances. For now, only one of these servers will run at a time. This
 		// will need to be removed once the platform improves.
@@ -221,23 +166,23 @@ func (a *App) Run() error {
 	}
 
 	// TODO: merge these scheduled tasks into some library that handles many.
-	a.cleanInactiveRunner = sched.NewRunner(a.cleanInactiveInstances, a.cleanInactiveEvery)
+	a.cleanInactiveRunner = sched.NewRunner(a.cleanInactiveInstances, a.config.CleanInactiveEvery)
 	a.cleanInactiveRunner.Start()
 
-	a.checkExpiredRunner = sched.NewRunner(a.checkExpiredInstances, a.checkExpiredEvery)
+	a.checkExpiredRunner = sched.NewRunner(a.checkExpiredInstances, a.config.CheckExpiredEvery)
 	a.checkExpiredRunner.Start()
 
-	a.autoPullImages = cache.New(a.autoPullExpiry, time.Minute)
+	a.autoPullImages = cache.New(a.config.AutoPullExpiry, time.Minute)
 
-	if !a.autoPullDisabled {
-		a.autoPullRunner = sched.NewRunner(a.autoPull, a.autoPullEvery)
+	if !a.config.DisableAutoPull {
+		a.autoPullRunner = sched.NewRunner(a.autoPull, a.config.AutoPullEvery)
 		a.autoPullRunner.Start()
 	}
 
-	a.pruneRunner = sched.NewRunner(a.pruneDocker, a.pruneEvery)
+	a.pruneRunner = sched.NewRunner(a.pruneDocker, a.config.PruneEvery)
 	a.pruneRunner.Start()
 
-	a.wsManager = expire.NewManager(time.Minute, a.wsTimeout)
+	a.wsManager = expire.NewManager(time.Minute, a.config.WebsocketTimeout)
 	a.wsManager.Run()
 
 	// TODO: Make this configurable.
@@ -258,13 +203,13 @@ func (a *App) Run() error {
 		ErrorLog: errorLog,
 	}
 
-	if a.letsEncrypt {
-		// l := autocert.NewListener(a.letsEncryptDomain)
+	if a.config.LetsEncryptDomain != "" {
+		// l := autocert.NewListener(a.config.LetsEncryptDomain)
 
 		// Replacement for the above, since the tls-sni challenge has been disabled.
 		m := &autocert.Manager{
 			Prompt:     autocert.AcceptTOS,
-			HostPolicy: autocert.HostWhitelist(a.letsEncryptDomain),
+			HostPolicy: autocert.HostWhitelist(a.config.LetsEncryptDomain),
 		}
 
 		cacheBase := "golang-autocert"
@@ -297,7 +242,7 @@ func (a *App) Run() error {
 			}
 		}() // Never exits, unless the server has an error. TODO: fix this.
 
-		a.logger.Info("starting http server", zap.String("domain", a.letsEncryptDomain))
+		a.logger.Info("starting http server", zap.String("domain", a.config.LetsEncryptDomain))
 
 		a.srv.Addr = ":https"
 		a.srv.TLSConfig = &tls.Config{GetCertificate: m.GetCertificate}
@@ -306,14 +251,14 @@ func (a *App) Run() error {
 
 		// err = a.srv.Serve(l)
 	} else {
-		a.srv.Addr = a.addr
+		a.srv.Addr = a.config.Addr
 
-		a.logger.Info("starting http server", zap.String("addr", a.addr))
+		a.logger.Info("starting http server", zap.String("addr", a.config.Addr))
 
-		if a.tls {
-			err = a.srv.ListenAndServeTLS(a.tlsCertFile, a.tlsKeyFile)
+		if a.config.CertFile != "" && a.config.KeyFile != "" {
+			err = a.srv.ListenAndServeTLS(a.config.CertFile, a.config.KeyFile)
 		} else {
-			if !a.debug {
+			if !a.config.Debug {
 				a.logger.Warn("server running without https in production")
 			}
 			err = a.srv.ListenAndServe()
@@ -355,7 +300,7 @@ func (a *App) Shutdown() {
 
 	a.cleanupLeftoverInstances()
 
-	if a.forceInactive {
+	if a.config.ForceInactive {
 		// This shouldn't be needed, but by this point all instances should be both
 		// cleaned and inactive, so just force everything into the correct state
 		// ignoring all of the errors that happened during cleanup.

@@ -71,7 +71,7 @@
   branch = "master"
   name = "github.com/docker/cli"
   packages = ["cli/command/image/build"]
-  revision = "ec412bdbb47b0cd84d85a0212c7160cec0ee9f02"
+  revision = "8e1cd515ba243e29c164d75ca17f3eadb7bbc858"
 
 [[projects]]
   branch = "master"
@@ -123,7 +123,7 @@
     "pkg/term/windows",
     "pkg/urlutil"
   ]
-  revision = "cbde00b44273a584bed2ee3513db68924b4a6dba"
+  revision = "ce3c2e23315a8745dca792a39aa496d9b33689ea"
 
 [[projects]]
   name = "github.com/docker/go-connections"
@@ -240,6 +240,12 @@
   name = "github.com/hashicorp/go-gatedio"
   packages = ["."]
   revision = "8b8de1022221dde1fb52fa25d0caab46e59c8c14"
+
+[[projects]]
+  name = "github.com/jessevdk/go-flags"
+  packages = ["."]
+  revision = "c6ca198ec95c841fdb89fc0de7496fed11ab854e"
+  version = "v1.4.0"
 
 [[projects]]
   name = "github.com/joho/godotenv"
@@ -373,7 +379,7 @@
     "acme/autocert",
     "ssh/terminal"
   ]
-  revision = "beb2a9779c3b677077c41673505f150149fce895"
+  revision = "d6449816ce06963d9d136eee5a56fca5b0616e7e"
 
 [[projects]]
   branch = "master"
@@ -439,6 +445,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "102970dad835ec19ee72d2a62b15f15da8f61a7635d453a0db2a40842ab7dfe6"
+  inputs-digest = "80baed33c17538f00af78820e4d86ca484a43e7a116557ef03b3a0efb8aa3b78"
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -1,74 +1,83 @@
 package main
 
 import (
-	"encoding/base64"
+	"log"
 	"os"
 	"os/signal"
 	"sort"
 	"syscall"
 	"time"
 
-	"github.com/alexflint/go-arg"
 	"github.com/coreos/go-systemd/journal"
 	"github.com/jakebailey/ua/app"
+	"github.com/jessevdk/go-flags"
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
+// Copy of app.Config, but with struct tags. This means that a value of this
+// type can be converted directly to app.Config and passed in, rather than
+// copying each field one by one, and for app.DefaultConfig to be used as
+// the defaults rather than repeating a bunch of values.
+type flaggedConfig struct {
+	Addr string `long:"addr" env:"UA_ADDR" description:"Address to run the server on"`
+
+	LetsEncryptDomain string `long:"letsencrypt-domain" env:"UA_LE_DOMAIN" description:"Domain to run Let's Encrypt on"`
+	CertFile          string `long:"cert-file" env:"UA_CERT_FILE" description:"Path to HTTPS certificate file"`
+	KeyFile           string `long:"key-file" env:"UA_KEY_FILE" description:"Path to HTTPS key file"`
+
+	Database     string `long:"database" required:"true" env:"UA_DATABASE" description:"PostgreSQL database connection string"`
+	MigrateUp    bool   `long:"migrate-up" env:"UA_MIGRATE_UP" description:"Run migrations up after database connection"`
+	MigrateReset bool   `long:"migrate-reset" env:"UA_MIGRATE_RESET" description:"Reset database and run migrations up after database connection"`
+
+	AssignmentPath string `long:"assignment-path" env:"UA_ASSIGNMENT_PATH" description:"Path to assignments directory"`
+	StaticPath     string `long:"static-path" env:"UA_STATIC_PATH" description:"Path to static directory; if not provided embedded assets are used"`
+
+	AESKey string `long:"aes-key" required:"true" env:"UA_AES_KEY" description:"base64 encoded AES key"`
+
+	CleanInactiveEvery time.Duration `long:"clean-inactive-every" env:"UA_CLEAN_INACTIVE_EVERY" description:"How often to clean up inactive instances"`
+	CheckExpiredEvery  time.Duration `long:"check-expired-every" env:"UA_CHECK_EXPIRED_EVERY" description:"How often to check for expired instances"`
+	WebsocketTimeout   time.Duration `long:"websocket-timeout" env:"UA_WS_TIMEOUT" description:"Maximum duration a websocket can be inactive"`
+	InstanceExpire     time.Duration `long:"instance-expire" env:"UA_INSTANCE_EXPIRE" description:"Duration to expire instances after"`
+	ForceInactive      bool          `long:"force-inactive" env:"UA_FORCE_INACTIVE" description:"Force all instances to be inactive on startup/shutdown"`
+
+	DisableLimits bool `long:"disable-limits" env:"UA_DISABLE_LIMITS" description:"Disable container limits"`
+
+	DisableAutoPull bool          `long:"disable-auto-pull" env:"UA_AUTO_PULL" description:"Disable image autopull"`
+	AutoPullEvery   time.Duration `long:"auto-pull-every" env:"UA_AUTO_PULL_EVERY" description:"How often to auto-pull recently used images"`
+	AutoPullExpiry  time.Duration `long:"auto-pull-expiry" env:"UA_AUTO_PULL_EXPIRY" description:"How often an image must be used to be autopulled"`
+
+	PruneEvery time.Duration `long:"prune-every" env:"UA_PRUNE_EVERY" description:"How often to prune Docker"`
+
+	// TODO: Split this out into DebugRoutes and something like DebugLogging.
+	Debug      bool   `long:"debug" env:"UA_DEBUG" description:"Enables pretty logging and extra debug routes"`
+	PProfToken string `long:"pprof-token" env:"UA_PPROF_TOKEN" description:"Token/password for pprof debug endpoint (disabled if not set unless in debug mode)"`
+}
+
 var args = struct {
-	Debug      bool   `arg:"env:UA_DEBUG,help:enables pretty logging and extra debug routes"`
-	StaticPath string `arg:"--static-path,env:UA_STATIC_PATH,help:path to static directory; if not provided embedded assets are used"`
+	AppConfig flaggedConfig
 
-	Addr              string `arg:"env:UA_ADDR,help:address to run the http server on"`
-	CertFile          string `arg:"--cert-file,env:UA_CERT_FILE,help:path to HTTPS certificate file"`
-	KeyFile           string `arg:"--key-file,env:UA_KEY_FILE,help:path to HTTPS key file"`
-	AESKey            string `arg:"--aes-key,required,env:UA_AES_KEY,help:base64 encoded AES key"`
-	LetsEncryptDomain string `arg:"--letsencrypt-domain,env:UA_LE_DOMAIN,help:domain to run Let's Encrypt on"`
-	AssignmentPath    string `arg:"--assignment-path,env:UA_ASSIGNMENT_PATH,help:path to assignments directory"`
-
-	Database     string `arg:"required,env:UA_DATABASE,help:postgres database connection string"`
-	MigrateUp    bool   `arg:"env:UA_MIGRATE_UP,help:run migrations up after database connection"`
-	MigrateReset bool   `arg:"env:UA_MIGRATE_RESET,help:reset database and run migrations up after database connection"`
-
-	CleanInactiveEvery time.Duration `arg:"--clean-inactive-every,env:UA_CLEAN_INACTIVE_EVERY,help:how often to clean up inactive instances"`
-	CheckExpiredEvery  time.Duration `arg:"--check-expired-every,env:UA_CHECK_EXPIRED_EVERY,help:how often to check for expired instances"`
-	WebsocketTimeout   time.Duration `arg:"--websocket-timeout,env:UA_WS_TIMEOUT,help:maximum duration a websocket can be inactive"`
-	InstanceExpire     time.Duration `arg:"--instance-expire,env:UA_INSTANCE_EXPIRE,help:duration to expire instances after"`
-	DisableLimits      bool          `arg:"--disable-limits,env:UA_DISABLE_LIMITS,help:disable limits for containers"`
-	ForceInactive      bool          `arg:"--force-inactive,env:UA_FORCE_INACTIVE,help:force all instances to be inactive on startup/shutdown"`
-
-	JournaldDirect bool   `arg:"--journald-direct,env:UA_JOURNALD_DIRECT,help:log directory to journald instead of stdout"`
-	PProfToken     string `arg:"--pprof-token,env:UA_PPROF_TOKEN,help:token/password for pprof debug endpoint (disabled if not set unless in debug mode)"`
-
-	AutoPull       bool          `arg:"--auto-pull,env:UA_AUTO_PULL,help:enable image autopull"`
-	AutoPullEvery  time.Duration `arg:"--auto-pull-every,env:UA_AUTO_PULL_EVERY,help:how often to auto-pull recently used images"`
-	AutoPullExpiry time.Duration `arg:"--auto-pull-expiry,env:UA_AUTO_PULL_EXPIRY,help:how often an image must be used to be autopulled"`
-
-	PruneEvery time.Duration `arg:"--prune-every,env:UA_PRUNE_EVERY,help:how often to prune docker"`
+	JournaldDirect bool `long:"journald-direct" env:"UA_JOURNALD_DIRECT" description:"Send logs directly to systemd to prevent line truncation"`
 }{
-	Addr:               app.DefaultAddr,
-	AssignmentPath:     app.DefaultAssignmentPath,
-	CleanInactiveEvery: app.DefaultCleanInactiveEvery,
-	CheckExpiredEvery:  app.DefaultCheckExpiredEvery,
-	WebsocketTimeout:   app.DefaultWebsocketTimeout,
-	InstanceExpire:     app.DefaultInstanceExpire,
-	AutoPull:           true,
-	AutoPullEvery:      app.DefaultAutoPullEvery,
-	AutoPullExpiry:     app.DefaultAutoPullExpiry,
-	PruneEvery:         app.DefaultPruneEvery,
+	AppConfig: flaggedConfig(app.DefaultConfig),
 }
 
 func main() {
 	if err := godotenv.Load(); err != nil {
-		panic(err)
+		if !os.IsNotExist(err) {
+			panic(err)
+		}
 	}
 
-	p := arg.MustParse(&args)
+	if _, err := flags.Parse(&args); err != nil {
+		// Default flag parser prints messages, so just exit.
+		os.Exit(1)
+	}
 
 	var logConfig zap.Config
 
-	if args.Debug {
+	if args.AppConfig.Debug {
 		logConfig = zap.NewDevelopmentConfig()
 		logConfig.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	} else {
@@ -90,52 +99,12 @@ func main() {
 	undoStdlog := zap.RedirectStdLog(logger)
 	defer undoStdlog()
 
-	key, err := base64.StdEncoding.DecodeString(args.AESKey)
+	appConfig := app.Config(args.AppConfig)
+	a, err := app.NewApp(&appConfig, app.WithLogger(logger))
 	if err != nil {
-		logger.Fatal("error decoding base64'd AES key",
-			zap.Error(err),
-		)
+		log.Fatalln(err)
+		return
 	}
-
-	if args.MigrateUp && args.MigrateReset {
-		p.Fail("cannot both migrate up and migrate reset")
-	}
-
-	options := []app.Option{
-		app.Logger(logger),
-		app.Addr(args.Addr),
-		app.Debug(args.Debug),
-		app.StaticPath(args.StaticPath),
-		app.AESKey(key),
-		app.AssignmentPath(args.AssignmentPath),
-		app.CleanInactiveEvery(args.CleanInactiveEvery),
-		app.CheckExpiredEvery(args.CheckExpiredEvery),
-		app.WebsocketTimeout(args.WebsocketTimeout),
-		app.InstanceExpire(args.InstanceExpire),
-		app.MigrateUp(args.MigrateUp),
-		app.MigrateReset(args.MigrateReset),
-		app.DisableLimits(args.DisableLimits),
-		app.PProfToken(args.PProfToken),
-		app.AutoPull(args.AutoPull),
-		app.AutoPullEvery(args.AutoPullEvery),
-		app.AutoPullExpiry(args.AutoPullExpiry),
-		app.PruneEvery(args.PruneEvery),
-		app.ForceInactive(args.ForceInactive),
-	}
-
-	if args.LetsEncryptDomain != "" {
-		if args.CertFile != "" || args.KeyFile != "" {
-			p.Fail("cannot use both Let's Encrypt and regular TLS certs at the same time")
-		}
-
-		options = append(options, app.LetsEncryptDomain(args.LetsEncryptDomain))
-	}
-
-	if args.CertFile != "" || args.KeyFile != "" {
-		options = append(options, app.TLS(args.CertFile, args.KeyFile))
-	}
-
-	a := app.NewApp(args.Database, options...)
 
 	go func() {
 		stopChan := make(chan os.Signal, 1)

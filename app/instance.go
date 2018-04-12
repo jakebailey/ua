@@ -23,7 +23,7 @@ func (a *App) routeInstance(r chi.Router) {
 	r.Use(middleware.NoCache)
 
 	r.Route("/{instanceID}", func(r chi.Router) {
-		if a.debug {
+		if a.config.Debug {
 			r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 				wsURL := r.Host + r.RequestURI + "/ws"
 				templates.WriteContainer(w, wsURL)

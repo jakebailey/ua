@@ -72,7 +72,7 @@ func (a *App) specLegacyCreateContainer(ctx context.Context, imageID string, con
 		containerConfig.Cmd = []string{"/dev/init", "-s", "--", "/bin/sh", "-c", initCmd}
 	}
 
-	if !a.disableLimits {
+	if !a.config.DisableLimits {
 		hostConfig.Resources.CPUShares = 2
 		hostConfig.Resources.Memory = 16 * units.MiB
 		hostConfig.Resources.MemoryReservation = 4 * units.MiB
