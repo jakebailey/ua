@@ -32,7 +32,7 @@
   branch = "master"
   name = "github.com/alexflint/go-arg"
   packages = ["."]
-  revision = "0cc8e30fd64c8c71d094be299ad424da93ef9aed"
+  revision = "b1eda2c7b64c118d56472c1944054bf9235d6c48"
 
 [[projects]]
   branch = "master"
@@ -44,7 +44,7 @@
   branch = "master"
   name = "github.com/containerd/continuity"
   packages = ["pathdriver"]
-  revision = "3e8f2ea4b190484acb976a5b378d373429639a1a"
+  revision = "c6cef34830231743494fe2969284df7b82cc0ad0"
 
 [[projects]]
   name = "github.com/coreos/go-systemd"
@@ -71,7 +71,7 @@
   branch = "master"
   name = "github.com/docker/cli"
   packages = ["cli/command/image/build"]
-  revision = "8e1cd515ba243e29c164d75ca17f3eadb7bbc858"
+  revision = "8618838bdb79d84c8395c2316b06af31b3cf6486"
 
 [[projects]]
   branch = "master"
@@ -123,7 +123,7 @@
     "pkg/term/windows",
     "pkg/urlutil"
   ]
-  revision = "ce3c2e23315a8745dca792a39aa496d9b33689ea"
+  revision = "25ff68a80f315a5e0a4526cc15a1ece83843ae2b"
 
 [[projects]]
   name = "github.com/docker/go-connections"
@@ -211,7 +211,6 @@
   revision = "2c6c146eadee0b69f856f87e3e9f1d0cd6aad2f5"
 
 [[projects]]
-  branch = "master"
   name = "github.com/gobwas/pool"
   packages = [
     ".",
@@ -219,6 +218,7 @@
     "pbytes"
   ]
   revision = "e294a5482d9a8523f8e6b2744ea2185083c838af"
+  version = "v0.1.0"
 
 [[projects]]
   branch = "master"
@@ -227,7 +227,7 @@
     ".",
     "wsutil"
   ]
-  revision = "f77940ef3d124c46fab90681588a8f2f1c751b34"
+  revision = "920d9501b7200ac5c52df9f8fa8361f57dc44100"
 
 [[projects]]
   name = "github.com/gogo/protobuf"
@@ -368,8 +368,8 @@
     "internal/exit",
     "zapcore"
   ]
-  revision = "35aad584952c3e7020db7b839f6b102de6271f89"
-  version = "v1.7.1"
+  revision = "eeedf312bc6c57391d84767a4cd413f02a917974"
+  version = "v1.8.0"
 
 [[projects]]
   branch = "master"
@@ -390,7 +390,7 @@
     "internal/socks",
     "proxy"
   ]
-  revision = "61147c48b25b599e5b561d2e9c4f3e1ef489ca41"
+  revision = "d41e8174641f662c5a2d1c7a5f9e828788eb8706"
 
 [[projects]]
   branch = "master"
@@ -405,7 +405,7 @@
     "unix",
     "windows"
   ]
-  revision = "3b87a42e500a6dc65dae1a55d0b641295971163e"
+  revision = "b126b21c05a91c856b027c16779c12e3bf236954"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -431,7 +431,7 @@
   branch = "master"
   name = "golang.org/x/time"
   packages = ["rate"]
-  revision = "26559e0f760e39c24d730d3224364aef164ee23f"
+  revision = "fbb02b2291d28baffd63558aa44b4b56f178d650"
 
 [[projects]]
   name = "gopkg.in/src-d/go-kallax.v1"

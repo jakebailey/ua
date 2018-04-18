@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 type loggerKey struct{}
@@ -45,7 +44,7 @@ func WithLogger(ctx context.Context, logger *zap.Logger) context.Context {
 
 // FromContextWith gets a logger from a context, adds the specified fields,
 // and returns context with the new logger.
-func FromContextWith(ctx context.Context, fields ...zapcore.Field) (context.Context, *zap.Logger) {
+func FromContextWith(ctx context.Context, fields ...zap.Field) (context.Context, *zap.Logger) {
 	if len(fields) == 0 {
 		return ctx, FromContext(ctx)
 	}
