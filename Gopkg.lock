@@ -71,7 +71,7 @@
   branch = "master"
   name = "github.com/docker/cli"
   packages = ["cli/command/image/build"]
-  revision = "8618838bdb79d84c8395c2316b06af31b3cf6486"
+  revision = "6c9232a5682cbfffc6a53ebb8ec9bfbb4b55381d"
 
 [[projects]]
   branch = "master"
@@ -123,7 +123,7 @@
     "pkg/term/windows",
     "pkg/urlutil"
   ]
-  revision = "25ff68a80f315a5e0a4526cc15a1ece83843ae2b"
+  revision = "f1783da7361ab3dc985df12446357e6c4c9ef388"
 
 [[projects]]
   name = "github.com/docker/go-connections"
@@ -405,7 +405,7 @@
     "unix",
     "windows"
   ]
-  revision = "b126b21c05a91c856b027c16779c12e3bf236954"
+  revision = "3ccc7e5779793fd54564baf60c51bf017955e0ba"
 
 [[projects]]
   name = "golang.org/x/text"
