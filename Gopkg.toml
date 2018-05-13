@@ -36,6 +36,10 @@
   branch = "master"
   name = "github.com/docker/distribution"
 
+[[override]]
+  branch = "master"
+  name = "github.com/gobwas/pool"
+
 [prune]
   non-go = true
   go-tests = true

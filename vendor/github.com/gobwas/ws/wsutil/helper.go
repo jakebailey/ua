@@ -36,12 +36,18 @@ func ReadMessage(r io.Reader, s ws.State, m []Message) ([]Message, error) {
 			return nil
 		},
 	}
-	bts, err := ioutil.ReadAll(&rd)
+	h, err := rd.NextFrame()
 	if err != nil {
 		return m, err
 	}
-
-	return append(m, Message{rd.Header().OpCode, bts}), nil
+	p := make([]byte, h.Length)
+	if _, err := io.ReadFull(&rd, p); err != nil {
+		// It is not possible to receive io.EOF here because Reader does not
+		// return EOF if frame header was successfuly fetched.
+		// Thus we consistent here with Reader behavior.
+		return m, err
+	}
+	return append(m, Message{h.OpCode, p}), nil
 }
 
 // ReadClientMessage reads next message from r, considering that caller
@@ -195,7 +201,7 @@ func HandleClientControl(conn io.Writer, op ws.OpCode, p []byte) error {
 //
 // Note this may handle and write control frames into the writer part of a given
 //  io.ReadWriter.
-func HandleServerControl(conn io.ReadWriter, op ws.OpCode, p []byte) error {
+func HandleServerControl(conn io.Writer, op ws.OpCode, p []byte) error {
 	return ControlHandler(conn, ws.StateClientSide)(ws.Header{
 		Length: int64(len(p)),
 		OpCode: op,

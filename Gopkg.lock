@@ -32,7 +32,7 @@
   branch = "master"
   name = "github.com/alexflint/go-arg"
   packages = ["."]
-  revision = "b1eda2c7b64c118d56472c1944054bf9235d6c48"
+  revision = "074ee5f759999d103724b5594e33901adeb28e73"
 
 [[projects]]
   branch = "master"
@@ -49,8 +49,8 @@
 [[projects]]
   name = "github.com/coreos/go-systemd"
   packages = ["journal"]
-  revision = "40e2722dffead74698ca12a750f64ef313ddce05"
-  version = "v16"
+  revision = "39ca1b05acc7ad1220e09f133283b8859a8b71ab"
+  version = "v17"
 
 [[projects]]
   name = "github.com/davecgh/go-spew"
@@ -71,7 +71,7 @@
   branch = "master"
   name = "github.com/docker/cli"
   packages = ["cli/command/image/build"]
-  revision = "6c9232a5682cbfffc6a53ebb8ec9bfbb4b55381d"
+  revision = "fd060d2f337a2698797836ebfdae74ae2e604869"
 
 [[projects]]
   branch = "master"
@@ -123,7 +123,7 @@
     "pkg/term/windows",
     "pkg/urlutil"
   ]
-  revision = "f1783da7361ab3dc985df12446357e6c4c9ef388"
+  revision = "996eb78fb895ba1cf7ea5773ee36a8651498eb26"
 
 [[projects]]
   name = "github.com/docker/go-connections"
@@ -211,14 +211,15 @@
   revision = "2c6c146eadee0b69f856f87e3e9f1d0cd6aad2f5"
 
 [[projects]]
+  branch = "master"
   name = "github.com/gobwas/pool"
   packages = [
     ".",
+    "internal/pmath",
     "pbufio",
     "pbytes"
   ]
-  revision = "e294a5482d9a8523f8e6b2744ea2185083c838af"
-  version = "v0.1.0"
+  revision = "fa3125c39d7eca32e1387bb69b1b38dcb31b1e0b"
 
 [[projects]]
   branch = "master"
@@ -227,7 +228,7 @@
     ".",
     "wsutil"
   ]
-  revision = "920d9501b7200ac5c52df9f8fa8361f57dc44100"
+  revision = "b93773f50025fc1c14bbd7e97a3b170aae9a0977"
 
 [[projects]]
   name = "github.com/gogo/protobuf"
@@ -349,8 +350,8 @@
 [[projects]]
   name = "go.uber.org/atomic"
   packages = ["."]
-  revision = "8474b86a5a6f79c443ce4b2992817ff32cf208b8"
-  version = "v1.3.1"
+  revision = "1ea20fb1cbb1cc08cbd0d913a96dead89aa18289"
+  version = "v1.3.2"
 
 [[projects]]
   name = "go.uber.org/multierr"
@@ -379,7 +380,7 @@
     "acme/autocert",
     "ssh/terminal"
   ]
-  revision = "d6449816ce06963d9d136eee5a56fca5b0616e7e"
+  revision = "94e3fad7f1b4eed4ec147751ad6b4c4d33f00611"
 
 [[projects]]
   branch = "master"
@@ -390,7 +391,7 @@
     "internal/socks",
     "proxy"
   ]
-  revision = "d41e8174641f662c5a2d1c7a5f9e828788eb8706"
+  revision = "2491c5de3490fced2f6cff376127c667efeed857"
 
 [[projects]]
   branch = "master"
@@ -405,7 +406,7 @@
     "unix",
     "windows"
   ]
-  revision = "3ccc7e5779793fd54564baf60c51bf017955e0ba"
+  revision = "d0faeb539838e250bd0a9db4182d48d4a1915181"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -445,6 +446,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "80baed33c17538f00af78820e4d86ca484a43e7a116557ef03b3a0efb8aa3b78"
+  inputs-digest = "8ce23bc3cd934925fea267e7770d5052bc3a0f1666ed40ba60c85518a9caaa26"
   solver-name = "gps-cdcl"
   solver-version = 1
