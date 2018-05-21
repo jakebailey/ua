@@ -32,7 +32,7 @@
   branch = "master"
   name = "github.com/alexflint/go-arg"
   packages = ["."]
-  revision = "074ee5f759999d103724b5594e33901adeb28e73"
+  revision = "f7c0423bd11ee80ab81d25c6d46f492998af8547"
 
 [[projects]]
   branch = "master"
@@ -71,7 +71,7 @@
   branch = "master"
   name = "github.com/docker/cli"
   packages = ["cli/command/image/build"]
-  revision = "fd060d2f337a2698797836ebfdae74ae2e604869"
+  revision = "824ce49aff31f991e51a34717cabb88e8a887834"
 
 [[projects]]
   branch = "master"
@@ -123,7 +123,7 @@
     "pkg/term/windows",
     "pkg/urlutil"
   ]
-  revision = "996eb78fb895ba1cf7ea5773ee36a8651498eb26"
+  revision = "b963b55a8a3fec0e97feeb07427a91e29c870284"
 
 [[projects]]
   name = "github.com/docker/go-connections"
@@ -380,7 +380,7 @@
     "acme/autocert",
     "ssh/terminal"
   ]
-  revision = "94e3fad7f1b4eed4ec147751ad6b4c4d33f00611"
+  revision = "1a580b3eff7814fc9b40602fd35256c63b50f491"
 
 [[projects]]
   branch = "master"
@@ -391,7 +391,7 @@
     "internal/socks",
     "proxy"
   ]
-  revision = "2491c5de3490fced2f6cff376127c667efeed857"
+  revision = "57065200b4b034a1c8ad54ff77069408c2218ae6"
 
 [[projects]]
   branch = "master"
@@ -406,7 +406,7 @@
     "unix",
     "windows"
   ]
-  revision = "d0faeb539838e250bd0a9db4182d48d4a1915181"
+  revision = "7c87d13f8e835d2fb3a70a2912c811ed0c1d241b"
 
 [[projects]]
   name = "golang.org/x/text"
