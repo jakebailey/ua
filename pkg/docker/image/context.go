@@ -45,10 +45,7 @@ func createBuildContext(dockerfile string, contextPath string) (buildCtx io.Read
 		return nil, "", err
 	}
 
-	relDockerfile, err = archive.CanonicalTarNameForPath(relDockerfile)
-	if err != nil {
-		return nil, "", err
-	}
+	relDockerfile = archive.CanonicalTarNameForPath(relDockerfile)
 
 	buildCtx, err = archive.TarWithOptions(contextDir, &archive.TarOptions{
 		ExcludePatterns: build.TrimBuildFilesFromExcludes(excludes, relDockerfile, true),
