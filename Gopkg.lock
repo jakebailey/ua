@@ -93,7 +93,7 @@
   name = "github.com/docker/cli"
   packages = ["cli/command/image/build"]
   pruneopts = "NUT"
-  revision = "effe36a155c3edb103993103bd4cf14392dc9134"
+  revision = "edfd62359483150504a9fc35d320efc3928c2ebc"
 
 [[projects]]
   branch = "master"
@@ -150,7 +150,7 @@
     "pkg/urlutil",
   ]
   pruneopts = "NUT"
-  revision = "c3a02077149ea8ee1d53b2b60a3d36c29d1505f8"
+  revision = "b785a4dcb6738ec9d32f30f200c5d9e81876bc01"
 
 [[projects]]
   digest = "1:2a47f7eb1a2c30428d1ee6808cb66d4deb17e68a3e55d696f03c8068552ba5e8"
@@ -411,12 +411,13 @@
   version = "v0.8.0"
 
 [[projects]]
-  digest = "1:6bc0652ea6e39e22ccd522458b8bdd8665bf23bdc5a20eec90056e4dc7e273ca"
+  digest = "1:ed77cba8b07d0619ac3efc0b1b605c0b1876d1c9e818e444aca9cd9628c64c77"
   name = "github.com/satori/go.uuid"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "f58768cc1a7a7e77a3bd49e98cdd21419399b6a3"
-  version = "v1.2.0"
+  revision = "3a54a6416087bae7aa0ac32dd79fe1bf87bc99e4"
+  source = "https://github.com/gofrs/uuid.git"
+  version = "v2.1.0"
 
 [[projects]]
   digest = "1:b2339e83ce9b5c4f79405f949429a7f68a9a904fed903c672aac1e7ceb7f5f02"
@@ -500,14 +501,14 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:a801d3c417117b67a96353daad340b250619780b75c29b652ea13697c946553e"
+  digest = "1:43a352083eca9cd2a8e74419460d5767885501265cfca9c7204cc085aead1361"
   name = "golang.org/x/sys"
   packages = [
     "unix",
     "windows",
   ]
   pruneopts = "NUT"
-  revision = "e072cadbbdc8dd3d3ffa82b8b4b9304c261d9311"
+  revision = "bd9dbc187b6e1dacfdd2722a87e83093c2d7bd6e"
 
 [[projects]]
   digest = "1:b3c214fbbb3c7c25e7c46186263453094249e464c9256f71f6e213b307ccc0f3"
