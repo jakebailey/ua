@@ -132,7 +132,7 @@ func main() {
 	}
 
 	sp := spec{
-		SpecID: uuid.NewV4().String(),
+		SpecID: uuid.Must(uuid.NewV4()).String(),
 		// AssignmentName: "00_basic_use_old",
 		// Data: map[string]string{
 		// 	"filename": "foobar",

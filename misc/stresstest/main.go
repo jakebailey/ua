@@ -140,7 +140,7 @@ func newWorker(num int) *worker {
 		period:   5 * time.Second,
 		variance: time.Second,
 		spec: spec{
-			SpecID:         uuid.NewV4().String(),
+			SpecID:         uuid.Must(uuid.NewV4()).String(),
 			AssignmentName: "00_basic_use",
 			Data: map[string]string{
 				"filename": "foobar",

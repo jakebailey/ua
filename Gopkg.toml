@@ -44,6 +44,7 @@
 [[constraint]]
   name = "github.com/satori/go.uuid"
   source = "https://github.com/gofrs/uuid.git"
+  version = "2.1.0"
 
 [prune]
   non-go = true
