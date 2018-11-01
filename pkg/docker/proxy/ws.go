@@ -66,7 +66,7 @@ func WSIsClose(err error) bool {
 	}
 
 	if cErr, ok := err.(wsutil.ClosedError); ok {
-		switch cErr.Code() {
+		switch cErr.Code {
 		case ws.StatusNormalClosure, ws.StatusGoingAway:
 			return true
 		}

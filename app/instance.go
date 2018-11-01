@@ -73,7 +73,7 @@ func (a *App) instanceWS(w http.ResponseWriter, r *http.Request) {
 		zap.String("assignment_name", instance.Spec.AssignmentName),
 	)
 
-	conn, _, _, err := ws.UpgradeHTTP(r, w, nil)
+	conn, _, _, err := ws.UpgradeHTTP(r, w)
 	if err != nil {
 		// No need to write an error, UpgradeHTTP does this itself.
 		logger.Error("error upgrading websocket",
