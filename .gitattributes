@@ -1,0 +1,2 @@
+static/js/* linguist-vendored
+pkg/js/jslib/*.js linguist-vendored
