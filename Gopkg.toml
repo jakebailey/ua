@@ -36,10 +36,6 @@
   branch = "master"
   name = "github.com/docker/distribution"
 
-[[override]]
-  branch = "master"
-  name = "github.com/gobwas/pool"
-
 # satori/go.uuid has many issues, replace transparently with a fork
 [[constraint]]
   name = "github.com/satori/go.uuid"
