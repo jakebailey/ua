@@ -28,6 +28,12 @@ update the rest of the libraries normally, then populate `vendor/`. It
 should be equivalent to using `dep` with some dependencies constrained
 to `master`.
 
+Note that `kallax gen` doesn't work outside of `$GOPATH`, so `go generate`
+should not be run without cloning the repo into `$GOPATH` first when generating
+`models/kallax.go`. This will need to be done until the upstream fixes it
+(unlikely, as they seem to have dropped the project), or this project switches
+to another ORM.
+
 TODOs relating to Go modules:
 
 - Switch from the unmaintained `mattes/migrate` to the maintained

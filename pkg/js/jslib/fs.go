@@ -6,6 +6,8 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/base64"
+	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -100,7 +102,24 @@ func (f *_escFile) Close() error {
 }
 
 func (f *_escFile) Readdir(count int) ([]os.FileInfo, error) {
-	return nil, nil
+	if !f.isDir {
+		return nil, fmt.Errorf(" escFile.Readdir: '%s' is not directory", f.name)
+	}
+
+	fis, ok := _escDirs[f.local]
+	if !ok {
+		return nil, fmt.Errorf(" escFile.Readdir: '%s' is directory, but we have no info about content of this dir, local=%s", f.name, f.local)
+	}
+	limit := count
+	if count <= 0 || limit > len(fis) {
+		limit = len(fis)
+	}
+
+	if len(fis) == 0 && count > 0 {
+		return nil, io.EOF
+	}
+
+	return fis[0:limit], nil
 }
 
 func (f *_escFile) Stat() (os.FileInfo, error) {
@@ -191,9 +210,10 @@ func _escFSMustString(useLocal bool, name string) string {
 var _escData = map[string]*_escFile{
 
 	"/lodash.js": {
+		name:    "lodash.js",
 		local:   "lodash.js",
 		size:    539590,
-		modtime: 1518905083,
+		modtime: 1541217102,
 		compressed: `
 H4sIAAAAAAAC/+y9a3/bNrI4/D6fAtndJ5JiWb7k1jhVfZzEabxrJ/nZTnt2La0Fk5DEmiJZEvIldb77
 88MMriSoi+20PfvfvIgF4j4YDAYzg5m1x48fkMfkf+IoYEnBxO/9NKTFmHw/5jwrttbWYkh3gnSy9oPI
@@ -1793,7 +1813,15 @@ JdYjqkGgQhe9kd1yu0E7xYpPKSq4QTUZOKk1D777fwEAAP//t2uAwcY7CAA=
 	},
 
 	"/": {
+		name:  "/",
+		local: `.`,
 		isDir: true,
-		local: "",
+	},
+}
+
+var _escDirs = map[string][]os.FileInfo{
+
+	".": {
+		_escData["/lodash.js"],
 	},
 }

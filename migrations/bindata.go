@@ -86,7 +86,7 @@ func _1503788894_initial_schemaDownSql() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "1503788894_initial_schema.down.sql", size: 58, mode: os.FileMode(493), modTime: time.Unix(1518905083, 0)}
+	info := bindataFileInfo{name: "1503788894_initial_schema.down.sql", size: 58, mode: os.FileMode(493), modTime: time.Unix(1541217102, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -106,7 +106,7 @@ func _1503788894_initial_schemaUpSql() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "1503788894_initial_schema.up.sql", size: 490, mode: os.FileMode(493), modTime: time.Unix(1518905083, 0)}
+	info := bindataFileInfo{name: "1503788894_initial_schema.up.sql", size: 490, mode: os.FileMode(493), modTime: time.Unix(1541217102, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -126,7 +126,7 @@ func _1518114782_instance_commandsDownSql() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "1518114782_instance_commands.down.sql", size: 60, mode: os.FileMode(493), modTime: time.Unix(1518905083, 0)}
+	info := bindataFileInfo{name: "1518114782_instance_commands.down.sql", size: 60, mode: os.FileMode(493), modTime: time.Unix(1541217102, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -146,7 +146,7 @@ func _1518114782_instance_commandsUpSql() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "1518114782_instance_commands.up.sql", size: 74, mode: os.FileMode(493), modTime: time.Unix(1518905083, 0)}
+	info := bindataFileInfo{name: "1518114782_instance_commands.up.sql", size: 74, mode: os.FileMode(493), modTime: time.Unix(1541217102, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
