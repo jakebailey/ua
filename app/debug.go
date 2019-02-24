@@ -60,6 +60,8 @@ func (a *App) routeDebugProd(r chi.Router) {
 	}
 
 	r.Get("/trigger/checks", func(w http.ResponseWriter, r *http.Request) {
+		logger := ctxlog.FromRequest(r)
+
 		// TODO: Change pprofToken into a generic debug password.
 		if !a.config.Debug && r.FormValue("token") != a.config.PProfToken {
 			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
@@ -68,18 +70,37 @@ func (a *App) routeDebugProd(r chi.Router) {
 
 		a.dockerCheckRunner.Run()
 		a.databaseCheckRunner.Run()
-		w.Write([]byte("ok"))
+
+		if _, err := w.Write([]byte("ok")); err != nil {
+			logger.Error("error writing response",
+				zap.Error(err),
+			)
+		}
 	})
 }
 
-func (a *App) triggerCleanInactive(w http.ResponseWriter, _ *http.Request) {
+func (a *App) triggerCleanInactive(w http.ResponseWriter, r *http.Request) {
+	logger := ctxlog.FromRequest(r)
+
 	a.cleanInactiveRunner.Run()
-	w.Write([]byte("ok"))
+
+	if _, err := w.Write([]byte("ok")); err != nil {
+		logger.Error("error writing response",
+			zap.Error(err),
+		)
+	}
 }
 
-func (a *App) triggerCheckExpired(w http.ResponseWriter, _ *http.Request) {
+func (a *App) triggerCheckExpired(w http.ResponseWriter, r *http.Request) {
+	logger := ctxlog.FromRequest(r)
+
 	a.checkExpiredRunner.Run()
-	w.Write([]byte("ok"))
+
+	if _, err := w.Write([]byte("ok")); err != nil {
+		logger.Error("error writing response",
+			zap.Error(err),
+		)
+	}
 }
 
 func (a *App) debugEncrypt(w http.ResponseWriter, r *http.Request) {

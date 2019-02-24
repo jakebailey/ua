@@ -21,6 +21,7 @@ func TestEncryptDecrypt(t *testing.T) {
 	keySizes := []int{128, 192, 256}
 
 	for _, keySize := range keySizes {
+		keySize := keySize
 		t.Run(fmt.Sprintf("%d-bit", keySize), func(t *testing.T) {
 			key := makeKey(keySize / 8)
 

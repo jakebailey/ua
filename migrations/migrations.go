@@ -44,11 +44,7 @@ func Reset(db *sql.DB) error {
 }
 
 func newMigrate(db *sql.DB) (*migrate.Migrate, error) {
-	resource := bindata.Resource(AssetNames(),
-		func(name string) ([]byte, error) {
-			return Asset(name)
-		},
-	)
+	resource := bindata.Resource(AssetNames(), Asset)
 	source, err := bindata.WithInstance(resource)
 	if err != nil {
 		return nil, err
