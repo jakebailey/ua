@@ -57,4 +57,4 @@ type InstanceCommand struct {
 	WorkingDir string
 }
 
-//go:generate kallax gen
+//go:generate sh -c "if [[ $(go env GOMOD) ]]; then echo WARNING: kallax gen cannot be run outside of GOPATH; else kallax gen; fi"
