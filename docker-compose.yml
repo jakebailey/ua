@@ -4,11 +4,11 @@ services:
   app:
     image: golang
     volumes:
-      - .:/go/src/github.com/jakebailey/ua
+      - .:/app:ro
       - /var/run/docker.sock:/var/run/docker.sock
       - ${DC_ASSIGNMENT_PATH:-./assignments}:/assignments
-    working_dir: /go/src/github.com/jakebailey/ua
-    command: go run -v main.go
+    working_dir: /app
+    command: go run -mod=vendor -v .
     ports:
       - "8000:8000"
     links:
