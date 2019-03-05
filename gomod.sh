@@ -25,8 +25,7 @@ if [ ! -f go.mod ]; then
     exe go mod init github.com/jakebailey/ua
 fi
 
-exe go get -u github.com/docker/{docker,distribution,cli}@master
 exe go mod edit -replace github.com/satori/go.uuid=github.com/gofrs/uuid@v2.1.0
-exe go get -u ./...
+exe go get -u github.com/docker/{docker,distribution,cli}@master ./...
 exe go mod tidy
 exe go mod vendor
