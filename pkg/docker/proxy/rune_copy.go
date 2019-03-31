@@ -36,7 +36,7 @@ func ScanRunesGreedy(data []byte, atEOF bool) (advance int, token []byte, err er
 	for advance < len(data) {
 		a, t, err = bufio.ScanRunes(data[advance:], atEOF)
 		advance += a
-		if _, writeErr := buf.Write(t); err != nil {
+		if _, writeErr := buf.Write(t); writeErr != nil {
 			panic(writeErr) // Write() always succeeds, unless it panics with ErrTooLarge (out of memory)
 		}
 

@@ -21,6 +21,10 @@ linters:
   # enable:
   #   - golint
 
+run:
+  skip-files:
+    - ".*\\.qtpl\\.go"
+
 issues:
   # exclude-use-default: false
   max-per-linter: 0
