@@ -5,28 +5,31 @@ github.com/Azure/go-ansiterm
 github.com/Masterminds/squirrel
 # github.com/Microsoft/go-winio v0.4.12
 github.com/Microsoft/go-winio
+# github.com/Microsoft/hcsshim v0.8.6
+github.com/Microsoft/hcsshim/osversion
 # github.com/alexflint/go-arg v1.0.0
 github.com/alexflint/go-arg
 # github.com/alexflint/go-scalar v1.0.0
 github.com/alexflint/go-scalar
-# github.com/containerd/continuity v0.0.0-20181203112020-004b46473808
+# github.com/containerd/continuity v0.0.0-20190426062206-aaeac12a7ffc
 github.com/containerd/continuity/fs
 github.com/containerd/continuity/sysx
 github.com/containerd/continuity/pathdriver
 github.com/containerd/continuity/syscallx
-# github.com/coreos/go-systemd v0.0.0-20190212144455-93d5ec2c7f76
+# github.com/coreos/go-systemd v0.0.0-20190321100706-95778dfbb74e
 github.com/coreos/go-systemd/journal
 # github.com/davecgh/go-spew v1.1.1
 github.com/davecgh/go-spew/spew
 # github.com/dlclark/regexp2 v1.1.6
 github.com/dlclark/regexp2
 github.com/dlclark/regexp2/syntax
-# github.com/docker/cli v0.0.0-20190303104010-8ddde26af67f
+# github.com/docker/cli v0.0.0-20190429053159-3273c2e23546
 github.com/docker/cli/cli/command/image/build
-# github.com/docker/distribution v2.7.1-0.20190305004208-6d62eb1d4a35+incompatible
+# github.com/docker/distribution v2.7.1-0.20190417014306-3226863cbcba+incompatible
 github.com/docker/distribution/reference
 github.com/docker/distribution/digestset
-# github.com/docker/docker v0.7.3-0.20190304180141-6e86b1198f51
+github.com/docker/distribution/registry/api/errcode
+# github.com/docker/docker v0.7.3-0.20190429192521-9a2c26374393
 github.com/docker/docker/api/types
 github.com/docker/docker/api/types/container
 github.com/docker/docker/api/types/filters
@@ -46,6 +49,7 @@ github.com/docker/docker/api/types/events
 github.com/docker/docker/api/types/image
 github.com/docker/docker/api/types/time
 github.com/docker/docker/api/types/volume
+github.com/docker/docker/errdefs
 github.com/docker/docker/pkg/fileutils
 github.com/docker/docker/pkg/idtools
 github.com/docker/docker/pkg/ioutils
@@ -58,7 +62,6 @@ github.com/docker/docker/pkg/progress
 github.com/docker/docker/pkg/streamformatter
 github.com/docker/docker/pkg/stringid
 github.com/docker/docker/pkg/term
-github.com/docker/docker/errdefs
 github.com/docker/docker/api/types/swarm/runtime
 github.com/docker/docker/pkg/mount
 github.com/docker/docker/pkg/symlink
@@ -68,9 +71,9 @@ github.com/docker/docker/pkg/term/windows
 github.com/docker/go-connections/nat
 github.com/docker/go-connections/sockets
 github.com/docker/go-connections/tlsconfig
-# github.com/docker/go-units v0.3.3
+# github.com/docker/go-units v0.4.0
 github.com/docker/go-units
-# github.com/dop251/goja v0.0.0-20190301185519-64be363d126e
+# github.com/dop251/goja v0.0.0-20190429205339-8d6ee3d16611
 github.com/dop251/goja
 github.com/dop251/goja/ast
 github.com/dop251/goja/file
@@ -81,7 +84,7 @@ github.com/dop251/goja_nodejs/require
 github.com/dop251/goja_nodejs/util
 # github.com/e-dard/netbug v0.0.0-20151029172837-e64d308a0b20
 github.com/e-dard/netbug
-# github.com/etherlabsio/healthcheck v0.0.0-20180309051318-343d97cb6361
+# github.com/etherlabsio/healthcheck v0.0.0-20190319021901-b06be1fecaaf
 github.com/etherlabsio/healthcheck
 # github.com/go-chi/chi v4.0.2+incompatible
 github.com/go-chi/chi
@@ -105,7 +108,13 @@ github.com/gobwas/ws
 github.com/gobwas/ws/wsutil
 # github.com/gogo/protobuf v1.2.1
 github.com/gogo/protobuf/proto
-# github.com/hashicorp/go-gatedio v0.0.0-20151013192243-8b8de1022221
+# github.com/golang/protobuf v1.3.1
+github.com/golang/protobuf/proto
+github.com/golang/protobuf/ptypes
+github.com/golang/protobuf/ptypes/any
+github.com/golang/protobuf/ptypes/duration
+github.com/golang/protobuf/ptypes/timestamp
+# github.com/hashicorp/go-gatedio v0.5.0
 github.com/hashicorp/go-gatedio
 # github.com/jessevdk/go-flags v1.4.0
 github.com/jessevdk/go-flags
@@ -117,9 +126,10 @@ github.com/konsorten/go-windows-terminal-sequences
 github.com/lann/builder
 # github.com/lann/ps v0.0.0-20150810152359-62de8c46ede0
 github.com/lann/ps
-# github.com/lib/pq v1.0.0
+# github.com/lib/pq v1.1.0
 github.com/lib/pq
 github.com/lib/pq/oid
+github.com/lib/pq/scram
 # github.com/mattes/migrate v3.0.1+incompatible
 github.com/mattes/migrate
 github.com/mattes/migrate/database/postgres
@@ -144,48 +154,55 @@ github.com/patrickmn/go-cache
 github.com/pkg/errors
 # github.com/satori/go.uuid v1.2.0 => github.com/gofrs/uuid v2.1.0+incompatible
 github.com/satori/go.uuid
-# github.com/sirupsen/logrus v1.3.0
+# github.com/sirupsen/logrus v1.4.1
 github.com/sirupsen/logrus
 # github.com/valyala/bytebufferpool v1.0.0
 github.com/valyala/bytebufferpool
-# github.com/valyala/quicktemplate v1.0.2
+# github.com/valyala/quicktemplate v1.1.1
 github.com/valyala/quicktemplate
 # go.uber.org/atomic v1.3.2
 go.uber.org/atomic
 # go.uber.org/multierr v1.1.0
 go.uber.org/multierr
-# go.uber.org/zap v1.9.1
+# go.uber.org/zap v1.10.0
 go.uber.org/zap
 go.uber.org/zap/zapcore
 go.uber.org/zap/internal/bufferpool
 go.uber.org/zap/buffer
 go.uber.org/zap/internal/color
 go.uber.org/zap/internal/exit
-# golang.org/x/crypto v0.0.0-20190228161510-8dd112bcdc25
+# golang.org/x/crypto v0.0.0-20190426145343-a29dc8fdc734
 golang.org/x/crypto/acme/autocert
 golang.org/x/crypto/acme
-golang.org/x/crypto/ssh/terminal
-# golang.org/x/net v0.0.0-20190301231341-16b79f2e4e95
+# golang.org/x/net v0.0.0-20190424112056-4829fb13d2c6
+golang.org/x/net/idna
 golang.org/x/net/proxy
 golang.org/x/net/internal/socks
-# golang.org/x/sync v0.0.0-20190227155943-e225da77a7e6
+# golang.org/x/sync v0.0.0-20190423024810-112230192c58
 golang.org/x/sync/errgroup
-# golang.org/x/sys v0.0.0-20190304154630-e844e0132e93
+# golang.org/x/sys v0.0.0-20190429190828-d89cdac9e872
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/text v0.3.1-0.20180807135948-17ff2d5776d2
+# golang.org/x/text v0.3.2
 golang.org/x/text/cases
 golang.org/x/text/collate
 golang.org/x/text/language
 golang.org/x/text/unicode/norm
+golang.org/x/text/secure/bidirule
+golang.org/x/text/unicode/bidi
 golang.org/x/text/internal
 golang.org/x/text/transform
 golang.org/x/text/internal/colltab
 golang.org/x/text/internal/language
 golang.org/x/text/internal/language/compact
 golang.org/x/text/internal/tag
-# golang.org/x/time v0.0.0-20181108054448-85acf8d2951c
+# golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
 golang.org/x/time/rate
+# google.golang.org/genproto v0.0.0-20190425155659-357c62f0e4bb
+google.golang.org/genproto/googleapis/rpc/status
+# google.golang.org/grpc v1.20.1
+google.golang.org/grpc/codes
+google.golang.org/grpc/status
 # gopkg.in/src-d/go-kallax.v1 v1.3.5
 gopkg.in/src-d/go-kallax.v1
 gopkg.in/src-d/go-kallax.v1/types

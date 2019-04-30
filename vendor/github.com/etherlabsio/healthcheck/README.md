@@ -1,11 +1,11 @@
 <img src="logo.png" width="500" align="top"/>
 
 # Healthcheck [![CircleCI](https://circleci.com/gh/etherlabsio/healthcheck/tree/master.svg?style=shield)](https://circleci.com/gh/etherlabsio/healthcheck/tree/master) [![Go Report Card](https://goreportcard.com/badge/github.com/etherlabsio/healthcheck)](https://goreportcard.com/report/github.com/etherlabsio/healthcheck) [![GoDoc](https://godoc.org/github.com/etherlabsio/healthcheck?status.svg)](https://godoc.org/github.com/etherlabsio/healthcheck) [![codecov](https://codecov.io/gh/etherlabsio/healthcheck/branch/master/graph/badge.svg)](https://codecov.io/gh/etherlabsio/healthcheck)
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fetherlabsio%2Fhealthcheck.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fetherlabsio%2Fhealthcheck?ref=badge_shield)
 
 A simple and extensible RESTful Healthcheck API implementation for Go services.
 
-Health provides an `http.Handlefunc` for use as a healthcheck endpoint used by external services or load balancers
-for determining the health of the application and to remove the application host or container from rotation if it is found to be unhealthy.
+Health provides an `http.Handlefunc` for use as a healthcheck endpoint used by external services or load balancers. The function is used to determine the health of the application and to remove unhealthy application hosts or containers from rotation.
 
 Instead of blindly returning a `200` HTTP status code, a healthcheck endpoint should test all the mandatory dependencies that are essential for proper functioning of a web service.
 
@@ -77,3 +77,6 @@ Based on the example provided above, `curl localhost:8080/healthcheck | jq` shou
 ## License
 
 This project is licensed under the terms of the MIT license. See the [LICENSE](LICENSE) file.
+
+
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fetherlabsio%2Fhealthcheck.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fetherlabsio%2Fhealthcheck?ref=badge_large)
