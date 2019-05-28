@@ -10,15 +10,15 @@ require (
 	github.com/coreos/go-systemd v0.0.0-20190321100706-95778dfbb74e
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dlclark/regexp2 v1.1.6 // indirect
-	github.com/docker/cli v0.0.0-20190429053159-3273c2e23546
+	github.com/docker/cli v0.0.0-20190524120722-0f337f1dfe57
 	github.com/docker/distribution v2.7.1-0.20190417014306-3226863cbcba+incompatible
-	github.com/docker/docker v0.7.3-0.20190429192521-9a2c26374393
+	github.com/docker/docker v0.7.3-0.20190527213155-c7a0eaf00425
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.4.0
-	github.com/dop251/goja v0.0.0-20190429205339-8d6ee3d16611
+	github.com/dop251/goja v0.0.0-20190520194301-084dd324c724
 	github.com/dop251/goja_nodejs v0.0.0-20171011081505-adff31b136e6
 	github.com/e-dard/netbug v0.0.0-20151029172837-e64d308a0b20
-	github.com/etherlabsio/healthcheck v0.0.0-20190319021901-b06be1fecaaf
+	github.com/etherlabsio/healthcheck v0.0.0-20190516102650-2b759a75f4be
 	github.com/go-chi/chi v4.0.2+incompatible
 	github.com/go-chi/cors v1.0.0
 	github.com/go-chi/render v1.0.1
@@ -26,16 +26,15 @@ require (
 	github.com/go-sql-driver/mysql v1.4.1 // indirect
 	github.com/gobwas/httphead v0.0.0-20180130184737-2c6c146eadee // indirect
 	github.com/gobwas/pool v0.2.0 // indirect
-	github.com/gobwas/ws v1.0.0
+	github.com/gobwas/ws v1.0.1
 	github.com/gogo/protobuf v1.2.1 // indirect
-	github.com/golang/protobuf v1.3.1 // indirect
 	github.com/google/go-cmp v0.3.0 // indirect
-	github.com/gorilla/mux v1.7.1 // indirect
+	github.com/gorilla/mux v1.7.2 // indirect
 	github.com/hashicorp/go-gatedio v0.5.0
-	github.com/jessevdk/go-flags v1.4.0
+	github.com/jessevdk/go-flags v1.4.1-0.20181221193153-c0795c8afcf4
 	github.com/joho/godotenv v1.3.0
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
-	github.com/lib/pq v1.1.0
+	github.com/lib/pq v1.1.1
 	github.com/mattes/migrate v3.0.1+incompatible
 	github.com/mattn/go-sqlite3 v1.10.0 // indirect
 	github.com/morikuni/aec v0.0.0-20170113033406-39771216ff4c // indirect
@@ -46,21 +45,21 @@ require (
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pkg/errors v0.8.1
 	github.com/satori/go.uuid v1.2.0
-	github.com/sirupsen/logrus v1.4.1 // indirect
+	github.com/sirupsen/logrus v1.4.2 // indirect
 	github.com/stretchr/testify v1.3.0 // indirect
 	github.com/valyala/quicktemplate v1.1.1
-	go.uber.org/atomic v1.3.2
+	go.uber.org/atomic v1.4.0
 	go.uber.org/multierr v1.1.0 // indirect
 	go.uber.org/zap v1.10.0
-	golang.org/x/crypto v0.0.0-20190426145343-a29dc8fdc734
-	golang.org/x/net v0.0.0-20190424112056-4829fb13d2c6 // indirect
+	golang.org/x/crypto v0.0.0-20190513172903-22d7a77e9e5f
+	golang.org/x/net v0.0.0-20190522155817-f3200d17e092 // indirect
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
-	golang.org/x/sys v0.0.0-20190429190828-d89cdac9e872 // indirect
+	golang.org/x/sys v0.0.0-20190528012530-adf421d2caf4 // indirect
 	golang.org/x/text v0.3.2 // indirect
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
-	google.golang.org/appengine v1.5.0 // indirect
-	google.golang.org/genproto v0.0.0-20190425155659-357c62f0e4bb // indirect
-	google.golang.org/grpc v1.20.1 // indirect
+	google.golang.org/appengine v1.6.0 // indirect
+	google.golang.org/genproto v0.0.0-20190522204451-c2c4e71fbf69 // indirect
+	google.golang.org/grpc v1.21.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/src-d/go-kallax.v1 v1.3.5
 	gopkg.in/yaml.v2 v2.2.2 // indirect
