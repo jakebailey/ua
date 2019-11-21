@@ -69,7 +69,7 @@ func (a *App) specLegacyCreateContainer(ctx context.Context, imageID string, con
 	}
 
 	if initCmd, ok := image.GetLabel(ctx, a.cli, imageID, "ua.initCmd"); ok {
-		containerConfig.Cmd = []string{"/dev/init", "-s", "--", "/bin/sh", "-c", initCmd}
+		containerConfig.Cmd = []string{"/sbin/docker-init", "-s", "--", "/bin/sh", "-c", initCmd}
 	}
 
 	if !a.config.DisableLimits {
@@ -130,9 +130,9 @@ func (a *App) specLegacyCreateCmd(ctx context.Context, containerID string) (*mod
 	}
 
 	if userCmd, ok := info.Config.Labels["ua.userCmd"]; ok {
-		iCmd.Cmd = []string{"/dev/init", "-s", "--", "/bin/sh", "-c", userCmd}
+		iCmd.Cmd = []string{"/sbin/docker-init", "-s", "--", "/bin/sh", "-c", userCmd}
 	} else {
-		iCmd.Cmd = []string{"/dev/init", "-s", "--"}
+		iCmd.Cmd = []string{"/sbin/docker-init", "-s", "--"}
 		iCmd.Cmd = append(iCmd.Cmd, info.Config.Entrypoint...)
 		iCmd.Cmd = append(iCmd.Cmd, info.Config.Cmd...)
 	}

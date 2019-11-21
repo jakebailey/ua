@@ -144,7 +144,7 @@ func (a *App) specCreateContainer(ctx context.Context, assignmentPath string, co
 	// This somewhat correct, but the logic for which command to run needs to
 	// be fixed. (TODO)
 	if gen.Init != nil && *gen.Init {
-		iCmd.Cmd = append([]string{"/dev/init", "-s", "--"}, iCmd.Cmd...)
+		iCmd.Cmd = append([]string{"/sbin/docker-init", "-s", "--"}, iCmd.Cmd...)
 	}
 
 	return containerID, iCmd, nil
