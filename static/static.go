@@ -213,7 +213,7 @@ var _escData = map[string]*_escFile{
 		name:    "favicon.ico",
 		local:   "favicon.ico",
 		size:    1150,
-		modtime: 1541217101,
+		modtime: 1551032940,
 		compressed: `
 H4sIAAAAAAAC/+SNoQrCUBiFv+G6Q2SYZEXwvSy2g0+xKEbTXsNgXzNZTXazpiPzDkTRcm/TAx8XDv93
 LmRkFEX3VixzKIE5UAAVoX8kh1kZ+KnIww/dDdlfuL7d7pDrhP8nyMfEjTHyIXFjhHxBXkX6W+QT8jTC
@@ -225,7 +225,7 @@ LmRkFEX3VixzKIE5UAAVoX8kh1kZ+KnIww/dDdlfuL7d7pDrhP8nyMfEjTHyIXFjhHxBXkX6W+QT8jTC
 		name:    "hterm_all.js",
 		local:   "js/hterm_all.js",
 		size:    629582,
-		modtime: 1541217101,
+		modtime: 1551032940,
 		compressed: `
 H4sIAAAAAAAC/+z9e3sbN5IojP/vTwFrsiZpU7yJutmhs7QlZXyOY+dnOTs7j6zxgt0giajZzQCgJCbR
 fPbfU4V7d5NUsmff9+w+bzzkUN3V6EKh7igA3S75POeSTHnGyB2VZMZyJqhiKZmsScYnaaG6E553kyJP

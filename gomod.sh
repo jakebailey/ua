@@ -28,4 +28,3 @@ fi
 exe go mod edit -replace github.com/satori/go.uuid=github.com/gofrs/uuid@v2.1.0
 exe go get -u github.com/docker/{docker,distribution,cli}@master ./...
 exe go mod tidy
-exe go mod vendor

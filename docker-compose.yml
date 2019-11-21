@@ -4,15 +4,15 @@ services:
   app:
     image: golang
     volumes:
+      - gopath:/go
+      - go-build:/root/.cache/go-build
       - .:/app:ro
       - /var/run/docker.sock:/var/run/docker.sock
-      - ${DC_ASSIGNMENT_PATH:-./assignments}:/assignments
+      - ${DC_ASSIGNMENT_PATH:-./assignments}:/assignments:ro
     working_dir: /app
-    command: go run -mod=vendor -v .
+    command: go run -v .
     ports:
       - "8000:8000"
-    links:
-      - db
     depends_on:
       - db
     environment:
@@ -22,3 +22,7 @@ services:
 
   db:
     image: postgres
+
+volumes:
+  gopath:
+  go-build:
