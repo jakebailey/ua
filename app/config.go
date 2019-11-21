@@ -75,7 +75,6 @@ var DefaultConfig = Config{
 	Addr: ":8000",
 
 	AssignmentPath: "assignments",
-	StaticPath:     "static",
 
 	CleanInactiveEvery: time.Hour,
 	CheckExpiredEvery:  time.Minute,

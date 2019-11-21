@@ -19,6 +19,7 @@ services:
       - UA_DATABASE=postgres://postgres:mysecretpassword@db:5432/postgres?sslmode=disable
       - UA_MIGRATE_UP=true
       - UA_ASSIGNMENT_PATH=/assignments
+      - UA_STATIC_PATH=/app/static
 
   db:
     image: postgres
